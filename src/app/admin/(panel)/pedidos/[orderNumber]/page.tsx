@@ -50,28 +50,30 @@ export default async function OrderDetailPage({
                 <StatusBadge status={order.order_status} />
               </div>
             </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-navy/50">
-                  <th className="py-1">Producto</th>
-                  <th className="py-1">Talle</th>
-                  <th className="py-1 text-center">Cant.</th>
-                  <th className="py-1 text-right">Precio</th>
-                  <th className="py-1 text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(order.order_items ?? []).map((it: any) => (
-                  <tr key={it.id} className="border-t border-navy/5">
-                    <td className="py-2 font-medium">{it.product_name}</td>
-                    <td className="py-2">{it.size}</td>
-                    <td className="py-2 text-center">{it.quantity}</td>
-                    <td className="py-2 text-right">{formatPrice(it.unit_price)}</td>
-                    <td className="py-2 text-right font-medium">{formatPrice(it.subtotal)}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[28rem] text-sm">
+                <thead>
+                  <tr className="text-left text-navy/50">
+                    <th className="py-1">Producto</th>
+                    <th className="py-1">Talle</th>
+                    <th className="py-1 text-center">Cant.</th>
+                    <th className="py-1 text-right">Precio</th>
+                    <th className="py-1 text-right">Subtotal</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(order.order_items ?? []).map((it: any) => (
+                    <tr key={it.id} className="border-t border-navy/5">
+                      <td className="py-2 font-medium">{it.product_name}</td>
+                      <td className="py-2">{it.size}</td>
+                      <td className="py-2 text-center">{it.quantity}</td>
+                      <td className="py-2 text-right">{formatPrice(it.unit_price)}</td>
+                      <td className="py-2 text-right font-medium">{formatPrice(it.subtotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm">
               <Row label="Subtotal" value={formatPrice(order.subtotal)} />
               {order.discount > 0 && <Row label="Descuento" value={`- ${formatPrice(order.discount)}`} />}

@@ -47,7 +47,8 @@ export function SizeGuideEditor({ guide }: { guide?: any }) {
         </label>
       </div>
 
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[22rem] text-sm">
         <thead>
           <tr className="text-left text-navy/50">
             <th className="py-1">Talle</th>
@@ -67,6 +68,7 @@ export function SizeGuideEditor({ guide }: { guide?: any }) {
           ))}
         </tbody>
       </table>
+      </div>
 
       <button onClick={() => setRows((p) => [...p, { size: '', width: 0, length: 0 }])} className="mt-3 text-sm font-semibold text-navy hover:underline">
         + Agregar fila
