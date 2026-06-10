@@ -127,6 +127,26 @@ export async function getStoreSettings() {
   return map;
 }
 
+export async function getStockNotifications() {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('stock_notifications')
+    .select('*, products(name, slug)')
+    .order('created_at', { ascending: false })
+    .limit(300);
+  return data ?? [];
+}
+
+export async function getAbandonedCarts() {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('abandoned_carts')
+    .select('*')
+    .order('updated_at', { ascending: false })
+    .limit(200);
+  return data ?? [];
+}
+
 export async function getEncargos() {
   const supabase = await db();
   const { data } = await supabase

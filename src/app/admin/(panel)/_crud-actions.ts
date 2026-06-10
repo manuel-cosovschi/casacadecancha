@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { assertWriter, logActivity } from '@/lib/admin/actions-helpers';
+import { notifyRestock } from '@/lib/admin/restock';
 import { slugify } from '@/lib/utils';
 
 type Result = { ok?: boolean; error?: string };
@@ -152,6 +153,7 @@ export async function adjustStock(formData: FormData): Promise<void> {
     reason: t(formData.get('reason')) || 'Ajuste manual',
   });
   await logActivity('adjust_stock', 'variant', variantId, { diff });
+  if (diff > 0) await notifyRestock(variantId);
   revalidatePath('/admin/stock');
 }
 

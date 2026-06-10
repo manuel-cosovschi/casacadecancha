@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { assertWriter, logActivity } from '@/lib/admin/actions-helpers';
+import { notifyRestock } from '@/lib/admin/restock';
 import { slugify } from '@/lib/utils';
 
 const productSchema = z.object({
@@ -151,13 +152,16 @@ export async function saveVariant(formData: FormData): Promise<ActionState> {
     variant_cost: clean(formData.get('variant_cost')) ? Number(formData.get('variant_cost')) : null,
     active: formData.get('active') === 'on',
   };
+  let variantId = id;
   if (id) {
     const { error } = await supabase.from('product_variants').update(payload).eq('id', id);
     if (error) return { error: error.message };
   } else {
-    const { error } = await supabase.from('product_variants').insert(payload);
+    const { data, error } = await supabase.from('product_variants').insert(payload).select('id').single();
     if (error) return { error: error.message };
+    variantId = data?.id;
   }
+  if (variantId && payload.stock_physical > 0) await notifyRestock(variantId);
   revalidatePath('/admin/productos');
   return { ok: true };
 }

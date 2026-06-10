@@ -15,6 +15,27 @@ interface ActionResult {
   error?: string;
 }
 
+/** Guarda el carrito (para recordatorio si no se completa la compra). */
+export async function saveCart(input: {
+  email: string;
+  phone?: string | null;
+  items: { name: string; quantity: number; size?: string; price?: number }[];
+  subtotal: number;
+}): Promise<void> {
+  if (!input.email || !input.email.includes('@')) return;
+  try {
+    const supabase = await createClient();
+    await supabase.rpc('save_abandoned_cart', {
+      p_email: input.email.toLowerCase().trim(),
+      p_phone: input.phone || null,
+      p_items: input.items,
+      p_subtotal: input.subtotal,
+    });
+  } catch {
+    /* no-op */
+  }
+}
+
 /** Valida un cupón desde el storefront (lectura pública de promociones). */
 export async function applyCoupon(
   code: string,
@@ -205,6 +226,13 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
 
   if (rpcErr || !orderNumber) {
     return { ok: false, error: 'No se pudo registrar el pedido. Intentá de nuevo.' };
+  }
+
+  // Marcar el carrito como convertido (no enviar recordatorio).
+  try {
+    await supabase.rpc('mark_cart_converted', { p_email: data.email.toLowerCase().trim() });
+  } catch {
+    /* no-op */
   }
 
   // Avisos al administrador (push + email). Best-effort.

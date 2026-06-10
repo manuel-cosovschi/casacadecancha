@@ -12,6 +12,7 @@ import {
   whatsappLink,
 } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
+import { subscribeStock } from '@/app/(store)/producto/[slug]/actions';
 
 interface Props {
   product: Product;
@@ -33,6 +34,10 @@ export function ProductPurchase({
   const [variantId, setVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifyDone, setNotifyDone] = useState(false);
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [notifyErr, setNotifyErr] = useState<string | null>(null);
 
   const selected = variants.find((v) => v.id === variantId) || null;
   const image = product.images?.[0]?.url ?? null;
@@ -164,6 +169,57 @@ export function ProductPurchase({
             <span>Si no hay stock de tu talle hablamos al WhatsApp que seguro algo tenemos 😁🇦🇷⚽️</span>
           </a>
         )}
+
+        {hasOutOfStock &&
+          (notifyDone ? (
+            <p className="mt-2 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">
+              ¡Listo! Te avisamos por email cuando vuelva el stock{selected ? ` del talle ${selected.size}` : ''}.
+            </p>
+          ) : (
+            <div className="mt-2 rounded-xl border border-navy/10 p-3">
+              <p className="text-sm font-semibold text-navy">Avisame cuando vuelva</p>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="email"
+                  value={notifyEmail}
+                  onChange={(e) => {
+                    setNotifyEmail(e.target.value);
+                    setNotifyErr(null);
+                  }}
+                  placeholder="Tu email"
+                  className="input !py-2 flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!notifyEmail.includes('@')) {
+                      setNotifyErr('Ingresá un email válido.');
+                      return;
+                    }
+                    setNotifyBusy(true);
+                    setNotifyErr(null);
+                    const res = await subscribeStock({
+                      productId: product.id,
+                      variantId: selected?.id ?? null,
+                      size: selected?.size ?? null,
+                      email: notifyEmail,
+                    });
+                    setNotifyBusy(false);
+                    if (res.error) setNotifyErr(res.error);
+                    else setNotifyDone(true);
+                  }}
+                  disabled={notifyBusy}
+                  className="btn-primary !py-2"
+                >
+                  {notifyBusy ? '…' : 'Avisame'}
+                </button>
+              </div>
+              {notifyErr && <p className="mt-1 text-xs text-red-600">{notifyErr}</p>}
+              <p className="mt-1 text-xs text-navy/50">
+                {selected ? `Te avisamos cuando haya stock del talle ${selected.size}.` : 'Elegí un talle para un aviso más preciso (o te avisamos del modelo).'}
+              </p>
+            </div>
+          ))}
       </div>
 
       {/* Cantidad */}

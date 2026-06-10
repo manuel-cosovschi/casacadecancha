@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCart } from '@/components/cart/CartProvider';
 import { getAttribution } from '@/components/store/UtmCapture';
-import { createOrder, applyCoupon } from './actions';
+import { createOrder, applyCoupon, saveCart } from './actions';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
 import { discountAmount, formatPrice } from '@/lib/utils';
@@ -133,7 +133,28 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
               <input className="input" placeholder="Ej: 2235555555" {...register('phone')} />
             </Field>
             <Field label="Email" error={errors.email?.message}>
-              <input className="input" type="email" {...register('email')} />
+              <input
+                className="input"
+                type="email"
+                {...register('email', {
+                  onBlur: (e) => {
+                    const email = e.target.value;
+                    if (email.includes('@') && items.length > 0) {
+                      saveCart({
+                        email,
+                        phone: (watch('phone') as string) || null,
+                        items: items.map((i) => ({
+                          name: i.name,
+                          quantity: i.quantity,
+                          size: i.size,
+                          price: i.price,
+                        })),
+                        subtotal,
+                      });
+                    }
+                  },
+                })}
+              />
             </Field>
             <Field label="DNI (opcional)" error={errors.dni?.message}>
               <input className="input" {...register('dni')} />
