@@ -1,0 +1,14 @@
+{
+  "name": "Casaca Admin",
+  "short_name": "Casaca Admin",
+  "description": "Panel de administración de Casaca de Cancha.",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "background_color": "#0B1F3A",
+  "theme_color": "#0B1F3A",
+  "icons": [
+    { "src": "/icon", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/apple-icon", "sizes": "180x180", "type": "image/png" }
+  ]
+}

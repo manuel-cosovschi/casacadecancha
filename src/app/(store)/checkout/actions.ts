@@ -6,6 +6,8 @@ import { applyDiscount } from '@/lib/utils';
 import { getAllSettings } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import { quoteShipping } from '@/lib/shipping';
+import { sendOrderPush } from '@/lib/push';
+import { sendEmail } from '@/lib/email';
 
 interface ActionResult {
   ok: boolean;
@@ -205,5 +207,25 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     return { ok: false, error: 'No se pudo registrar el pedido. Intentá de nuevo.' };
   }
 
-  return { ok: true, orderNumber: orderNumber as string };
+  // Avisos al administrador (push + email). Best-effort.
+  const num = orderNumber as string;
+  await sendOrderPush(num, total, 'web');
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail) {
+    await sendEmail({
+      to: adminEmail,
+      subject: `🛒 Nuevo pedido #${num}`,
+      html: `<div style="font-family:system-ui,sans-serif;color:#0B1F3A">
+        <h2>Nuevo pedido #${num}</h2>
+        <p>Total: <strong>$${total.toLocaleString('es-AR')}</strong></p>
+        <p>Cliente: ${data.first_name} ${data.last_name} — ${data.phone}</p>
+        <p>Medio de pago: ${data.payment_method === 'transfer' ? 'Transferencia' : 'Mercado Pago'}</p>
+        <p><a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/admin/pedidos/${num}"
+              style="background:#0B1F3A;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">
+           Ver pedido</a></p>
+      </div>`,
+    });
+  }
+
+  return { ok: true, orderNumber: num };
 }
