@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount } from '@/lib/utils';
 import { getAllSettings } from '@/lib/settings';
-import { validateCoupon, isFreeShippingCoupon, type CouponResult } from '@/lib/coupons';
-import { quoteShipping, SHIPPING_LABELS } from '@/lib/shipping';
+import { validateCoupon, type CouponResult } from '@/lib/coupons';
+import { quoteShipping } from '@/lib/shipping';
 
 interface ActionResult {
   ok: boolean;
@@ -116,20 +116,11 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
 
   // 3. Cupón (revalidado en el servidor)
   let couponResult: CouponResult | null = null;
-  let couponFreeShipping = false;
   if (data.coupon_code) {
     couponResult = await validateCoupon(supabase, data.coupon_code, subtotal);
     if (!couponResult.valid) {
       return { ok: false, error: couponResult.message };
     }
-    // ¿Es un cupón de envío gratis?
-    const { data: promo } = await supabase
-      .from('promotions')
-      .select('type')
-      .ilike('code', data.coupon_code)
-      .eq('active', true)
-      .maybeSingle();
-    couponFreeShipping = isFreeShippingCoupon(promo?.type);
   }
   const couponDiscount = couponResult?.valid ? couponResult.discount : 0;
 
@@ -140,19 +131,16 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       : 0;
   const discount = transferDiscount + couponDiscount;
 
-  const shippingQuote = quoteShipping(
-    data.shipping_method,
-    settings.shipping,
-    subtotal - couponDiscount,
-    couponFreeShipping,
-  );
+  const shippingQuote = quoteShipping(data.shipping_method, settings.shipping);
   const shippingCost = shippingQuote.cost;
   const total = Math.max(0, subtotal - discount + shippingCost);
 
   // 5. Crear pedido vía RPC SECURITY DEFINER (intake seguro sin service role)
-  const shippingLabel = shippingQuote.toCoordinate
-    ? `${SHIPPING_LABELS[data.shipping_method]} (a coordinar)`
-    : SHIPPING_LABELS[data.shipping_method];
+  const shippingLabel = shippingQuote.payOnDelivery
+    ? `${shippingQuote.label} (envío a abonar al recibir)`
+    : `${shippingQuote.label} (gratis)`;
+  const shippingNote = shippingQuote.note;
+  const combinedNotes = [data.notes, shippingNote].filter(Boolean).join(' · ');
 
   const payload = {
     coupon_code: couponResult?.valid ? couponResult.code : null,
@@ -190,7 +178,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
           .filter(Boolean)
           .join(' ') || null,
       postal_code: data.postal_code || null,
-      notes: data.notes || null,
+      notes: combinedNotes || null,
       utm_source: data.attribution?.utm_source || null,
       utm_medium: data.attribution?.utm_medium || null,
       utm_campaign: data.attribution?.utm_campaign || null,

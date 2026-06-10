@@ -43,12 +43,8 @@ export default async function ConfigPage() {
         title="Envíos"
         initial={s.shipping}
         fields={[
-          { key: 'national_active', label: 'Envío nacional activo', type: 'boolean' },
-          { key: 'pickup_active', label: 'Retiro en MDP activo', type: 'boolean' },
-          { key: 'flat_rate', label: 'Tarifa fija', type: 'number' },
-          { key: 'free_from', label: 'Envío gratis desde', type: 'number' },
-          { key: 'pickup_text', label: 'Texto retiro', full: true },
-          { key: 'coordinate_text', label: 'Texto a coordinar', full: true },
+          { key: 'mdp_text', label: 'Texto entrega Mar del Plata (gratis)', full: true },
+          { key: 'nacional_note', label: 'Aviso envío nacional (costo al recibir)', full: true },
           { key: 'text', label: 'Texto general de envíos', type: 'textarea', full: true },
         ]}
       />
