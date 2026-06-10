@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { CopyButton } from './CopyButton';
 import { MercadoPagoButton } from './MercadoPagoButton';
+import { TransferProofUpload } from './TransferProofUpload';
 import { getOrderByNumber } from '@/lib/orders';
 import { getAllSettings } from '@/lib/settings';
 import { isMercadoPagoProEnabled } from '@/lib/mercadopago';
@@ -96,6 +97,9 @@ export default async function OrderPage({
             {transfer?.cuit && <DataRow label="CUIT" value={transfer.cuit} />}
             <DataRow label="Monto" value={formatPrice(order.total)} />
           </dl>
+
+          {/* Subida de comprobante en la web */}
+          <TransferProofUpload orderNumber={order.order_number} />
         </div>
       ) : (
         <div className="card mt-6 p-6">
