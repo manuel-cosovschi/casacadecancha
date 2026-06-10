@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy: #0b1f3a;
+  --celeste: #8cc8e8;
+  --cream: #f6f1e8;
+  --gold: #c7a76b;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-cream text-navy antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-celeste focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-navy text-cream hover:bg-navy-dark;
+  }
+  .btn-celeste {
+    @apply btn bg-celeste text-navy hover:brightness-95;
+  }
+  .btn-outline {
+    @apply btn border-2 border-navy bg-transparent text-navy hover:bg-navy hover:text-cream;
+  }
+  .btn-wsp {
+    @apply btn bg-[#25D366] text-white hover:brightness-95;
+  }
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+  .card {
+    @apply rounded-2xl border border-black/5 bg-white shadow-sm;
+  }
+  .input {
+    @apply w-full rounded-lg border border-navy/20 bg-white px-3 py-2.5 text-sm text-navy outline-none transition focus:border-celeste focus:ring-2 focus:ring-celeste/30;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-navy/80;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide;
+  }
+}
+
+/* Marquee de la announcement bar */
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: marquee 22s linear infinite;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Patrón sutil de cancha para el hero */
+.pitch-pattern {
+  background-image:
+    linear-gradient(rgba(140, 200, 232, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140, 200, 232, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
