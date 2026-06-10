@@ -49,6 +49,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
     items: [
       { label: 'Configuración', href: '/admin/configuracion' },
       { label: 'Usuarios', href: '/admin/usuarios' },
+      { label: 'Mi cuenta', href: '/admin/cuenta' },
       { label: 'Logs', href: '/admin/logs' },
     ],
   },
