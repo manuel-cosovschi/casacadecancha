@@ -70,6 +70,20 @@ export function PushToggle() {
     }
   }
 
+  async function test() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch('/api/push/test', { method: 'POST' });
+      const data = await res.json();
+      setMsg(res.ok ? 'Enviamos una notificación de prueba a este dispositivo 👍' : data.error || 'No se pudo enviar.');
+    } catch {
+      setMsg('No se pudo enviar la prueba.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function disable() {
     setBusy(true);
     setMsg(null);
@@ -107,9 +121,14 @@ export function PushToggle() {
           (no desde Safari) y volvé a intentar.
         </p>
       ) : subscribed ? (
-        <button onClick={disable} disabled={busy} className="btn-outline">
-          {busy ? '…' : 'Desactivar notificaciones'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={test} disabled={busy} className="btn-celeste">
+            {busy ? '…' : 'Probar notificación'}
+          </button>
+          <button onClick={disable} disabled={busy} className="btn-outline">
+            {busy ? '…' : 'Desactivar'}
+          </button>
+        </div>
       ) : (
         <button onClick={enable} disabled={busy} className="btn-primary">
           {busy ? 'Activando…' : 'Activar notificaciones'}

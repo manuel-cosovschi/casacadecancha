@@ -20,6 +20,29 @@ function ensureVapid(): boolean {
   return true;
 }
 
+export interface PushSub {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+/** Envía un payload a una lista de suscripciones. Devuelve cuántas llegaron. */
+export async function sendToSubscriptions(
+  subs: PushSub[],
+  payload: string,
+): Promise<number> {
+  if (!ensureVapid() || subs.length === 0) return 0;
+  const results = await Promise.allSettled(
+    subs.map((s) =>
+      webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        payload,
+      ),
+    ),
+  );
+  return results.filter((r) => r.status === 'fulfilled').length;
+}
+
 /**
  * Envía una notificación push a todos los administradores suscritos
  * cuando entra un pedido nuevo. Best-effort (no rompe el checkout).
@@ -45,14 +68,7 @@ export async function sendOrderPush(
       tag: `order-${orderNumber}`,
     });
 
-    await Promise.allSettled(
-      (subs as any[]).map((s) =>
-        webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          payload,
-        ),
-      ),
-    );
+    await sendToSubscriptions(subs as PushSub[], payload);
   } catch {
     /* no-op: el push no debe afectar el pedido */
   }
