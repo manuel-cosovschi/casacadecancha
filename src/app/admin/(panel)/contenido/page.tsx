@@ -10,6 +10,21 @@ export default async function ContentPage() {
     <div className="space-y-5">
       <PageHeader title="Contenido de la web" description="Editá los bloques del sitio sin tocar código." />
 
+      <SettingsForm
+        settingKey="home_sections"
+        title="Secciones de la home (mostrar / ocultar)"
+        initial={s.home_sections}
+        fields={[
+          { key: 'trust', label: 'Barra de beneficios', type: 'boolean' },
+          { key: 'featured', label: 'Producto destacado', type: 'boolean' },
+          { key: 'collections', label: 'Colecciones', type: 'boolean' },
+          { key: 'products', label: 'Grilla de productos', type: 'boolean' },
+          { key: 'mundial', label: 'Bloque del Mundial', type: 'boolean' },
+          { key: 'how_to_buy', label: 'Cómo comprar', type: 'boolean' },
+          { key: 'faq', label: 'Preguntas frecuentes', type: 'boolean' },
+        ]}
+      />
+
       <AnnouncementEditor initial={s.announcement_bar} />
 
       <SettingsForm

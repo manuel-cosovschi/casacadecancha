@@ -28,11 +28,16 @@ export default async function HomePage() {
     : 0;
   const whatsappNumber = settings.whatsapp?.number || '';
 
+  // Visibilidad de secciones (editable desde Admin → Contenido)
+  const hs = settings.home_sections || {};
+  const show = (k: string) => hs[k] !== false;
+
   return (
     <>
       <Hero data={settings.hero} whatsapp={settings.whatsapp} />
 
       {/* Trust strip */}
+      {show('trust') && (
       <section className="relative z-10 -mt-2 border-b border-navy/5 bg-cream">
         <div className="container-page grid grid-cols-2 gap-3 py-6 sm:grid-cols-4">
           {(settings.trust_strip?.items || []).map((item: { title: string }, i: number) => (
@@ -48,9 +53,10 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+      )}
 
       {/* Producto estrella */}
-      {featured && (
+      {featured && show('featured') && (
         <section className="py-16 sm:py-20">
           <div className="container-page grid items-center gap-10 lg:grid-cols-2">
             <div className="relative">
@@ -95,7 +101,7 @@ export default async function HomePage() {
       )}
 
       {/* Colecciones */}
-      {collections.length > 0 && (
+      {collections.length > 0 && show('collections') && (
         <section className="py-12">
           <div className="container-page">
             <SectionTitle kicker="Explorá" title="Colecciones" />
@@ -133,7 +139,7 @@ export default async function HomePage() {
       )}
 
       {/* Grilla de productos */}
-      {products.length > 0 && (
+      {products.length > 0 && show('products') && (
         <section className="py-12">
           <div className="container-page">
             <SectionTitle kicker="Lo nuevo" title="Camisetas y más" cta={{ label: 'Ver todo', href: '/camisetas' }} />
@@ -147,7 +153,7 @@ export default async function HomePage() {
       )}
 
       {/* Bloque emocional del Mundial */}
-      {settings.mundial_block?.active && (
+      {settings.mundial_block?.active && show('mundial') && (
         <section className="relative my-12 overflow-hidden">
           <div className="container-page">
             <div className="gradient-hero brand-stripes relative overflow-hidden rounded-[2.5rem] px-6 py-16 text-center text-cream sm:py-20">
@@ -179,6 +185,7 @@ export default async function HomePage() {
       )}
 
       {/* Cómo comprar */}
+      {show('how_to_buy') && (
       <section className="py-14">
         <div className="container-page">
           <SectionTitle kicker="Súper simple" title="Cómo comprar" center />
@@ -204,9 +211,10 @@ export default async function HomePage() {
           </ol>
         </div>
       </section>
+      )}
 
       {/* FAQ */}
-      {faqs.length > 0 && (
+      {faqs.length > 0 && show('faq') && (
         <section className="py-14">
           <div className="container-page">
             <SectionTitle kicker="Dudas frecuentes" title="Preguntas frecuentes" center />

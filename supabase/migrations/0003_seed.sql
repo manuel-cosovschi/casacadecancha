@@ -95,6 +95,15 @@ insert into public.store_settings (key, value_json) values
   "ga_id": "",
   "tiktok_pixel_id": "",
   "meta_domain_verification": ""
+}'),
+('home_sections', '{
+  "trust": true,
+  "featured": true,
+  "collections": true,
+  "products": true,
+  "mundial": true,
+  "how_to_buy": true,
+  "faq": true
 }')
 on conflict (key) do nothing;
 
