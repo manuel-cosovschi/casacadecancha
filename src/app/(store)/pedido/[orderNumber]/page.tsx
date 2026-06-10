@@ -63,6 +63,23 @@ export default async function OrderPage({
         )}
       </div>
 
+      {/* Envío */}
+      {order.shipping_method && (
+        <div className="card mt-6 p-5">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-navy/60">Entrega</h2>
+          <p className="mt-1 text-sm text-navy/80">{order.shipping_method}</p>
+          {/(resto del país|abonar)/i.test(order.shipping_method) ? (
+            <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
+              📦 El costo del envío se abona <strong>al recibir el producto</strong> (pago contra entrega).
+            </p>
+          ) : (
+            <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
+              🛵 Coordinamos la entrega en Mar del Plata por WhatsApp, <strong>sin costo</strong>.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Instrucciones según método */}
       {payMethod === 'transfer' ? (
         <div className="card mt-6 p-6">

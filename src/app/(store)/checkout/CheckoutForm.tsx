@@ -30,7 +30,6 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponOk, setCouponOk] = useState(false);
-  const [couponFreeShip, setCouponFreeShip] = useState(false);
   const [couponBusy, setCouponBusy] = useState(false);
 
   const {
@@ -41,26 +40,19 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
   } = useForm<CheckoutInput>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
-      shipping_method: 'coordinar',
+      shipping_method: 'mdp',
       payment_method: 'transfer',
       items: [],
     },
   });
 
   const paymentMethod = watch('payment_method');
-  const shippingMethod = (watch('shipping_method') || 'coordinar') as
-    | 'nacional'
-    | 'retiro'
-    | 'coordinar';
+  const shippingMethod = (watch('shipping_method') || 'mdp') as 'mdp' | 'nacional';
+  const isNacional = shippingMethod === 'nacional';
   const showTransfer = paymentMethod === 'transfer' && transferDiscount > 0;
   const transferDisc = showTransfer ? discountAmount(subtotal, transferDiscount) : 0;
   const discount = transferDisc + couponDiscount;
-  const shippingQuote = quoteShipping(
-    shippingMethod,
-    shipping,
-    subtotal - couponDiscount,
-    couponFreeShip,
-  );
+  const shippingQuote = quoteShipping(shippingMethod, shipping);
   const total = Math.max(0, subtotal - discount + shippingQuote.cost);
 
   async function handleApplyCoupon() {
@@ -71,7 +63,6 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
     setCouponBusy(false);
     setCouponOk(res.valid);
     setCouponDiscount(res.valid ? res.discount : 0);
-    setCouponFreeShip(res.valid && res.discount === 0 && /envío gratis/i.test(res.message));
     setCouponMsg(res.message);
   }
 
@@ -156,48 +147,67 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
             Entrega
           </legend>
           <div className="space-y-2">
-            {[
-              { value: 'coordinar', label: 'Envío a coordinar según localidad' },
-              { value: 'nacional', label: 'Envío nacional' },
-              { value: 'retiro', label: 'Retiro en Mar del Plata' },
-            ].map((opt) => (
-              <label key={opt.value} className="flex items-center gap-3 rounded-lg border border-navy/15 p-3 text-sm">
-                <input type="radio" value={opt.value} {...register('shipping_method')} />
-                {opt.label}
-              </label>
-            ))}
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-navy/15 p-3 text-sm">
+              <input type="radio" value="mdp" {...register('shipping_method')} className="mt-1" />
+              <div>
+                <p className="font-semibold">Mar del Plata — Entrega gratis</p>
+                <p className="text-navy/60">Coordinamos la entrega por WhatsApp, sin cargo.</p>
+              </div>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-navy/15 p-3 text-sm">
+              <input type="radio" value="nacional" {...register('shipping_method')} className="mt-1" />
+              <div>
+                <p className="font-semibold">Envío al resto del país</p>
+                <p className="text-navy/60">
+                  Completá tus datos de envío. El costo del envío se abona al recibir el producto.
+                </p>
+              </div>
+            </label>
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="Provincia" error={errors.province?.message}>
-              <select className="input" {...register('province')}>
-                <option value="">Elegí una provincia</option>
-                {AR_PROVINCES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Ciudad" error={errors.city?.message}>
-              <input className="input" {...register('city')} />
-            </Field>
-            <Field label="Código postal" error={errors.postal_code?.message}>
-              <input className="input" {...register('postal_code')} />
-            </Field>
-            <Field label="Dirección" error={errors.address?.message}>
-              <input className="input" {...register('address')} />
-            </Field>
-            <Field label="Altura" error={errors.address_number?.message}>
-              <input className="input" {...register('address_number')} />
-            </Field>
-            <Field label="Piso / Depto (opcional)" error={errors.floor?.message}>
-              <input className="input" {...register('floor')} />
-            </Field>
-          </div>
-          <div className="mt-4">
-            <Field label="Referencias / Notas (opcional)">
-              <textarea className="input min-h-20" {...register('references')} />
-            </Field>
-          </div>
+          {isNacional ? (
+            <>
+              <div className="mt-4 rounded-lg bg-celeste/15 p-3 text-sm text-navy">
+                📦 El costo del envío se abona <strong>al recibir el producto</strong> (pago contra entrega).
+                Completá tus datos para coordinar el despacho.
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Provincia" error={errors.province?.message}>
+                  <select className="input" {...register('province')}>
+                    <option value="">Elegí una provincia</option>
+                    {AR_PROVINCES.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Ciudad" error={errors.city?.message}>
+                  <input className="input" {...register('city')} />
+                </Field>
+                <Field label="Código postal" error={errors.postal_code?.message}>
+                  <input className="input" {...register('postal_code')} />
+                </Field>
+                <Field label="Dirección" error={errors.address?.message}>
+                  <input className="input" {...register('address')} />
+                </Field>
+                <Field label="Altura" error={errors.address_number?.message}>
+                  <input className="input" {...register('address_number')} />
+                </Field>
+                <Field label="Piso / Depto (opcional)" error={errors.floor?.message}>
+                  <input className="input" {...register('floor')} />
+                </Field>
+              </div>
+              <div className="mt-4">
+                <Field label="Referencias / Notas (opcional)">
+                  <textarea className="input min-h-20" {...register('references')} />
+                </Field>
+              </div>
+            </>
+          ) : (
+            <div className="mt-4 rounded-lg bg-celeste/15 p-3 text-sm text-navy">
+              🛵 Coordinamos la entrega en Mar del Plata por WhatsApp, <strong>sin costo de envío</strong>.
+              Dejanos tus datos de contacto arriba y te escribimos.
+            </div>
+          )}
         </fieldset>
 
         {/* Pago */}
@@ -280,14 +290,8 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
           )}
           <Row
             label="Envío"
-            value={
-              shippingQuote.toCoordinate
-                ? 'A coordinar'
-                : shippingQuote.cost === 0
-                  ? 'Gratis'
-                  : formatPrice(shippingQuote.cost)
-            }
-            muted={shippingQuote.toCoordinate}
+            value={shippingQuote.free ? 'Gratis' : 'A abonar al recibir'}
+            muted={shippingQuote.payOnDelivery}
           />
         </div>
         <div className="flex justify-between border-t border-navy/10 pt-3 text-lg font-bold">

@@ -210,6 +210,8 @@ export interface ShippingSettings {
   flat_rate: number;
   free_from: number;
   text: string;
+  mdp_text?: string;
+  nacional_note?: string;
 }
 
 // Item del carrito (cliente).
