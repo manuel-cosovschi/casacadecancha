@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { assertWriter, logActivity } from '@/lib/admin/actions-helpers';
 import { slugify } from '@/lib/utils';
 
@@ -225,19 +224,14 @@ export async function uploadImage(formData: FormData): Promise<{ url?: string; e
   }
   const file = formData.get('file') as File | null;
   if (!file || file.size === 0) return { error: 'Seleccioná un archivo.' };
-  let admin;
-  try {
-    admin = createAdminClient();
-  } catch {
-    return { error: 'Storage no configurado.' };
-  }
+  const supabase = await createClient();
   const ext = file.name.split('.').pop() || 'jpg';
   const path = `products/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error } = await admin.storage.from('product-images').upload(path, file, {
+  const { error } = await supabase.storage.from('product-images').upload(path, file, {
     contentType: file.type,
     upsert: false,
   });
   if (error) return { error: error.message };
-  const { data } = admin.storage.from('product-images').getPublicUrl(path);
+  const { data } = supabase.storage.from('product-images').getPublicUrl(path);
   return { url: data.publicUrl };
 }

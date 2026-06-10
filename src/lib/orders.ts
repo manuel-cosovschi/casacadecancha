@@ -1,18 +1,16 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import type { Order } from '@/lib/types';
 
-/** Lee un pedido por número (usa service role; sólo en servidor). */
+/** Lee un pedido por número usando la RPC pública SECURITY DEFINER. */
 export async function getOrderByNumber(orderNumber: string): Promise<Order | null> {
   let supabase;
   try {
-    supabase = createAdminClient();
+    supabase = await createClient();
   } catch {
     return null;
   }
-  const { data } = await supabase
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('order_number', orderNumber)
-    .maybeSingle();
+  const { data } = await supabase.rpc('storefront_get_order', {
+    p_order_number: orderNumber,
+  });
   return (data as Order) ?? null;
 }

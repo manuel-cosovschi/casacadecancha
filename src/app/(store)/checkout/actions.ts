@@ -1,7 +1,6 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount } from '@/lib/utils';
 import { getAllSettings } from '@/lib/settings';
@@ -40,7 +39,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
 
   let supabase;
   try {
-    supabase = createAdminClient();
+    supabase = await createClient();
   } catch {
     return { ok: false, error: 'El sistema de pedidos no está configurado.' };
   }
@@ -150,10 +149,14 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const shippingCost = shippingQuote.cost;
   const total = Math.max(0, subtotal - discount + shippingCost);
 
-  // 4. Crear cliente
-  const { data: customer } = await supabase
-    .from('customers')
-    .insert({
+  // 5. Crear pedido vía RPC SECURITY DEFINER (intake seguro sin service role)
+  const shippingLabel = shippingQuote.toCoordinate
+    ? `${SHIPPING_LABELS[data.shipping_method]} (a coordinar)`
+    : SHIPPING_LABELS[data.shipping_method];
+
+  const payload = {
+    coupon_code: couponResult?.valid ? couponResult.code : null,
+    customer: {
       first_name: data.first_name,
       last_name: data.last_name,
       phone: data.phone,
@@ -163,19 +166,11 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       city: data.city,
       postal_code: data.postal_code || null,
       address: [data.address, data.address_number, data.floor].filter(Boolean).join(' ') || null,
-      source: 'web',
       utm_source: data.attribution?.utm_source || null,
       utm_medium: data.attribution?.utm_medium || null,
       utm_campaign: data.attribution?.utm_campaign || null,
-    })
-    .select('id')
-    .single();
-
-  // 5. Crear pedido
-  const { data: order, error: oErr } = await supabase
-    .from('orders')
-    .insert({
-      customer_id: customer?.id ?? null,
+    },
+    order: {
       subtotal,
       discount,
       coupon_code: couponResult?.valid ? couponResult.code : null,
@@ -184,20 +179,16 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       total,
       estimated_cost: estimatedCost,
       payment_method: data.payment_method,
-      payment_status: 'pending_payment',
-      order_status: 'new',
-      shipping_method: shippingQuote.toCoordinate
-        ? `${SHIPPING_LABELS[data.shipping_method]} (a coordinar)`
-        : SHIPPING_LABELS[data.shipping_method],
-      channel: 'web',
+      shipping_method: shippingLabel,
       customer_name: `${data.first_name} ${data.last_name}`,
       customer_phone: data.phone,
       customer_email: data.email,
       province: data.province,
       city: data.city,
-      address: [data.address, data.address_number, data.floor, data.references]
-        .filter(Boolean)
-        .join(' ') || null,
+      address:
+        [data.address, data.address_number, data.floor, data.references]
+          .filter(Boolean)
+          .join(' ') || null,
       postal_code: data.postal_code || null,
       notes: data.notes || null,
       utm_source: data.attribution?.utm_source || null,
@@ -209,46 +200,22 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       referrer: data.attribution?.referrer || null,
       landing_page: data.attribution?.landing_page || null,
       device: data.attribution?.device || null,
-    })
-    .select('id, order_number')
-    .single();
+    },
+    items: orderItems,
+    reservations: reservations.map((r) => ({
+      variant_id: r.variantId,
+      quantity: r.quantity,
+    })),
+  };
 
-  if (oErr || !order) {
+  const { data: orderNumber, error: rpcErr } = await supabase.rpc(
+    'storefront_create_order',
+    { p: payload },
+  );
+
+  if (rpcErr || !orderNumber) {
     return { ok: false, error: 'No se pudo registrar el pedido. Intentá de nuevo.' };
   }
 
-  // 6. Items
-  await supabase.from('order_items').insert(
-    orderItems.map((i) => ({ ...i, order_id: order.id })),
-  );
-
-  // 7. Pago inicial
-  await supabase.from('payments').insert({
-    order_id: order.id,
-    method: data.payment_method,
-    amount: total,
-    status: 'pending_payment',
-  });
-
-  // 8. Reservar stock + movimientos
-  for (const r of reservations) {
-    await supabase
-      .from('product_variants')
-      .update({ stock_reserved: r.current + r.quantity })
-      .eq('id', r.variantId);
-    await supabase.from('inventory_movements').insert({
-      variant_id: r.variantId,
-      type: 'reserva',
-      quantity: r.quantity,
-      reason: `Reserva por pedido ${order.order_number}`,
-      related_order_id: order.id,
-    });
-  }
-
-  // 9. Registrar uso del cupón
-  if (couponResult?.valid) {
-    await supabase.rpc('increment_promotion_use', { p_code: couponResult.code });
-  }
-
-  return { ok: true, orderNumber: order.order_number };
+  return { ok: true, orderNumber: orderNumber as string };
 }
