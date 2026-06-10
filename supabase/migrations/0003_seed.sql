@@ -11,7 +11,7 @@ insert into public.store_settings (key, value_json) values
   "slogan": "VESTÍ FÚTBOL.",
   "descriptor": "Camisetas, buzos e indumentaria de fútbol.",
   "location": "Mar del Plata, Buenos Aires, Argentina",
-  "email": "hola@casacadecancha.com"
+  "email": "cosovschim@gmail.com"
 }'),
 ('announcement_bar', '{
   "active": true,
@@ -59,7 +59,7 @@ insert into public.store_settings (key, value_json) values
   "cbu": "0000000000000000000000",
   "holder": "[RAZÓN SOCIAL]",
   "bank": "Mercado Pago",
-  "cuit": "[CUIT]",
+  "cuit": "",
   "text": "Pagando por transferencia obtenés un 10% de descuento.",
   "instructions": "Una vez realizada la transferencia, envianos el comprobante por WhatsApp indicando tu número de pedido."
 }'),
@@ -78,12 +78,12 @@ insert into public.store_settings (key, value_json) values
   "text": "Hacemos envíos a todo el país. Coordinamos el costo según tu localidad."
 }'),
 ('footer', '{
-  "instagram": "https://instagram.com/casacadecancha",
+  "instagram": "https://www.instagram.com/casacadecancha.ar",
   "whatsapp": "5492235383082",
-  "email": "hola@casacadecancha.com",
+  "email": "cosovschim@gmail.com",
   "location": "Mar del Plata, Buenos Aires",
-  "legal_name": "[RAZÓN SOCIAL]",
-  "cuit": "[CUIT]"
+  "legal_name": "",
+  "cuit": ""
 }'),
 ('seo', '{
   "title": "Camisetas de Argentina para el Mundial | Casaca de Cancha",
