@@ -61,6 +61,7 @@ export default async function OrderDetailPage({
             <div className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm">
               <Row label="Subtotal" value={formatPrice(order.subtotal)} />
               {order.discount > 0 && <Row label="Descuento" value={`- ${formatPrice(order.discount)}`} />}
+              {order.coupon_code && <Row label={`Cupón (${order.coupon_code})`} value={`- ${formatPrice(order.coupon_discount || 0)}`} muted />}
               <Row label="Envío" value={order.shipping_cost > 0 ? formatPrice(order.shipping_cost) : 'A coordinar'} />
               <Row label="Total" value={formatPrice(order.total)} bold />
               <Row label="Costo estimado" value={formatPrice(order.estimated_cost)} muted />

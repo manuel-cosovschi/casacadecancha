@@ -35,6 +35,7 @@ export const checkoutSchema = z.object({
   references: z.string().optional(),
   shipping_method: z.enum(['nacional', 'retiro', 'coordinar']),
   payment_method: z.enum(['transfer', 'mercadopago']),
+  coupon_code: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(checkoutItemSchema).min(1, 'El carrito está vacío'),
   attribution: attributionSchema.optional(),

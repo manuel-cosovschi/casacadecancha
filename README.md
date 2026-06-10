@@ -95,8 +95,11 @@ pueden pegar URLs externas.
   muestran los datos de pago + botón para enviar comprobante por WhatsApp.
 - **Transferencia**: descuento configurable (default 10%) aplicado en checkout;
   alias/CBU copiables en la confirmación.
-- **Mercado Pago (MVP)**: redirige al link configurado. La confirmación es manual
-  desde el dashboard (Pedidos → Marcar como pagado / referencia de pago).
+- **Mercado Pago**: por defecto usa el link + confirmación manual. Si cargás el
+  access token y activás Checkout Pro, crea una preference por pedido y confirma
+  el pago automáticamente vía webhook (ver sección Mercado Pago).
+- **Cupones**: el cliente los aplica en el checkout; se validan y recalculan en el
+  servidor.
 - **Pedido manual**: registra ventas externas (WhatsApp, Instagram, local…) para
   que entren en las estadísticas.
 - **Stock**: se reserva al crear el pedido, se descuenta al marcar *Pagado* y se
@@ -115,15 +118,27 @@ Los roles se gestionan en *Admin → Usuarios* (sólo owner/admin).
   el cliente).
 - Credenciales en variables de entorno; la service role nunca se expone al cliente.
 
+## Mercado Pago Checkout Pro (confirmación automática)
+
+El MVP funciona con el **link** + confirmación manual. Para confirmación automática:
+
+1. Cargá `MERCADOPAGO_ACCESS_TOKEN` en las variables de entorno.
+2. En *Admin → Configuración → Mercado Pago*, activá **Checkout Pro**.
+3. Configurá el webhook en tu panel de Mercado Pago apuntando a
+   `https://TU-DOMINIO/api/mercadopago/webhook`.
+
+Al elegir Mercado Pago se crea una *preference* (`/api/mercadopago/preference`), el
+cliente paga y el webhook marca el pedido como **pagado** y descuenta el stock. Si
+el token no está, todo cae de forma transparente al flujo por link.
+
 ## Roadmap
 
-- **Fase 1 (incluida)**: storefront, checkout, transferencia con descuento, link de
-  Mercado Pago, WhatsApp, pedidos, dashboard, productos, stock, configuración,
-  rentabilidad básica.
-- **Fase 2**: cupones avanzados, analítica de Ads con cruce, exportaciones, CRM.
-- **Fase 3**: Mercado Pago Checkout Pro + webhooks (arquitectura ya preparada:
-  tablas `payments.external_payment_id`, campos de settings y variables de entorno),
-  emails, carrito abandonado, integraciones logísticas.
+- **Fase 1 + 2 (incluidas)**: storefront, checkout con cupones y cálculo de envío,
+  transferencia con descuento, Mercado Pago (link **y** Checkout Pro + webhook),
+  WhatsApp, pedidos web y manuales, dashboard completo, productos, stock,
+  promociones, rentabilidad, gastos, Ads, analítica, contenido editable, CSV.
+- **Fase 3 (futuro)**: emails transaccionales, recupero de carrito abandonado,
+  integraciones logísticas y facturación.
 
 ## Checklist de producción
 

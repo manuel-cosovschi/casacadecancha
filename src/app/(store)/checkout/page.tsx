@@ -19,7 +19,11 @@ export default async function CheckoutPage() {
   return (
     <div className="container-page py-10">
       <h1 className="mb-8 text-3xl font-extrabold uppercase">Finalizar compra</h1>
-      <CheckoutForm transferDiscount={transferDiscount} transferText={transferText} />
+      <CheckoutForm
+        transferDiscount={transferDiscount}
+        transferText={transferText}
+        shipping={settings.shipping}
+      />
     </div>
   );
 }

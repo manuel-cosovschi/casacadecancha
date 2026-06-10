@@ -7,22 +7,31 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCart } from '@/components/cart/CartProvider';
 import { getAttribution } from '@/components/store/UtmCapture';
-import { createOrder } from './actions';
+import { createOrder, applyCoupon } from './actions';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
-import { applyDiscount, discountAmount, formatPrice } from '@/lib/utils';
+import { discountAmount, formatPrice } from '@/lib/utils';
+import { quoteShipping } from '@/lib/shipping';
+import type { ShippingSettings } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
 
 interface Props {
   transferDiscount: number;
   transferText: string;
+  shipping: ShippingSettings;
 }
 
-export function CheckoutForm({ transferDiscount, transferText }: Props) {
+export function CheckoutForm({ transferDiscount, transferText, shipping }: Props) {
   const router = useRouter();
   const { items, subtotal, clear } = useCart();
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponOk, setCouponOk] = useState(false);
+  const [couponFreeShip, setCouponFreeShip] = useState(false);
+  const [couponBusy, setCouponBusy] = useState(false);
 
   const {
     register,
@@ -39,9 +48,32 @@ export function CheckoutForm({ transferDiscount, transferText }: Props) {
   });
 
   const paymentMethod = watch('payment_method');
+  const shippingMethod = (watch('shipping_method') || 'coordinar') as
+    | 'nacional'
+    | 'retiro'
+    | 'coordinar';
   const showTransfer = paymentMethod === 'transfer' && transferDiscount > 0;
-  const discount = showTransfer ? discountAmount(subtotal, transferDiscount) : 0;
-  const total = subtotal - discount;
+  const transferDisc = showTransfer ? discountAmount(subtotal, transferDiscount) : 0;
+  const discount = transferDisc + couponDiscount;
+  const shippingQuote = quoteShipping(
+    shippingMethod,
+    shipping,
+    subtotal - couponDiscount,
+    couponFreeShip,
+  );
+  const total = Math.max(0, subtotal - discount + shippingQuote.cost);
+
+  async function handleApplyCoupon() {
+    if (!couponCode.trim()) return;
+    setCouponBusy(true);
+    setCouponMsg(null);
+    const res = await applyCoupon(couponCode.trim(), subtotal);
+    setCouponBusy(false);
+    setCouponOk(res.valid);
+    setCouponDiscount(res.valid ? res.discount : 0);
+    setCouponFreeShip(res.valid && res.discount === 0 && /envío gratis/i.test(res.message));
+    setCouponMsg(res.message);
+  }
 
   async function onSubmit(values: CheckoutInput) {
     if (items.length === 0) {
@@ -54,6 +86,7 @@ export function CheckoutForm({ transferDiscount, transferText }: Props) {
 
     const payload: CheckoutInput = {
       ...values,
+      coupon_code: couponOk ? couponCode.trim() : undefined,
       items: items.map((i) => ({
         productId: i.productId,
         variantId: i.variantId,
@@ -212,20 +245,58 @@ export function CheckoutForm({ transferDiscount, transferText }: Props) {
             </li>
           ))}
         </ul>
+        {/* Cupón */}
+        <div className="border-t border-navy/10 py-3">
+          <div className="flex gap-2">
+            <input
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              placeholder="Código de cupón"
+              className="input !py-2 flex-1 text-sm"
+            />
+            <button
+              type="button"
+              onClick={handleApplyCoupon}
+              disabled={couponBusy || !couponCode.trim()}
+              className="btn border-2 border-navy text-navy hover:bg-navy hover:text-cream !px-4 !py-2"
+            >
+              {couponBusy ? '…' : 'Aplicar'}
+            </button>
+          </div>
+          {couponMsg && (
+            <p className={`mt-1.5 text-xs font-medium ${couponOk ? 'text-green-600' : 'text-red-600'}`}>
+              {couponMsg}
+            </p>
+          )}
+        </div>
+
         <div className="space-y-1.5 py-3 text-sm">
           <Row label="Subtotal" value={formatPrice(subtotal)} />
           {showTransfer && (
-            <Row label={`Descuento (${transferDiscount}%)`} value={`- ${formatPrice(discount)}`} accent />
+            <Row label={`Descuento transferencia (${transferDiscount}%)`} value={`- ${formatPrice(transferDisc)}`} accent />
           )}
-          <Row label="Envío" value="A coordinar" muted />
+          {couponDiscount > 0 && (
+            <Row label="Cupón" value={`- ${formatPrice(couponDiscount)}`} accent />
+          )}
+          <Row
+            label="Envío"
+            value={
+              shippingQuote.toCoordinate
+                ? 'A coordinar'
+                : shippingQuote.cost === 0
+                  ? 'Gratis'
+                  : formatPrice(shippingQuote.cost)
+            }
+            muted={shippingQuote.toCoordinate}
+          />
         </div>
         <div className="flex justify-between border-t border-navy/10 pt-3 text-lg font-bold">
           <span>Total</span>
           <span>{formatPrice(total)}</span>
         </div>
-        {showTransfer && (
+        {(showTransfer || couponDiscount > 0) && (
           <p className="mt-2 rounded-lg bg-celeste/20 p-2 text-center text-xs font-semibold text-navy">
-            Ahorrás {formatPrice(discount)} pagando por transferencia
+            Ahorrás {formatPrice(discount)} en esta compra
           </p>
         )}
         <button type="submit" disabled={submitting} className="btn-primary mt-4 w-full">

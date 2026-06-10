@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { CopyButton } from './CopyButton';
+import { MercadoPagoButton } from './MercadoPagoButton';
 import { getOrderByNumber } from '@/lib/orders';
 import { getAllSettings } from '@/lib/settings';
+import { isMercadoPagoProEnabled } from '@/lib/mercadopago';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 
 export const metadata: Metadata = {
@@ -16,10 +18,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ orderNumber: string }>;
-  searchParams: Promise<{ method?: string }>;
+  searchParams: Promise<{ method?: string; status?: string }>;
 }) {
   const { orderNumber } = await params;
-  const { method } = await searchParams;
+  const { method, status } = await searchParams;
   const [order, settings] = await Promise.all([
     getOrderByNumber(orderNumber),
     getAllSettings(),
@@ -49,6 +51,16 @@ export default async function OrderPage({
           <strong className="text-navy">#{order.order_number}</strong>
         </p>
         <p className="mt-3 text-lg font-bold">Total: {formatPrice(order.total)}</p>
+        {status === 'success' && (
+          <p className="mt-3 rounded-lg bg-green-50 p-2 text-sm font-medium text-green-700">
+            Recibimos tu pago. Lo estamos confirmando y te avisamos por WhatsApp.
+          </p>
+        )}
+        {status === 'pending' && (
+          <p className="mt-3 rounded-lg bg-amber-50 p-2 text-sm font-medium text-amber-700">
+            Tu pago quedó pendiente de acreditación. Te avisamos en cuanto se confirme.
+          </p>
+        )}
       </div>
 
       {/* Instrucciones según método */}
@@ -75,14 +87,11 @@ export default async function OrderPage({
             Tu pedido quedó registrado. Al finalizar el pago por Mercado Pago, envianos el
             comprobante por WhatsApp junto con tu número de pedido para confirmar la compra.
           </p>
-          <a
-            href={mp?.link || 'https://link.mercadopago.com.ar/mgbsoftwarefactory'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-celeste mt-4 w-full"
-          >
-            Ir a Mercado Pago
-          </a>
+          <MercadoPagoButton
+            orderNumber={order.order_number}
+            fallbackLink={mp?.link || 'https://link.mercadopago.com.ar/mgbsoftwarefactory'}
+            checkoutProEnabled={Boolean(mp?.checkout_pro_active) && isMercadoPagoProEnabled()}
+          />
         </div>
       )}
 

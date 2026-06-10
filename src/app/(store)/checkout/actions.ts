@@ -1,9 +1,12 @@
 'use server';
 
+import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount } from '@/lib/utils';
 import { getAllSettings } from '@/lib/settings';
+import { validateCoupon, isFreeShippingCoupon, type CouponResult } from '@/lib/coupons';
+import { quoteShipping, SHIPPING_LABELS } from '@/lib/shipping';
 
 interface ActionResult {
   ok: boolean;
@@ -11,11 +14,18 @@ interface ActionResult {
   error?: string;
 }
 
-const SHIPPING_LABELS: Record<string, string> = {
-  nacional: 'Envío nacional (a coordinar)',
-  retiro: 'Retiro en Mar del Plata',
-  coordinar: 'Envío a coordinar',
-};
+/** Valida un cupón desde el storefront (lectura pública de promociones). */
+export async function applyCoupon(
+  code: string,
+  subtotal: number,
+): Promise<CouponResult> {
+  try {
+    const supabase = await createClient();
+    return await validateCoupon(supabase, code, subtotal);
+  } catch {
+    return { valid: false, code, discount: 0, message: 'No se pudo validar el cupón.' };
+  }
+}
 
 /**
  * Crea un pedido: valida stock, recalcula precios desde la base,
@@ -105,13 +115,40 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     });
   }
 
-  // 3. Calcular totales
-  const discount =
+  // 3. Cupón (revalidado en el servidor)
+  let couponResult: CouponResult | null = null;
+  let couponFreeShipping = false;
+  if (data.coupon_code) {
+    couponResult = await validateCoupon(supabase, data.coupon_code, subtotal);
+    if (!couponResult.valid) {
+      return { ok: false, error: couponResult.message };
+    }
+    // ¿Es un cupón de envío gratis?
+    const { data: promo } = await supabase
+      .from('promotions')
+      .select('type')
+      .ilike('code', data.coupon_code)
+      .eq('active', true)
+      .maybeSingle();
+    couponFreeShipping = isFreeShippingCoupon(promo?.type);
+  }
+  const couponDiscount = couponResult?.valid ? couponResult.discount : 0;
+
+  // 4. Calcular totales
+  const transferDiscount =
     data.payment_method === 'transfer' && transferPct > 0
       ? subtotal - applyDiscount(subtotal, transferPct)
       : 0;
-  const shippingCost = 0; // MVP: a coordinar
-  const total = subtotal - discount + shippingCost;
+  const discount = transferDiscount + couponDiscount;
+
+  const shippingQuote = quoteShipping(
+    data.shipping_method,
+    settings.shipping,
+    subtotal - couponDiscount,
+    couponFreeShipping,
+  );
+  const shippingCost = shippingQuote.cost;
+  const total = Math.max(0, subtotal - discount + shippingCost);
 
   // 4. Crear cliente
   const { data: customer } = await supabase
@@ -141,13 +178,17 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       customer_id: customer?.id ?? null,
       subtotal,
       discount,
+      coupon_code: couponResult?.valid ? couponResult.code : null,
+      coupon_discount: couponDiscount,
       shipping_cost: shippingCost,
       total,
       estimated_cost: estimatedCost,
       payment_method: data.payment_method,
       payment_status: 'pending_payment',
       order_status: 'new',
-      shipping_method: SHIPPING_LABELS[data.shipping_method],
+      shipping_method: shippingQuote.toCoordinate
+        ? `${SHIPPING_LABELS[data.shipping_method]} (a coordinar)`
+        : SHIPPING_LABELS[data.shipping_method],
       channel: 'web',
       customer_name: `${data.first_name} ${data.last_name}`,
       customer_phone: data.phone,
@@ -202,6 +243,11 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       reason: `Reserva por pedido ${order.order_number}`,
       related_order_id: order.id,
     });
+  }
+
+  // 9. Registrar uso del cupón
+  if (couponResult?.valid) {
+    await supabase.rpc('increment_promotion_use', { p_code: couponResult.code });
   }
 
   return { ok: true, orderNumber: order.order_number };
