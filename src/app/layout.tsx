@@ -55,6 +55,7 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: '/favicon.svg',
     },
+    manifest: '/manifest.webmanifest',
     other: settings.analytics?.meta_domain_verification
       ? { 'facebook-domain-verification': settings.analytics.meta_domain_verification }
       : undefined,

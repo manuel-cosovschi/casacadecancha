@@ -1,0 +1,13 @@
+{
+  "name": "Casaca de Cancha",
+  "short_name": "Casaca",
+  "description": "Camisetas, buzos e indumentaria de fútbol. Vestí fútbol.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B1F3A",
+  "theme_color": "#0B1F3A",
+  "icons": [
+    { "src": "/icon", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/apple-icon", "sizes": "180x180", "type": "image/png" }
+  ]
+}
