@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/admin/ui';
 import { PasswordChange } from './PasswordChange';
+import { PushToggle } from './PushToggle';
 import { getCurrentProfile } from '@/lib/admin/auth';
 
 export default async function AccountPage() {
@@ -22,6 +23,7 @@ export default async function AccountPage() {
         </dl>
       </div>
 
+      <PushToggle />
       <PasswordChange />
     </div>
   );
