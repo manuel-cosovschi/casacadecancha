@@ -1,7 +1,23 @@
 import type { Metadata, Viewport } from 'next';
+import { Barlow, Barlow_Condensed } from 'next/font/google';
 import './globals.css';
 import { getAllSettings } from '@/lib/settings';
 import { Analytics } from '@/components/analytics/Analytics';
+
+// Tipografía deportiva: Barlow (texto) + Barlow Condensed (titulares).
+const barlow = Barlow({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-body',
+  display: 'swap',
+});
+
+const barlowCondensed = Barlow_Condensed({
+  subsets: ['latin'],
+  weight: ['600', '700', '800', '900'],
+  variable: '--font-display',
+  display: 'swap',
+});
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
@@ -58,7 +74,7 @@ export default async function RootLayout({
 }) {
   const settings = await getAllSettings();
   return (
-    <html lang="es-AR">
+    <html lang="es-AR" className={`${barlow.variable} ${barlowCondensed.variable}`}>
       <body>
         {children}
         <Analytics analytics={settings.analytics} />

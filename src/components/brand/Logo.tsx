@@ -48,25 +48,30 @@ export function Logo({
   );
 }
 
-export function Isotipo({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
+export function Isotipo({
+  theme = 'dark',
+  size = 40,
+}: {
+  theme?: 'dark' | 'light';
+  size?: number;
+}) {
   const bg = theme === 'dark' ? '#0B1F3A' : '#F6F1E8';
   return (
     <svg
-      width="40"
-      height="40"
+      width={size}
+      height={size}
       viewBox="0 0 40 40"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="shrink-0 rounded-lg"
+      className="shrink-0 rounded-[22%]"
       role="img"
       aria-hidden="true"
     >
-      <rect width="40" height="40" rx="9" fill={bg} />
-      <g>
-        <rect x="6" y="4" width="6" height="44" transform="rotate(20 6 4)" fill="#F6F1E8" />
-        <rect x="16" y="4" width="6" height="44" transform="rotate(20 16 4)" fill="#8CC8E8" />
-        <rect x="26" y="4" width="6" height="44" transform="rotate(20 26 4)" fill="#F6F1E8" />
-      </g>
+      <rect width="40" height="40" rx="10" fill={bg} />
+      {/* Tres franjas inclinadas: dos cream y la tercera celeste (idéntico al logo) */}
+      <polygon points="6,31 12,31 20,9 14,9" fill="#F6F1E8" />
+      <polygon points="14,31 20,31 28,9 22,9" fill="#F6F1E8" />
+      <polygon points="22,31 28,31 36,9 30,9" fill="#8CC8E8" />
     </svg>
   );
 }

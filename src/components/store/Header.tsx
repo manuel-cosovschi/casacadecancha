@@ -12,7 +12,7 @@ const NAV = [
   { label: 'Niños', href: '/ninos' },
   { label: 'Buzos', href: '/buzos' },
   { label: 'Guía de talles', href: '/guia-de-talles' },
-  { label: 'Preguntas frecuentes', href: '/preguntas-frecuentes' },
+  { label: 'FAQ', href: '/preguntas-frecuentes' },
 ];
 
 export function Header() {
@@ -30,8 +30,10 @@ export function Header() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 border-b border-white/10 bg-navy/95 backdrop-blur transition-shadow',
-        scrolled && 'shadow-lg',
+        'sticky top-0 z-40 transition-all duration-300',
+        scrolled
+          ? 'border-b border-white/10 bg-navy/80 shadow-lift backdrop-blur-xl'
+          : 'bg-navy/95 backdrop-blur',
       )}
     >
       <div className="container-page flex h-16 items-center justify-between gap-4">
@@ -44,18 +46,19 @@ export function Header() {
           <BurgerIcon open={menuOpen} />
         </button>
 
-        <Link href="/" className="shrink-0" aria-label="Inicio">
+        <Link href="/" className="shrink-0 transition hover:opacity-90" aria-label="Inicio">
           <Logo theme="dark" />
         </Link>
 
-        <nav className="hidden items-center gap-6 lg:flex">
+        <nav className="hidden items-center gap-1 lg:flex">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="text-sm font-medium text-cream/90 transition hover:text-celeste"
+              className="group relative rounded-full px-3.5 py-2 text-sm font-medium text-cream/85 transition hover:text-celeste"
             >
               {item.label}
+              <span className="absolute inset-x-3.5 -bottom-0.5 h-0.5 origin-left scale-x-0 rounded-full bg-celeste transition-transform duration-300 group-hover:scale-x-100" />
             </Link>
           ))}
         </nav>
@@ -63,28 +66,28 @@ export function Header() {
         <button
           type="button"
           onClick={open}
-          className="relative flex items-center gap-2 text-cream"
+          className="relative flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-2 text-cream transition hover:bg-white/10"
           aria-label="Abrir carrito"
         >
           <CartIcon />
+          <span className="hidden text-sm font-semibold sm:inline">Carrito</span>
           {count > 0 && (
-            <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-celeste px-1 text-xs font-bold text-navy">
+            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-celeste px-1 text-[11px] font-extrabold text-navy shadow">
               {count}
             </span>
           )}
         </button>
       </div>
 
-      {/* Menú mobile */}
       {menuOpen && (
-        <nav className="border-t border-white/10 bg-navy lg:hidden">
+        <nav className="border-t border-white/10 bg-navy/95 backdrop-blur-xl lg:hidden">
           <div className="container-page flex flex-col py-2">
             {NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className="border-b border-white/5 py-3 text-sm font-medium text-cream/90"
+                className="border-b border-white/5 py-3.5 text-sm font-medium text-cream/90 transition hover:pl-2 hover:text-celeste"
               >
                 {item.label}
               </Link>
@@ -98,7 +101,7 @@ export function Header() {
 
 function CartIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M3 4h2l2.4 12.3A2 2 0 0 0 9.4 18h8.2a2 2 0 0 0 2-1.6L21 8H6" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="9.5" cy="20.5" r="1.3" fill="currentColor" />
       <circle cx="17.5" cy="20.5" r="1.3" fill="currentColor" />
