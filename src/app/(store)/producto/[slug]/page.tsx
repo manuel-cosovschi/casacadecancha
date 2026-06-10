@@ -90,17 +90,18 @@ export default async function ProductPage({
         <span className="text-navy/80">{product.name}</span>
       </nav>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
         <ProductGallery images={product.images ?? []} name={product.name} />
 
-        <div>
-          <h1 className="text-2xl font-extrabold uppercase leading-tight sm:text-3xl">
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <span className="kicker">Casaca de Cancha</span>
+          <h1 className="mt-1 text-3xl font-black uppercase leading-[0.95] sm:text-4xl">
             {product.name}
           </h1>
           {product.short_description && (
-            <p className="mt-2 text-navy/70">{product.short_description}</p>
+            <p className="mt-3 text-navy/65">{product.short_description}</p>
           )}
-          <div className="mt-6">
+          <div className="mt-6 rounded-2xl border border-navy/5 bg-white p-5 shadow-card sm:p-6">
             <ProductPurchase
               product={product}
               transferDiscount={transferDiscount}

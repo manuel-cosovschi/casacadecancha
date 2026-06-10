@@ -5,15 +5,14 @@ export function AnnouncementBar({ data }: { data: AnnouncementBarSettings }) {
   const messages = (data.messages || []).filter((m) => m.active && m.text);
   if (messages.length === 0) return null;
 
-  // Duplicamos para el efecto marquee continuo.
-  const loop = [...messages, ...messages];
+  const loop = [...messages, ...messages, ...messages];
 
   return (
-    <div className="overflow-hidden bg-navy text-cream">
-      <div className="marquee-track py-2 text-xs font-semibold uppercase tracking-wide">
+    <div className="gradient-navy relative overflow-hidden text-cream">
+      <div className="marquee-track py-2 text-[11px] font-semibold uppercase tracking-[0.18em]">
         {loop.map((m, i) => (
-          <span key={i} className="mx-6 inline-flex items-center gap-2">
-            <span className="text-celeste">●</span>
+          <span key={i} className="mx-5 inline-flex items-center gap-2.5">
+            <span className="text-celeste">✦</span>
             {m.text}
           </span>
         ))}
