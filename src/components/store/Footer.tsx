@@ -86,7 +86,12 @@ export function Footer({ data }: { data: FooterData }) {
       <div className="relative border-t border-white/10">
         <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-cream/55 sm:flex-row">
           <p>© {year} Casaca de Cancha · Vestí fútbol.</p>
-          <p>{data.legal_name} · CUIT {data.cuit}</p>
+          {data.legal_name && !data.legal_name.includes('[') && (
+            <p>
+              {data.legal_name}
+              {data.cuit && !data.cuit.includes('[') ? ` · CUIT ${data.cuit}` : ''}
+            </p>
+          )}
         </div>
       </div>
     </footer>
