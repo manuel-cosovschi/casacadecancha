@@ -49,7 +49,7 @@ insert into public.store_settings (key, value_json) values
 }'),
 ('whatsapp', '{
   "active": true,
-  "number": "5492235555555",
+  "number": "5492235383082",
   "default_message": "Hola, vengo desde la web de Casaca de Cancha y quería consultar por una camiseta."
 }'),
 ('payments_transfer', '{
@@ -79,7 +79,7 @@ insert into public.store_settings (key, value_json) values
 }'),
 ('footer', '{
   "instagram": "https://instagram.com/casacadecancha",
-  "whatsapp": "5492235555555",
+  "whatsapp": "5492235383082",
   "email": "hola@casacadecancha.com",
   "location": "Mar del Plata, Buenos Aires",
   "legal_name": "[RAZÓN SOCIAL]",

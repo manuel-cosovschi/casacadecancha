@@ -54,7 +54,7 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   },
   whatsapp: {
     active: true,
-    number: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5492235555555',
+    number: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5492235383082',
     default_message:
       'Hola, vengo desde la web de Casaca de Cancha y quería consultar por una camiseta.',
   } satisfies WhatsAppSettings,
@@ -91,7 +91,7 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   footer: {
     instagram:
       process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://instagram.com/casacadecancha',
-    whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5492235555555',
+    whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5492235383082',
     email: 'hola@casacadecancha.com',
     location: 'Mar del Plata, Buenos Aires',
     legal_name: '[RAZÓN SOCIAL]',
