@@ -126,3 +126,12 @@ export async function getStoreSettings() {
   for (const row of data ?? []) map[row.key] = row.value_json;
   return map;
 }
+
+export async function getEncargos() {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('encargos')
+    .select('*')
+    .order('created_at', { ascending: false });
+  return data ?? [];
+}
