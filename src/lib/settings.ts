@@ -110,6 +110,15 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     tiktok_pixel_id: '',
     meta_domain_verification: '',
   },
+  home_sections: {
+    trust: true,
+    featured: true,
+    collections: true,
+    products: true,
+    mundial: true,
+    how_to_buy: true,
+    faq: true,
+  },
 };
 
 /** Carga todas las settings y las fusiona con los defaults. */
