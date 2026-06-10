@@ -131,7 +131,10 @@ export async function getEncargos() {
   const supabase = await db();
   const { data } = await supabase
     .from('encargos')
-    .select('*')
+    .select('*, items:encargo_items(*)')
     .order('created_at', { ascending: false });
-  return data ?? [];
+  return (data ?? []).map((e: any) => ({
+    ...e,
+    items: (e.items ?? []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+  }));
 }
