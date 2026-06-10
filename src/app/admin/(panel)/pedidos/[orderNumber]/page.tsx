@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { PageHeader, StatusBadge } from '@/components/admin/ui';
 import { OrderControls } from './OrderControls';
 import { getAdminOrder } from '@/lib/admin/data';
+import { createClient } from '@/lib/supabase/server';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 
 export default async function OrderDetailPage({
@@ -13,6 +14,19 @@ export default async function OrderDetailPage({
   const { orderNumber } = await params;
   const order = await getAdminOrder(orderNumber);
   if (!order) notFound();
+
+  // Comprobante de transferencia (URL firmada para verlo de forma segura).
+  const proofPath = (order.payments ?? []).find((p: any) => p.proof_url)?.proof_url as
+    | string
+    | undefined;
+  let proofUrl: string | null = null;
+  if (proofPath) {
+    const supabase = await createClient();
+    const { data: signed } = await supabase.storage
+      .from('comprobantes')
+      .createSignedUrl(proofPath, 60 * 30);
+    proofUrl = signed?.signedUrl ?? null;
+  }
 
   const profit = (Number(order.total) || 0) - (Number(order.estimated_cost) || 0);
   const wspMsg = `Hola ${order.customer_name?.split(' ')[0] || ''}, te escribimos de Casaca de Cancha por tu pedido #${order.order_number}.`;
@@ -68,6 +82,33 @@ export default async function OrderDetailPage({
               <Row label="Ganancia estimada" value={formatPrice(profit)} accent />
             </div>
           </div>
+
+          {/* Comprobante de transferencia */}
+          {proofPath && (
+            <div className="card border-celeste/40 p-5">
+              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-navy/60">
+                Comprobante de transferencia
+              </h2>
+              {order.payment_status === 'payment_review' && (
+                <p className="mb-3 rounded-lg bg-amber-50 p-2 text-sm font-medium text-amber-800">
+                  ⏳ El cliente subió el comprobante. Verificá que el dinero llegó y marcá el pago
+                  como “Pagado”.
+                </p>
+              )}
+              {proofUrl ? (
+                <a
+                  href={proofUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn border-2 border-navy text-navy hover:bg-navy hover:text-cream"
+                >
+                  Ver comprobante ↗
+                </a>
+              ) : (
+                <p className="text-sm text-navy/50">No se pudo generar el enlace del comprobante.</p>
+              )}
+            </div>
+          )}
 
           <OrderControls order={order} />
         </div>

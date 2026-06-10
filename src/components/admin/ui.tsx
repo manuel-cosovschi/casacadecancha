@@ -99,7 +99,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
   pending_payment: 'Pago pendiente',
-  payment_review: 'En revisión',
+  payment_review: 'Comprobante en revisión',
   paid: 'Pagado',
   refunded: 'Reembolsado',
   rejected: 'Rechazado',
