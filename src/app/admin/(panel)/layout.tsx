@@ -10,11 +10,11 @@ export default async function PanelLayout({
   const profile = await requireAdmin();
 
   return (
-    <div className="flex min-h-screen bg-cream lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-cream lg:flex-row">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader profile={profile} />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );
