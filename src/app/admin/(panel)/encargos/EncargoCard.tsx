@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateEncargo, deleteEncargo, updateItemOrdered } from './actions';
+import { updateEncargo, deleteEncargo } from './actions';
 import { EncargoForm, type MatrixRow } from './EncargoForm';
 import { formatPrice } from '@/lib/utils';
 
@@ -29,18 +29,10 @@ export function EncargoCard({ e, matrix }: { e: any; matrix: MatrixRow[] }) {
   const cost = items.reduce((a, i) => a + Number(i.unit_cost) * i.quantity, 0);
   const margin = total - cost;
   const units = items.reduce((a, i) => a + i.quantity, 0);
-  const allOrdered = items.length > 0 && items.every((i) => (i.ordered_qty || 0) >= i.quantity);
 
   function patch(p: Record<string, unknown>) {
     start(async () => {
       await updateEncargo(e.id, p);
-      router.refresh();
-    });
-  }
-
-  function setOrdered(itemId: string, n: number) {
-    start(async () => {
-      await updateItemOrdered(itemId, n);
       router.refresh();
     });
   }
@@ -67,41 +59,16 @@ export function EncargoCard({ e, matrix }: { e: any; matrix: MatrixRow[] }) {
         </span>
       </div>
 
-      {/* Ítems con reservado / pedido */}
-      <ul className="mt-3 space-y-1.5 rounded-xl bg-cream-soft/60 p-3">
-        {items.map((i) => {
-          const ord = i.ordered_qty || 0;
-          const falta = i.quantity - ord;
-          return (
-            <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="text-navy/80">
-                <b className="text-navy">{i.quantity}×</b> {i.product}
-                {i.size ? <span className="text-navy/50"> · Talle {i.size}</span> : ''}
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="text-xs text-navy/55">Pedido:</span>
-                <input
-                  type="number"
-                  min="0"
-                  defaultValue={ord}
-                  onBlur={(ev) => {
-                    const n = Number(ev.target.value);
-                    if (n !== ord) setOrdered(i.id, n);
-                  }}
-                  disabled={pending}
-                  className="w-14 rounded-lg border border-navy/20 px-2 py-1 text-xs"
-                />
-                {falta > 0 ? (
-                  <span className="badge bg-amber-100 text-amber-800">Faltan {falta}</span>
-                ) : ord > i.quantity ? (
-                  <span className="badge bg-blue-100 text-blue-800">+{ord - i.quantity}</span>
-                ) : (
-                  <span className="badge bg-green-100 text-green-800">OK</span>
-                )}
-              </span>
-            </li>
-          );
-        })}
+      <ul className="mt-3 divide-y divide-navy/5 rounded-xl bg-cream-soft/60 px-3">
+        {items.map((i) => (
+          <li key={i.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+            <span className="text-navy/80">
+              <b className="text-navy">{i.quantity}×</b> {i.product}
+              {i.size ? <span className="text-navy/50"> · Talle {i.size}</span> : ''}
+            </span>
+            <span className="shrink-0 font-medium text-navy/70">{formatPrice(Number(i.sale_price) * i.quantity)}</span>
+          </li>
+        ))}
       </ul>
 
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
@@ -115,9 +82,6 @@ export function EncargoCard({ e, matrix }: { e: any; matrix: MatrixRow[] }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy/10 pt-3">
-        <span className={`badge ${allOrdered ? 'bg-green-100 text-green-800' : 'border border-amber-300 text-amber-700'}`}>
-          {allOrdered ? '✓ Pedido completo' : 'Pedido incompleto'}
-        </span>
         <button
           onClick={() => patch({ paid: !e.paid })}
           disabled={pending}

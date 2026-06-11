@@ -159,32 +159,55 @@ export async function getEncargos() {
   }));
 }
 
+export async function getSupplierOrders() {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('supplier_orders')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(300);
+  return data ?? [];
+}
+
 export interface StockMatrixRow {
   key: string;
   product: string;
   size: string;
-  reserved: number;
-  ordered: number;
-  available: number;
+  reserved: number; // demanda de encargos (no cancelados): pendiente + entregado
+  ordered: number; // comprado al proveedor
+  available: number; // ordered - reserved
 }
 
-/** Stock por modelo+talle a partir de los encargos: reservado vs pedido al proveedor. */
+/** Stock por modelo+talle: comprado al proveedor vs reservado por encargos. */
 export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   const supabase = await db();
-  const { data } = await supabase
-    .from('encargo_items')
-    .select('product, size, quantity, ordered_qty, encargos(status)');
+  const [{ data: items }, { data: orders }] = await Promise.all([
+    supabase.from('encargo_items').select('product, size, quantity, encargos(status)'),
+    supabase.from('supplier_orders').select('product, size, quantity'),
+  ]);
+
   const map = new Map<string, StockMatrixRow>();
-  for (const it of (data ?? []) as any[]) {
-    const product = (it.product || '—').trim();
-    const size = (it.size || '').trim();
-    const key = `${product.toLowerCase()}|${size.toLowerCase()}`;
+  const get = (product: string, size: string) => {
+    const p = (product || '—').trim();
+    const s = (size || '').trim();
+    const key = `${p.toLowerCase()}|${s.toLowerCase()}`;
+    let row = map.get(key);
+    if (!row) {
+      row = { key, product: p, size: s, reserved: 0, ordered: 0, available: 0 };
+      map.set(key, row);
+    }
+    return row;
+  };
+
+  for (const it of (items ?? []) as any[]) {
     const status = Array.isArray(it.encargos) ? it.encargos[0]?.status : it.encargos?.status;
-    const row = map.get(key) || { key, product, size, reserved: 0, ordered: 0, available: 0 };
-    if (status !== 'cancelado') row.reserved += it.quantity || 0;
-    row.ordered += it.ordered_qty || 0;
-    map.set(key, row);
+    if (status === 'cancelado') continue;
+    get(it.product, it.size).reserved += it.quantity || 0;
   }
+  for (const o of (orders ?? []) as any[]) {
+    get(o.product, o.size).ordered += o.quantity || 0;
+  }
+
   const rows = Array.from(map.values()).map((r) => ({ ...r, available: r.ordered - r.reserved }));
   return rows.sort((a, b) => a.product.localeCompare(b.product) || a.size.localeCompare(b.size));
 }
