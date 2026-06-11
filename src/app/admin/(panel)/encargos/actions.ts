@@ -4,7 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { assertWriter } from '@/lib/admin/actions-helpers';
 import { sendAdminPush } from '@/lib/push';
+import { syncEncargoReserved } from '@/lib/admin/encargo-stock';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+async function variantIdsOfEncargo(supabase: SupabaseClient, encargoId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('encargo_items')
+    .select('variant_id')
+    .eq('encargo_id', encargoId);
+  return (data ?? []).map((r: any) => r.variant_id).filter(Boolean);
+}
 
 function keyOf(product: string, size: string) {
   return `${(product || '').trim().toLowerCase()}|${(size || '').trim().toLowerCase()}`;
@@ -46,6 +55,7 @@ interface EncargoItemInput {
   size?: string;
   quantity: number;
   ordered_qty?: number;
+  variant_id?: string | null;
   sale_price: number;
   unit_cost: number;
 }
@@ -94,6 +104,7 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
       size: i.size?.trim() || null,
       quantity: Math.max(1, Number(i.quantity) || 1),
       ordered_qty: Math.max(0, Number(i.ordered_qty) || 0),
+      variant_id: i.variant_id || null,
       sale_price: Number(i.sale_price) || 0,
       unit_cost: Number(i.unit_cost) || 0,
       sort_order: idx,
@@ -105,6 +116,7 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
   const before = await availabilityMap(supabase);
 
   let encargoId = input.id;
+  const oldVariantIds = encargoId ? await variantIdsOfEncargo(supabase, encargoId) : [];
   if (encargoId) {
     const { error } = await supabase.from('encargos').update(header).eq('id', encargoId);
     if (error) return { error: error.message };
@@ -119,6 +131,9 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
     .from('encargo_items')
     .insert(items.map((i) => ({ ...i, encargo_id: encargoId })));
   if (itErr) return { error: itErr.message };
+
+  // Sincronizar la reserva por encargos en el stock web (variantes afectadas).
+  await syncEncargoReserved([...oldVariantIds, ...items.map((i) => i.variant_id)]);
 
   // Estado DESPUÉS: si algún modelo+talle pasó de tener stock a quedarse sin, avisar.
   try {
@@ -156,6 +171,10 @@ export async function updateEncargo(
   const supabase = await createClient();
   const { error } = await supabase.from('encargos').update(patch).eq('id', id);
   if (error) return { error: error.message };
+  // Si cambió el estado (ej. a/desde cancelado), recalcular reserva web.
+  if ('status' in patch) {
+    await syncEncargoReserved(await variantIdsOfEncargo(supabase, id));
+  }
   revalidatePath('/admin/encargos');
   return { ok: true };
 }
@@ -178,8 +197,10 @@ export async function deleteEncargo(id: string): Promise<Result> {
   const g = await guard();
   if (g) return g;
   const supabase = await createClient();
+  const variantIds = await variantIdsOfEncargo(supabase, id);
   const { error } = await supabase.from('encargos').delete().eq('id', id);
   if (error) return { error: error.message };
+  await syncEncargoReserved(variantIds);
   revalidatePath('/admin/encargos');
   return { ok: true };
 }

@@ -40,12 +40,16 @@ export function slugify(text: string): string {
     .replace(/-+/g, '-');
 }
 
-/** Stock disponible = físico - reservado. */
+/** Stock disponible = físico - reservado web - reservado por encargos. */
 export function availableStock(v: {
   stock_physical: number;
   stock_reserved: number;
+  encargo_reserved?: number;
 }): number {
-  return Math.max(0, (v.stock_physical || 0) - (v.stock_reserved || 0));
+  return Math.max(
+    0,
+    (v.stock_physical || 0) - (v.stock_reserved || 0) - (v.encargo_reserved || 0),
+  );
 }
 
 /** Construye un link de WhatsApp con mensaje pre-cargado. */

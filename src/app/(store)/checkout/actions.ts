@@ -75,7 +75,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const variantIds = data.items.map((i) => i.variantId);
   const { data: variants, error: vErr } = await supabase
     .from('product_variants')
-    .select('id, product_id, size, stock_physical, stock_reserved, variant_cost, variant_price, active, products(name, price, unit_cost, packaging_cost, allow_backorder)')
+    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_cost, variant_price, active, products(name, price, unit_cost, packaging_cost, allow_backorder)')
     .in('id', variantIds);
 
   if (vErr || !variants) {
@@ -103,7 +103,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       return { ok: false, error: 'Un producto del carrito ya no está disponible.' };
     }
     const product = Array.isArray(v.products) ? v.products[0] : (v.products as any);
-    const available = (v.stock_physical || 0) - (v.stock_reserved || 0);
+    const available = (v.stock_physical || 0) - (v.stock_reserved || 0) - (v.encargo_reserved || 0);
     const allowBackorder = Boolean(product?.allow_backorder);
 
     if (available < item.quantity && !allowBackorder) {
