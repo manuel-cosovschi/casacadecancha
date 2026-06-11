@@ -10,21 +10,31 @@ function keyOf(product: string, size: string) {
   return `${(product || '').trim().toLowerCase()}|${(size || '').trim().toLowerCase()}`;
 }
 
-/** Disponible por modelo+talle = pedido al proveedor − comprometido (no cancelado). */
+/** Disponible por modelo+talle = comprado al proveedor − reservado por encargos (no cancelados). */
 async function availabilityMap(
   supabase: SupabaseClient,
 ): Promise<Map<string, { available: number; product: string; size: string }>> {
-  const { data } = await supabase
-    .from('encargo_items')
-    .select('product, size, quantity, ordered_qty, encargos(status)');
+  const [{ data: items }, { data: orders }] = await Promise.all([
+    supabase.from('encargo_items').select('product, size, quantity, encargos(status)'),
+    supabase.from('supplier_orders').select('product, size, quantity'),
+  ]);
   const map = new Map<string, { available: number; product: string; size: string }>();
-  for (const it of (data ?? []) as any[]) {
+  const get = (product: string, size: string) => {
+    const k = keyOf(product, size);
+    let row = map.get(k);
+    if (!row) {
+      row = { available: 0, product: (product || '').trim(), size: (size || '').trim() };
+      map.set(k, row);
+    }
+    return row;
+  };
+  for (const it of (items ?? []) as any[]) {
     const status = Array.isArray(it.encargos) ? it.encargos[0]?.status : it.encargos?.status;
     if (status === 'cancelado') continue;
-    const k = keyOf(it.product, it.size);
-    const row = map.get(k) || { available: 0, product: (it.product || '').trim(), size: (it.size || '').trim() };
-    row.available += (it.ordered_qty || 0) - (it.quantity || 0);
-    map.set(k, row);
+    get(it.product, it.size).available -= it.quantity || 0;
+  }
+  for (const o of (orders ?? []) as any[]) {
+    get(o.product, o.size).available += o.quantity || 0;
   }
   return map;
 }

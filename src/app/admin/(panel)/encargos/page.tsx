@@ -2,7 +2,8 @@ import { PageHeader, StatCard, EmptyState } from '@/components/admin/ui';
 import { ExportButton } from '@/components/admin/ExportButton';
 import { NewEncargoForm } from './NewEncargoForm';
 import { EncargoCard } from './EncargoCard';
-import { getEncargos, getStockMatrix } from '@/lib/admin/data';
+import { SupplierOrders } from './SupplierOrders';
+import { getEncargos, getStockMatrix, getSupplierOrders } from '@/lib/admin/data';
 import { formatPrice } from '@/lib/utils';
 
 function totals(e: any) {
@@ -13,7 +14,11 @@ function totals(e: any) {
 }
 
 export default async function EncargosPage() {
-  const [encargos, matrix] = await Promise.all([getEncargos(), getStockMatrix()]);
+  const [encargos, matrix, supplierOrders] = await Promise.all([
+    getEncargos(),
+    getStockMatrix(),
+    getSupplierOrders(),
+  ]);
   const activos = encargos.filter((e: any) => e.status !== 'cancelado');
 
   const sinCobrar = activos.filter((e: any) => !e.paid).length;
@@ -52,6 +57,11 @@ export default async function EncargosPage() {
         <StatCard label="Unidades por pedir" value={String(porPedir)} accent={porPedir > 0 ? 'amber' : 'green'} hint="al proveedor" />
         <StatCard label="Stock sobrante" value={String(sobrante)} hint="pediste de más" />
         <StatCard label="Ganancia estimada" value={formatPrice(ganancia)} accent="green" hint={aCobrar > 0 ? `${formatPrice(aCobrar)} a cobrar` : undefined} />
+      </div>
+
+      {/* Pedidos al proveedor */}
+      <div className="mb-5">
+        <SupplierOrders orders={supplierOrders} />
       </div>
 
       {/* Stock por modelo y talle */}
