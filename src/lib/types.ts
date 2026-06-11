@@ -46,6 +46,7 @@ export interface ProductVariant {
   sku: string | null;
   stock_physical: number;
   stock_reserved: number;
+  encargo_reserved: number;
   stock_minimum: number;
   variant_cost: number | null;
   variant_price: number | null;

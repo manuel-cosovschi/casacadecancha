@@ -9,6 +9,7 @@ interface Item {
   product: string;
   size: string;
   quantity: number;
+  variant_id: string;
   sale_price: number;
   unit_cost: number;
 }
@@ -21,7 +22,14 @@ export interface MatrixRow {
   ordered: number;
 }
 
-const emptyItem: Item = { product: '', size: '', quantity: 1, sale_price: 0, unit_cost: 0 };
+export interface CatalogVariant {
+  id: string;
+  productName: string;
+  size: string | null;
+  label: string;
+}
+
+const emptyItem: Item = { product: '', size: '', quantity: 1, variant_id: '', sale_price: 0, unit_cost: 0 };
 
 const STATUS = [
   { value: 'pendiente', label: 'Pendiente' },
@@ -37,11 +45,13 @@ function keyOf(product: string, size: string) {
 export function EncargoForm({
   encargo,
   matrix = [],
+  catalog = [],
   onDone,
   onCancel,
 }: {
   encargo?: any;
   matrix?: MatrixRow[];
+  catalog?: CatalogVariant[];
   onDone?: () => void;
   onCancel?: () => void;
 }) {
@@ -58,6 +68,7 @@ export function EncargoForm({
           product: i.product ?? '',
           size: i.size ?? '',
           quantity: i.quantity ?? 1,
+          variant_id: i.variant_id ?? '',
           sale_price: Number(i.sale_price) || 0,
           unit_cost: Number(i.unit_cost) || 0,
         }))
@@ -89,6 +100,15 @@ export function EncargoForm({
 
   function updateItem(idx: number, patch: Partial<Item>) {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  }
+
+  function selectVariant(idx: number, id: string) {
+    if (!id) {
+      updateItem(idx, { variant_id: '' });
+      return;
+    }
+    const v = catalog.find((c) => c.id === id);
+    updateItem(idx, { variant_id: id, product: v?.productName || '', size: v?.size || '' });
   }
 
   async function submit() {
@@ -158,6 +178,18 @@ export function EncargoForm({
             }
             return (
               <div key={idx} className="rounded-xl border border-navy/10 p-2">
+                {catalog.length > 0 && (
+                  <select
+                    value={it.variant_id}
+                    onChange={(e) => selectVariant(idx, e.target.value)}
+                    className="input !py-1.5 mb-2"
+                  >
+                    <option value="">Producto manual (no afecta el stock web)</option>
+                    {catalog.map((c) => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
+                    ))}
+                  </select>
+                )}
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-12 sm:items-end">
                   <label className="col-span-2 text-xs sm:col-span-4">
                     <span className="text-[11px] text-navy/50">Modelo</span>

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateEncargo, deleteEncargo } from './actions';
-import { EncargoForm, type MatrixRow } from './EncargoForm';
+import { EncargoForm, type MatrixRow, type CatalogVariant } from './EncargoForm';
 import { formatPrice } from '@/lib/utils';
 
 const STATUS = [
@@ -19,7 +19,7 @@ const STATUS_STYLE: Record<string, string> = {
   cancelado: 'bg-navy/10 text-navy/60',
 };
 
-export function EncargoCard({ e, matrix }: { e: any; matrix: MatrixRow[] }) {
+export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[]; catalog: CatalogVariant[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
@@ -44,7 +44,7 @@ export function EncargoCard({ e, matrix }: { e: any; matrix: MatrixRow[] }) {
   }
 
   if (editing) {
-    return <EncargoForm encargo={e} matrix={matrix} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />;
+    return <EncargoForm encargo={e} matrix={matrix} catalog={catalog} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />;
   }
 
   return (

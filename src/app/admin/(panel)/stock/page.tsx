@@ -1,11 +1,17 @@
 import { PageHeader, EmptyState } from '@/components/admin/ui';
 import { ExportButton } from '@/components/admin/ExportButton';
+import { StockBot } from './StockBot';
 import { getInventory } from '@/lib/admin/data';
 import { adjustStock } from '../_crud-actions';
 import { availableStock, formatPrice } from '@/lib/utils';
 
 export default async function StockPage() {
   const variants = await getInventory();
+  const botRows = variants.map((v: any) => ({
+    product: v.products?.name ?? 'Producto',
+    size: v.size,
+    available: availableStock(v),
+  }));
   const lowStock = variants.filter((v: any) => availableStock(v) <= v.stock_minimum);
   const stockValue = variants.reduce(
     (acc: number, v: any) => acc + v.stock_physical * (v.variant_cost ?? 0),
@@ -32,6 +38,8 @@ export default async function StockPage() {
           />
         }
       />
+
+      <StockBot rows={botRows} />
 
       {variants.length === 0 ? (
         <EmptyState message="No hay variantes cargadas. Creá productos con talles." cta={{ label: 'Ir a productos', href: '/admin/productos' }} />

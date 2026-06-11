@@ -159,6 +159,36 @@ export async function getEncargos() {
   }));
 }
 
+export interface CatalogVariant {
+  id: string;
+  product_id: string;
+  productName: string;
+  size: string | null;
+  label: string;
+}
+
+/** Variantes del catálogo (para vincular encargos/pedidos con el stock web). */
+export async function getCatalogVariants(): Promise<CatalogVariant[]> {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('product_variants')
+    .select('id, product_id, size, sort_order, active, products(name, active)')
+    .eq('active', true)
+    .order('sort_order');
+  return (data ?? [])
+    .filter((v: any) => (Array.isArray(v.products) ? v.products[0] : v.products)?.active)
+    .map((v: any) => {
+      const product = Array.isArray(v.products) ? v.products[0] : v.products;
+      return {
+        id: v.id,
+        product_id: v.product_id,
+        productName: product?.name ?? 'Producto',
+        size: v.size,
+        label: `${product?.name ?? 'Producto'}${v.size ? ` · ${v.size}` : ''}`,
+      };
+    });
+}
+
 export async function getSupplierOrders() {
   const supabase = await db();
   const { data } = await supabase

@@ -5,11 +5,30 @@ import { useRouter } from 'next/navigation';
 import { createSupplierOrder, updateSupplierOrder, deleteSupplierOrder } from './supplier-actions';
 import { formatPrice } from '@/lib/utils';
 
-export function SupplierOrders({ orders }: { orders: any[] }) {
+interface CatalogVariant {
+  id: string;
+  productName: string;
+  size: string | null;
+  label: string;
+}
+
+export function SupplierOrders({ orders, catalog = [] }: { orders: any[]; catalog?: CatalogVariant[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+  const [variantId, setVariantId] = useState('');
+  const [product, setProduct] = useState('');
+  const [size, setSize] = useState('');
+
+  function selectVariant(id: string) {
+    setVariantId(id);
+    if (id) {
+      const v = catalog.find((c) => c.id === id);
+      setProduct(v?.productName || '');
+      setSize(v?.size || '');
+    }
+  }
 
   async function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -17,6 +36,9 @@ export function SupplierOrders({ orders }: { orders: any[] }) {
     start(async () => {
       await createSupplierOrder(fd);
       formRef.current?.reset();
+      setVariantId('');
+      setProduct('');
+      setSize('');
       setOpen(false);
       router.refresh();
     });
@@ -49,13 +71,23 @@ export function SupplierOrders({ orders }: { orders: any[] }) {
 
       {open && (
         <form ref={formRef} onSubmit={onCreate} className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-navy/10 p-3 sm:grid-cols-12 sm:items-end">
+          {catalog.length > 0 && (
+            <label className="col-span-2 text-xs sm:col-span-12">
+              <span className="text-[11px] text-navy/50">Producto web (suma stock al recibir)</span>
+              <select value={variantId} onChange={(e) => selectVariant(e.target.value)} className="input !py-1.5">
+                <option value="">Producto manual (no afecta stock web)</option>
+                {catalog.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </label>
+          )}
+          <input type="hidden" name="variant_id" value={variantId} />
           <label className="col-span-2 text-xs sm:col-span-3">
             <span className="text-[11px] text-navy/50">Modelo *</span>
-            <input name="product" required className="input !py-1.5" placeholder="Titular 2026" />
+            <input name="product" required value={product} onChange={(e) => setProduct(e.target.value)} className="input !py-1.5" placeholder="Titular 2026" />
           </label>
           <label className="text-xs sm:col-span-1">
             <span className="text-[11px] text-navy/50">Talle</span>
-            <input name="size" className="input !py-1.5" placeholder="M" />
+            <input name="size" value={size} onChange={(e) => setSize(e.target.value)} className="input !py-1.5" placeholder="M" />
           </label>
           <label className="text-xs sm:col-span-2">
             <span className="text-[11px] text-navy/50">Cantidad</span>
