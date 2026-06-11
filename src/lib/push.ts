@@ -43,6 +43,29 @@ export async function sendToSubscriptions(
   return results.filter((r) => r.status === 'fulfilled').length;
 }
 
+/** Push genérico a todos los administradores suscritos. */
+export async function sendAdminPush(
+  title: string,
+  body: string,
+  url = '/admin/encargos',
+  tag = 'cdc-admin',
+): Promise<void> {
+  if (!ensureVapid()) return;
+  const secret = process.env.PUSH_SECRET;
+  if (!secret) return;
+  try {
+    const supabase = await createClient();
+    const { data: subs } = await supabase.rpc('get_push_subscriptions', { p_secret: secret });
+    if (!subs || subs.length === 0) return;
+    await sendToSubscriptions(
+      subs as PushSub[],
+      JSON.stringify({ title, body, url, tag }),
+    );
+  } catch {
+    /* no-op */
+  }
+}
+
 /**
  * Envía una notificación push a todos los administradores suscritos
  * cuando entra un pedido nuevo. Best-effort (no rompe el checkout).

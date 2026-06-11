@@ -3,6 +3,31 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { assertWriter } from '@/lib/admin/actions-helpers';
+import { sendAdminPush } from '@/lib/push';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+function keyOf(product: string, size: string) {
+  return `${(product || '').trim().toLowerCase()}|${(size || '').trim().toLowerCase()}`;
+}
+
+/** Disponible por modelo+talle = pedido al proveedor − comprometido (no cancelado). */
+async function availabilityMap(
+  supabase: SupabaseClient,
+): Promise<Map<string, { available: number; product: string; size: string }>> {
+  const { data } = await supabase
+    .from('encargo_items')
+    .select('product, size, quantity, ordered_qty, encargos(status)');
+  const map = new Map<string, { available: number; product: string; size: string }>();
+  for (const it of (data ?? []) as any[]) {
+    const status = Array.isArray(it.encargos) ? it.encargos[0]?.status : it.encargos?.status;
+    if (status === 'cancelado') continue;
+    const k = keyOf(it.product, it.size);
+    const row = map.get(k) || { available: 0, product: (it.product || '').trim(), size: (it.size || '').trim() };
+    row.available += (it.ordered_qty || 0) - (it.quantity || 0);
+    map.set(k, row);
+  }
+  return map;
+}
 
 type Result = { ok?: boolean; error?: string };
 
@@ -66,6 +91,9 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
 
   if (items.length === 0) return { error: 'Agregá al menos un ítem (modelo/talle).' };
 
+  // Estado de stock ANTES de guardar (para detectar quiebre).
+  const before = await availabilityMap(supabase);
+
   let encargoId = input.id;
   if (encargoId) {
     const { error } = await supabase.from('encargos').update(header).eq('id', encargoId);
@@ -81,6 +109,28 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
     .from('encargo_items')
     .insert(items.map((i) => ({ ...i, encargo_id: encargoId })));
   if (itErr) return { error: itErr.message };
+
+  // Estado DESPUÉS: si algún modelo+talle pasó de tener stock a quedarse sin, avisar.
+  try {
+    const after = await availabilityMap(supabase);
+    const affected = new Set(items.map((i) => keyOf(i.product, i.size || '')));
+    for (const k of affected) {
+      const a = after.get(k);
+      const bAvail = before.get(k)?.available ?? 0;
+      if (a && bAvail > 0 && a.available <= 0) {
+        const label = `${a.product}${a.size ? ` talle ${a.size}` : ''}`;
+        const faltan = -a.available;
+        await sendAdminPush(
+          '⚠️ Te quedaste sin stock',
+          `${label}: ${faltan > 0 ? `faltan pedir ${faltan} al proveedor` : 'stock agotado del pedido actual'}.`,
+          '/admin/encargos',
+          `stock-${k}`,
+        );
+      }
+    }
+  } catch {
+    /* el aviso no debe romper el guardado */
+  }
 
   revalidatePath('/admin/encargos');
   return { ok: true };
