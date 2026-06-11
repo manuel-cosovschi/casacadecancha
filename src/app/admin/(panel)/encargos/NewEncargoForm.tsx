@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { EncargoForm } from './EncargoForm';
+import { EncargoForm, type MatrixRow } from './EncargoForm';
 
-export function NewEncargoForm() {
+export function NewEncargoForm({ matrix }: { matrix: MatrixRow[] }) {
   const [open, setOpen] = useState(false);
 
   if (!open) {
@@ -13,5 +13,5 @@ export function NewEncargoForm() {
       </button>
     );
   }
-  return <EncargoForm onDone={() => setOpen(false)} onCancel={() => setOpen(false)} />;
+  return <EncargoForm matrix={matrix} onDone={() => setOpen(false)} onCancel={() => setOpen(false)} />;
 }
