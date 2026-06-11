@@ -10,6 +10,7 @@ interface EncargoItemInput {
   product: string;
   size?: string;
   quantity: number;
+  ordered_qty?: number;
   sale_price: number;
   unit_cost: number;
 }
@@ -57,6 +58,7 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
       product: i.product.trim(),
       size: i.size?.trim() || null,
       quantity: Math.max(1, Number(i.quantity) || 1),
+      ordered_qty: Math.max(0, Number(i.ordered_qty) || 0),
       sale_price: Number(i.sale_price) || 0,
       unit_cost: Number(i.unit_cost) || 0,
       sort_order: idx,
@@ -93,6 +95,20 @@ export async function updateEncargo(
   if (g) return g;
   const supabase = await createClient();
   const { error } = await supabase.from('encargos').update(patch).eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/encargos');
+  return { ok: true };
+}
+
+/** Actualiza rápido cuántas unidades de un ítem se pidieron al proveedor. */
+export async function updateItemOrdered(itemId: string, orderedQty: number): Promise<Result> {
+  const g = await guard();
+  if (g) return g;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('encargo_items')
+    .update({ ordered_qty: Math.max(0, Math.round(orderedQty) || 0) })
+    .eq('id', itemId);
   if (error) return { error: error.message };
   revalidatePath('/admin/encargos');
   return { ok: true };

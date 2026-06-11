@@ -158,3 +158,33 @@ export async function getEncargos() {
     items: (e.items ?? []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
   }));
 }
+
+export interface StockMatrixRow {
+  key: string;
+  product: string;
+  size: string;
+  reserved: number;
+  ordered: number;
+  available: number;
+}
+
+/** Stock por modelo+talle a partir de los encargos: reservado vs pedido al proveedor. */
+export async function getStockMatrix(): Promise<StockMatrixRow[]> {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('encargo_items')
+    .select('product, size, quantity, ordered_qty, encargos(status)');
+  const map = new Map<string, StockMatrixRow>();
+  for (const it of (data ?? []) as any[]) {
+    const product = (it.product || '—').trim();
+    const size = (it.size || '').trim();
+    const key = `${product.toLowerCase()}|${size.toLowerCase()}`;
+    const status = Array.isArray(it.encargos) ? it.encargos[0]?.status : it.encargos?.status;
+    const row = map.get(key) || { key, product, size, reserved: 0, ordered: 0, available: 0 };
+    if (status !== 'cancelado') row.reserved += it.quantity || 0;
+    row.ordered += it.ordered_qty || 0;
+    map.set(key, row);
+  }
+  const rows = Array.from(map.values()).map((r) => ({ ...r, available: r.ordered - r.reserved }));
+  return rows.sort((a, b) => a.product.localeCompare(b.product) || a.size.localeCompare(b.size));
+}

@@ -9,11 +9,20 @@ interface Item {
   product: string;
   size: string;
   quantity: number;
+  ordered_qty: number;
   sale_price: number;
   unit_cost: number;
 }
 
-const emptyItem: Item = { product: '', size: '', quantity: 1, sale_price: 0, unit_cost: 0 };
+export interface MatrixRow {
+  key: string;
+  product: string;
+  size: string;
+  reserved: number;
+  ordered: number;
+}
+
+const emptyItem: Item = { product: '', size: '', quantity: 1, ordered_qty: 0, sale_price: 0, unit_cost: 0 };
 
 const STATUS = [
   { value: 'pendiente', label: 'Pendiente' },
@@ -22,12 +31,18 @@ const STATUS = [
   { value: 'cancelado', label: 'Cancelado' },
 ];
 
+function keyOf(product: string, size: string) {
+  return `${product.trim().toLowerCase()}|${(size || '').trim().toLowerCase()}`;
+}
+
 export function EncargoForm({
   encargo,
+  matrix = [],
   onDone,
   onCancel,
 }: {
   encargo?: any;
+  matrix?: MatrixRow[];
   onDone?: () => void;
   onCancel?: () => void;
 }) {
@@ -36,7 +51,6 @@ export function EncargoForm({
   const [contact, setContact] = useState(encargo?.contact ?? '');
   const [supplier, setSupplier] = useState(encargo?.supplier ?? '');
   const [status, setStatus] = useState(encargo?.status ?? 'pendiente');
-  const [supplierOrdered, setSupplierOrdered] = useState(Boolean(encargo?.supplier_ordered));
   const [paid, setPaid] = useState(Boolean(encargo?.paid));
   const [notes, setNotes] = useState(encargo?.notes ?? '');
   const [items, setItems] = useState<Item[]>(
@@ -45,6 +59,7 @@ export function EncargoForm({
           product: i.product ?? '',
           size: i.size ?? '',
           quantity: i.quantity ?? 1,
+          ordered_qty: i.ordered_qty ?? 0,
           sale_price: Number(i.sale_price) || 0,
           unit_cost: Number(i.unit_cost) || 0,
         }))
@@ -52,6 +67,27 @@ export function EncargoForm({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Lo que este encargo ya aporta (para no contarlo dos veces al editar).
+  const own = new Map<string, { reserved: number; ordered: number }>();
+  for (const i of encargo?.items ?? []) {
+    const k = keyOf(i.product ?? '', i.size ?? '');
+    const o = own.get(k) || { reserved: 0, ordered: 0 };
+    o.reserved += i.quantity || 0;
+    o.ordered += i.ordered_qty || 0;
+    own.set(k, o);
+  }
+
+  /** Stock libre de OTROS encargos para un modelo+talle. */
+  function freeStock(product: string, size: string) {
+    if (!product.trim()) return null;
+    const k = keyOf(product, size);
+    const m = matrix.find((r) => r.key === k);
+    const ownK = own.get(k) || { reserved: 0, ordered: 0 };
+    const reserved = (m?.reserved || 0) - ownK.reserved;
+    const ordered = (m?.ordered || 0) - ownK.ordered;
+    return ordered - reserved; // >0 sobra, <0 falta
+  }
 
   const total = items.reduce((a, i) => a + i.sale_price * i.quantity, 0);
   const cost = items.reduce((a, i) => a + i.unit_cost * i.quantity, 0);
@@ -77,7 +113,7 @@ export function EncargoForm({
       customer_name: customerName,
       contact,
       supplier,
-      supplier_ordered: supplierOrdered,
+      supplier_ordered: items.every((i) => i.ordered_qty >= i.quantity),
       paid,
       status,
       notes,
@@ -98,17 +134,10 @@ export function EncargoForm({
         {encargo ? 'Editar encargo' : 'Nuevo encargo'}
       </h2>
 
-      {/* Cliente */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Cliente *">
-          <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="input" />
-        </Field>
-        <Field label="Contacto (WhatsApp)">
-          <input value={contact} onChange={(e) => setContact(e.target.value)} className="input" />
-        </Field>
-        <Field label="Proveedor">
-          <input value={supplier} onChange={(e) => setSupplier(e.target.value)} className="input" />
-        </Field>
+        <Field label="Cliente *"><input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="input" /></Field>
+        <Field label="Contacto (WhatsApp)"><input value={contact} onChange={(e) => setContact(e.target.value)} className="input" /></Field>
+        <Field label="Proveedor"><input value={supplier} onChange={(e) => setSupplier(e.target.value)} className="input" /></Field>
         <Field label="Estado">
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
             {STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -116,55 +145,76 @@ export function EncargoForm({
         </Field>
       </div>
 
-      {/* Ítems */}
       <div>
-        <p className="label">Ítems (modelo / talle / cantidad)</p>
+        <p className="label">Ítems — Reservado (cliente) y Pedido (al proveedor)</p>
         <div className="space-y-2">
-          {items.map((it, idx) => (
-            <div key={idx} className="grid grid-cols-2 gap-2 rounded-xl border border-navy/10 p-2 sm:grid-cols-12 sm:items-end">
-              <label className="col-span-2 text-xs sm:col-span-4">
-                <span className="text-[11px] text-navy/50">Modelo</span>
-                <input value={it.product} onChange={(e) => updateItem(idx, { product: e.target.value })} className="input !py-1.5" placeholder="Ej: Titular 2026" />
-              </label>
-              <label className="text-xs sm:col-span-1">
-                <span className="text-[11px] text-navy/50">Talle</span>
-                <input value={it.size} onChange={(e) => updateItem(idx, { size: e.target.value })} className="input !py-1.5" placeholder="M" />
-              </label>
-              <label className="text-xs sm:col-span-2">
-                <span className="text-[11px] text-navy/50">Cant.</span>
-                <input type="number" min="1" value={it.quantity} onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })} className="input !py-1.5" />
-              </label>
-              <label className="text-xs sm:col-span-2">
-                <span className="text-[11px] text-navy/50">Precio U.</span>
-                <input type="number" min="0" value={it.sale_price} onChange={(e) => updateItem(idx, { sale_price: Number(e.target.value) })} className="input !py-1.5" />
-              </label>
-              <label className="text-xs sm:col-span-2">
-                <span className="text-[11px] text-navy/50">Costo U.</span>
-                <input type="number" min="0" value={it.unit_cost} onChange={(e) => updateItem(idx, { unit_cost: Number(e.target.value) })} className="input !py-1.5" />
-              </label>
-              <div className="col-span-2 flex justify-end sm:col-span-1">
-                <button
-                  type="button"
-                  onClick={() => setItems((p) => (p.length > 1 ? p.filter((_, i) => i !== idx) : p))}
-                  className="text-xs font-semibold text-red-600"
-                  aria-label="Quitar ítem"
-                >
-                  Quitar
-                </button>
+          {items.map((it, idx) => {
+            const free = freeStock(it.product, it.size);
+            let hint: { text: string; cls: string } | null = null;
+            if (it.product.trim() && it.quantity > 0) {
+              if (free !== null && free >= it.quantity) {
+                hint = { text: `✓ Ya tenés stock para cubrirlo (${free} disp. de otros pedidos). No hace falta pedir.`, cls: 'text-green-700' };
+              } else {
+                const have = Math.max(0, free ?? 0);
+                const faltan = it.quantity - have;
+                hint = {
+                  text: have > 0
+                    ? `Tenés ${have} disp.; pedí ${faltan} más al proveedor.`
+                    : `Pedí ${faltan} al proveedor.`,
+                  cls: 'text-amber-700',
+                };
+              }
+            }
+            const cubierto = it.ordered_qty >= it.quantity;
+            return (
+              <div key={idx} className="rounded-xl border border-navy/10 p-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-12 sm:items-end">
+                  <label className="col-span-2 text-xs sm:col-span-3">
+                    <span className="text-[11px] text-navy/50">Modelo</span>
+                    <input value={it.product} onChange={(e) => updateItem(idx, { product: e.target.value })} className="input !py-1.5" placeholder="Titular 2026" />
+                  </label>
+                  <label className="text-xs sm:col-span-1">
+                    <span className="text-[11px] text-navy/50">Talle</span>
+                    <input value={it.size} onChange={(e) => updateItem(idx, { size: e.target.value })} className="input !py-1.5" placeholder="M" />
+                  </label>
+                  <label className="text-xs sm:col-span-2">
+                    <span className="text-[11px] text-navy/50">Reservado</span>
+                    <input type="number" min="1" value={it.quantity} onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })} className="input !py-1.5" />
+                  </label>
+                  <label className="text-xs sm:col-span-2">
+                    <span className="text-[11px] font-semibold text-navy/60">Pedido al prov.</span>
+                    <input type="number" min="0" value={it.ordered_qty} onChange={(e) => updateItem(idx, { ordered_qty: Number(e.target.value) })} className="input !py-1.5" />
+                  </label>
+                  <label className="text-xs sm:col-span-2">
+                    <span className="text-[11px] text-navy/50">Precio U.</span>
+                    <input type="number" min="0" value={it.sale_price} onChange={(e) => updateItem(idx, { sale_price: Number(e.target.value) })} className="input !py-1.5" />
+                  </label>
+                  <label className="text-xs sm:col-span-1">
+                    <span className="text-[11px] text-navy/50">Costo U.</span>
+                    <input type="number" min="0" value={it.unit_cost} onChange={(e) => updateItem(idx, { unit_cost: Number(e.target.value) })} className="input !py-1.5" />
+                  </label>
+                  <div className="col-span-2 flex justify-end sm:col-span-1">
+                    <button type="button" onClick={() => setItems((p) => (p.length > 1 ? p.filter((_, i) => i !== idx) : p))} className="text-xs font-semibold text-red-600">Quitar</button>
+                  </div>
+                </div>
+                {hint && (
+                  <p className={`mt-1 text-xs font-medium ${hint.cls}`}>
+                    {hint.text}{' '}
+                    {!cubierto && it.ordered_qty < it.quantity && (
+                      <button type="button" onClick={() => updateItem(idx, { ordered_qty: it.quantity })} className="underline">marcar pedido exacto</button>
+                    )}
+                    {it.ordered_qty > it.quantity && <span className="text-blue-700"> · Pediste {it.ordered_qty - it.quantity} de más (queda stock).</span>}
+                  </p>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-        <button
-          type="button"
-          onClick={() => setItems((p) => [...p, { ...emptyItem }])}
-          className="mt-2 text-sm font-semibold text-navy hover:underline"
-        >
+        <button type="button" onClick={() => setItems((p) => [...p, { ...emptyItem }])} className="mt-2 text-sm font-semibold text-navy hover:underline">
           + Agregar ítem
         </button>
       </div>
 
-      {/* Totales */}
       <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-xl bg-cream-soft p-3 text-sm">
         <span className="text-navy/60">Venta: <b className="text-navy">{formatPrice(total)}</b></span>
         <span className="text-navy/60">Costo: <b className="text-navy">{formatPrice(cost)}</b></span>
@@ -174,14 +224,9 @@ export function EncargoForm({
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={supplierOrdered} onChange={(e) => setSupplierOrdered(e.target.checked)} className="h-4 w-4" /> Ya lo pedí al proveedor
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="h-4 w-4" /> Ya me pagaron
-        </label>
-      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="h-4 w-4" /> Ya me pagaron
+      </label>
 
       <Field label="Notas">
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="input min-h-16" />
@@ -193,9 +238,7 @@ export function EncargoForm({
         <button onClick={submit} disabled={busy} className="btn-primary">
           {busy ? 'Guardando…' : encargo ? 'Guardar cambios' : 'Agregar encargo'}
         </button>
-        {onCancel && (
-          <button onClick={onCancel} className="btn-outline">Cancelar</button>
-        )}
+        {onCancel && <button onClick={onCancel} className="btn-outline">Cancelar</button>}
       </div>
     </div>
   );
