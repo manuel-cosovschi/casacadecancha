@@ -132,7 +132,7 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
 
-  const [{ data: ordersData }, { data: expensesData }, { data: adsData }, { data: lowStock }] =
+  const [{ data: ordersData }, { data: expensesData }, { data: adsData }, { data: lowStock }, { data: encargosData }] =
     await Promise.all([
       supabase
         .from('orders')
@@ -142,6 +142,11 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
       supabase.from('expenses').select('amount, category').gte('date', from.toISOString().slice(0, 10)).lte('date', to.toISOString().slice(0, 10)),
       supabase.from('ad_metrics').select('spend, revenue').gte('date', from.toISOString().slice(0, 10)).lte('date', to.toISOString().slice(0, 10)),
       supabase.from('variant_stock').select('low_stock').eq('low_stock', true),
+      supabase
+        .from('encargos')
+        .select('paid, status, created_at, items:encargo_items(product, size, quantity, sale_price, unit_cost)')
+        .gte('created_at', fromIso)
+        .lte('created_at', toIso),
     ]);
 
   const orders = (ordersData ?? []) as Order[];
@@ -196,6 +201,44 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
         pm.profit += (Number(item.unit_price) - Number(item.unit_cost)) * item.quantity;
         productMap.set(name, pm);
       }
+    }
+  }
+
+  // Encargos (ventas por fuera de la web): se suman a facturación y ganancia.
+  for (const e of (encargosData ?? []) as any[]) {
+    if (e.status === 'cancelado') continue;
+    let rev = 0, cost = 0, units = 0;
+    for (const it of e.items ?? []) {
+      rev += Number(it.sale_price) * it.quantity;
+      cost += Number(it.unit_cost) * it.quantity;
+      units += it.quantity;
+    }
+    result.orders += 1;
+    result.grossRevenue += rev;
+    if (e.paid) {
+      result.paidOrders += 1;
+      result.collectedRevenue += rev;
+      result.cogs += cost;
+      result.unitsSold += units;
+      const day = (e.created_at || '').slice(0, 10);
+      const dm = dayMap.get(day) || { revenue: 0, orders: 0, profit: 0 };
+      dm.revenue += rev;
+      dm.orders += 1;
+      dm.profit += rev - cost;
+      dayMap.set(day, dm);
+      payMap.set('Encargos', (payMap.get('Encargos') || 0) + rev);
+      for (const it of e.items ?? []) {
+        if (it.size) sizeMap.set(it.size, (sizeMap.get(it.size) || 0) + it.quantity);
+        const name = it.product || 'Encargo';
+        const pm = productMap.get(name) || { units: 0, revenue: 0, profit: 0 };
+        pm.units += it.quantity;
+        pm.revenue += Number(it.sale_price) * it.quantity;
+        pm.profit += (Number(it.sale_price) - Number(it.unit_cost)) * it.quantity;
+        productMap.set(name, pm);
+      }
+    } else {
+      result.pendingOrders += 1;
+      result.pendingRevenue += rev;
     }
   }
 
