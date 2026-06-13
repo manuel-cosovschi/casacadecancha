@@ -165,26 +165,45 @@ export interface CatalogVariant {
   productName: string;
   size: string | null;
   label: string;
+  /** Costo unitario efectivo (producto + envío prorrateado) según pedidos al proveedor. */
+  cost: number;
 }
 
 /** Variantes del catálogo (para vincular encargos/pedidos con el stock web). */
 export async function getCatalogVariants(): Promise<CatalogVariant[]> {
   const supabase = await db();
-  const { data } = await supabase
-    .from('product_variants')
-    .select('id, product_id, size, sort_order, active, products(name, active)')
-    .eq('active', true)
-    .order('sort_order');
+  const [{ data }, { data: orders }] = await Promise.all([
+    supabase
+      .from('product_variants')
+      .select('id, product_id, size, sort_order, active, products(name, active)')
+      .eq('active', true)
+      .order('sort_order'),
+    supabase.from('supplier_orders').select('variant_id, quantity, unit_cost, shipping_cost'),
+  ]);
+
+  // Costo unitario efectivo por variante = (Σ costo*cant + Σ envío) / Σ cant
+  const costAgg = new Map<string, { total: number; qty: number }>();
+  for (const o of (orders ?? []) as any[]) {
+    if (!o.variant_id) continue;
+    const agg = costAgg.get(o.variant_id) || { total: 0, qty: 0 };
+    agg.total += Number(o.unit_cost) * o.quantity + Number(o.shipping_cost || 0);
+    agg.qty += o.quantity;
+    costAgg.set(o.variant_id, agg);
+  }
+
   return (data ?? [])
     .filter((v: any) => (Array.isArray(v.products) ? v.products[0] : v.products)?.active)
     .map((v: any) => {
       const product = Array.isArray(v.products) ? v.products[0] : v.products;
+      const agg = costAgg.get(v.id);
+      const cost = agg && agg.qty > 0 ? Math.round(agg.total / agg.qty) : 0;
       return {
         id: v.id,
         product_id: v.product_id,
         productName: product?.name ?? 'Producto',
         size: v.size,
         label: `${product?.name ?? 'Producto'}${v.size ? ` · ${v.size}` : ''}`,
+        cost,
       };
     });
 }

@@ -94,15 +94,22 @@ export function SupplierOrders({ orders, catalog = [] }: { orders: any[]; catalo
             <input name="quantity" type="number" min="1" defaultValue={1} className="input !py-1.5" />
           </label>
           <label className="text-xs sm:col-span-2">
-            <span className="text-[11px] text-navy/50">Costo U.</span>
-            <input name="unit_cost" type="number" min="0" className="input !py-1.5" />
+            <span className="text-[11px] text-navy/50">Costo U. (producto)</span>
+            <input name="unit_cost" type="number" min="0" className="input !py-1.5" placeholder="13000" />
+          </label>
+          <label className="text-xs sm:col-span-2">
+            <span className="text-[11px] text-navy/50">Envío del pedido</span>
+            <input name="shipping_cost" type="number" min="0" className="input !py-1.5" placeholder="10000" />
           </label>
           <label className="col-span-2 text-xs sm:col-span-2">
             <span className="text-[11px] text-navy/50">Proveedor</span>
             <input name="supplier" className="input !py-1.5" />
           </label>
           <input type="hidden" name="status" value="pedido" />
-          <div className="col-span-2 flex gap-2 sm:col-span-2">
+          <p className="col-span-2 text-[11px] text-navy/50 sm:col-span-12">
+            El envío se reparte entre las unidades. Costo unitario real = costo + envío/cantidad. Ese costo se autocompleta al cargar un encargo de este producto.
+          </p>
+          <div className="col-span-2 flex gap-2 sm:col-span-12">
             <button type="submit" disabled={pending} className="btn-primary !py-2">Agregar</button>
             <button type="button" onClick={() => setOpen(false)} className="btn-outline !py-2">Cancelar</button>
           </div>
@@ -118,18 +125,24 @@ export function SupplierOrders({ orders, catalog = [] }: { orders: any[]; catalo
                 <th className="py-2">Talle</th>
                 <th className="py-2 text-center">Cant.</th>
                 <th className="py-2 text-right">Costo U.</th>
+                <th className="py-2 text-right">Envío</th>
+                <th className="py-2 text-right">Costo U. real</th>
                 <th className="py-2">Proveedor</th>
                 <th className="py-2 text-center">Estado</th>
                 <th className="py-2"></th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => (
+              {orders.map((o) => {
+                const real = Number(o.unit_cost) + (Number(o.shipping_cost || 0) / (o.quantity || 1));
+                return (
                 <tr key={o.id} className="border-t border-navy/5">
                   <td className="py-2 font-medium">{o.product}</td>
                   <td className="py-2">{o.size || '—'}</td>
                   <td className="py-2 text-center">{o.quantity}</td>
                   <td className="py-2 text-right">{o.unit_cost ? formatPrice(o.unit_cost) : '—'}</td>
+                  <td className="py-2 text-right text-navy/60">{o.shipping_cost ? formatPrice(o.shipping_cost) : '—'}</td>
+                  <td className="py-2 text-right font-semibold">{formatPrice(real)}</td>
                   <td className="py-2 text-navy/70">{o.supplier || '—'}</td>
                   <td className="py-2 text-center">
                     <button
@@ -144,7 +157,8 @@ export function SupplierOrders({ orders, catalog = [] }: { orders: any[]; catalo
                     <button onClick={() => remove(o.id)} className="text-xs font-semibold text-red-600 hover:underline">Eliminar</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

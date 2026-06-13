@@ -27,6 +27,7 @@ export interface CatalogVariant {
   productName: string;
   size: string | null;
   label: string;
+  cost?: number;
 }
 
 const emptyItem: Item = { product: '', size: '', quantity: 1, variant_id: '', sale_price: 0, unit_cost: 0 };
@@ -108,7 +109,9 @@ export function EncargoForm({
       return;
     }
     const v = catalog.find((c) => c.id === id);
-    updateItem(idx, { variant_id: id, product: v?.productName || '', size: v?.size || '' });
+    const patch: Partial<Item> = { variant_id: id, product: v?.productName || '', size: v?.size || '' };
+    if (v?.cost && v.cost > 0) patch.unit_cost = v.cost; // autocompleta costo (producto + envío prorrateado)
+    updateItem(idx, patch);
   }
 
   async function submit() {
