@@ -21,14 +21,15 @@ export default async function ProfitabilityPage({
     getEncargoFinancials(from.toISOString(), to.toISOString()),
   ]);
 
-  // Combinado: pedidos web/manuales + encargos (cobrados)
-  const revenue = m.collectedRevenue + enc.paidRevenue;
-  const cogs = m.cogs + enc.paidCost;
-  const grossMargin = m.grossMargin + enc.paidMargin;
-  const netProfit = grossMargin - m.adSpend - m.expensesTotal;
+  // Las métricas ya incluyen encargos; enc se usa solo para el desglose.
+  const revenue = m.collectedRevenue;
+  const cogs = m.cogs;
+  const grossMargin = m.grossMargin;
+  const netProfit = m.netProfit;
   const contributionMargin = grossMargin - m.expensesTotal;
   const marginPct = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-  const pendingRevenue = m.pendingRevenue + enc.pendingRevenue;
+  const pendingRevenue = m.pendingRevenue;
+  const webRevenue = Math.max(0, m.collectedRevenue - enc.paidRevenue);
 
   return (
     <div className="space-y-6">
@@ -39,7 +40,7 @@ export default async function ProfitabilityPage({
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <StatCard label="Facturación (web + encargos)" value={formatPrice(revenue)} hint={`Web ${formatPrice(m.collectedRevenue)} · Encargos ${formatPrice(enc.paidRevenue)}`} />
+        <StatCard label="Facturación (web + encargos)" value={formatPrice(revenue)} hint={`Web ${formatPrice(webRevenue)} · Encargos ${formatPrice(enc.paidRevenue)}`} />
         <StatCard label="Costo de mercadería" value={formatPrice(cogs)} />
         <StatCard label="Margen bruto" value={formatPrice(grossMargin)} accent="green" />
         <StatCard label="Ganancia neta estimada" value={formatPrice(netProfit)} accent={netProfit >= 0 ? 'green' : 'red'} />
