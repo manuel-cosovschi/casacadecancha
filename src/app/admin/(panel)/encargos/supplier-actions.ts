@@ -34,6 +34,7 @@ export async function createSupplierOrder(formData: FormData): Promise<void> {
     size: t(formData.get('size')),
     quantity,
     unit_cost: n(formData.get('unit_cost')),
+    shipping_cost: n(formData.get('shipping_cost')),
     status,
     variant_id,
     notes: t(formData.get('notes')),
