@@ -189,6 +189,46 @@ export async function getCatalogVariants(): Promise<CatalogVariant[]> {
     });
 }
 
+export interface EncargoFinancials {
+  paidRevenue: number;
+  paidCost: number;
+  paidMargin: number;
+  pendingRevenue: number;
+  pendingMargin: number;
+  paidCount: number;
+  pendingCount: number;
+}
+
+/** Facturación y ganancia de los encargos creados en un rango. */
+export async function getEncargoFinancials(fromIso: string, toIso: string): Promise<EncargoFinancials> {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('encargos')
+    .select('paid, status, created_at, items:encargo_items(quantity, sale_price, unit_cost)')
+    .gte('created_at', fromIso)
+    .lte('created_at', toIso);
+
+  const r: EncargoFinancials = {
+    paidRevenue: 0, paidCost: 0, paidMargin: 0,
+    pendingRevenue: 0, pendingMargin: 0, paidCount: 0, pendingCount: 0,
+  };
+  for (const e of (data ?? []) as any[]) {
+    if (e.status === 'cancelado') continue;
+    let rev = 0, cost = 0;
+    for (const it of e.items ?? []) {
+      rev += Number(it.sale_price) * it.quantity;
+      cost += Number(it.unit_cost) * it.quantity;
+    }
+    const margin = rev - cost;
+    if (e.paid) {
+      r.paidRevenue += rev; r.paidCost += cost; r.paidMargin += margin; r.paidCount += 1;
+    } else {
+      r.pendingRevenue += rev; r.pendingMargin += margin; r.pendingCount += 1;
+    }
+  }
+  return r;
+}
+
 export async function getSupplierOrders() {
   const supabase = await db();
   const { data } = await supabase
