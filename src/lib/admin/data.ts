@@ -223,7 +223,7 @@ export async function getEncargoFinancials(fromIso: string, toIso: string): Prom
   const supabase = await db();
   const { data } = await supabase
     .from('encargos')
-    .select('paid, status, created_at, items:encargo_items(quantity, sale_price, unit_cost)')
+    .select('paid, payment_status, status, created_at, items:encargo_items(quantity, sale_price, unit_cost)')
     .gte('created_at', fromIso)
     .lte('created_at', toIso);
 
@@ -239,10 +239,15 @@ export async function getEncargoFinancials(fromIso: string, toIso: string): Prom
       cost += Number(it.unit_cost) * it.quantity;
     }
     const margin = rev - cost;
-    if (e.paid) {
-      r.paidRevenue += rev; r.paidCost += cost; r.paidMargin += margin; r.paidCount += 1;
-    } else {
-      r.pendingRevenue += rev; r.pendingMargin += margin; r.pendingCount += 1;
+    // Seña = 50% cobrado / 50% pendiente. Pagado = 100% cobrado.
+    const status: string = e.payment_status ?? (e.paid ? 'paid' : 'unpaid');
+    const f = status === 'paid' ? 1 : status === 'deposit' ? 0.5 : 0;
+    if (f > 0) {
+      r.paidRevenue += rev * f; r.paidCost += cost * f; r.paidMargin += margin * f; r.paidCount += 1;
+    }
+    if (f < 1) {
+      r.pendingRevenue += rev * (1 - f); r.pendingMargin += margin * (1 - f);
+      if (f === 0) r.pendingCount += 1;
     }
   }
   return r;

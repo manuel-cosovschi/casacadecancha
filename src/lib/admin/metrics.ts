@@ -144,7 +144,7 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
       supabase.from('variant_stock').select('low_stock').eq('low_stock', true),
       supabase
         .from('encargos')
-        .select('paid, status, created_at, items:encargo_items(product, size, quantity, sale_price, unit_cost)')
+        .select('paid, payment_status, status, created_at, items:encargo_items(product, size, quantity, sale_price, unit_cost)')
         .gte('created_at', fromIso)
         .lte('created_at', toIso),
     ]);
@@ -215,30 +215,34 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
     }
     result.orders += 1;
     result.grossRevenue += rev;
-    if (e.paid) {
+    // Seña = 50% cobrado / 50% pendiente. Pagado = 100% cobrado.
+    const payStatus: string = e.payment_status ?? (e.paid ? 'paid' : 'unpaid');
+    const f = payStatus === 'paid' ? 1 : payStatus === 'deposit' ? 0.5 : 0;
+    if (f > 0) {
       result.paidOrders += 1;
-      result.collectedRevenue += rev;
-      result.cogs += cost;
+      result.collectedRevenue += rev * f;
+      result.cogs += cost * f;
       result.unitsSold += units;
       const day = (e.created_at || '').slice(0, 10);
       const dm = dayMap.get(day) || { revenue: 0, orders: 0, profit: 0 };
-      dm.revenue += rev;
+      dm.revenue += rev * f;
       dm.orders += 1;
-      dm.profit += rev - cost;
+      dm.profit += (rev - cost) * f;
       dayMap.set(day, dm);
-      payMap.set('Encargos', (payMap.get('Encargos') || 0) + rev);
+      payMap.set('Encargos', (payMap.get('Encargos') || 0) + rev * f);
       for (const it of e.items ?? []) {
         if (it.size) sizeMap.set(it.size, (sizeMap.get(it.size) || 0) + it.quantity);
         const name = it.product || 'Encargo';
         const pm = productMap.get(name) || { units: 0, revenue: 0, profit: 0 };
         pm.units += it.quantity;
-        pm.revenue += Number(it.sale_price) * it.quantity;
-        pm.profit += (Number(it.sale_price) - Number(it.unit_cost)) * it.quantity;
+        pm.revenue += Number(it.sale_price) * it.quantity * f;
+        pm.profit += (Number(it.sale_price) - Number(it.unit_cost)) * it.quantity * f;
         productMap.set(name, pm);
       }
-    } else {
-      result.pendingOrders += 1;
-      result.pendingRevenue += rev;
+    }
+    if (f < 1) {
+      result.pendingRevenue += rev * (1 - f);
+      if (f === 0) result.pendingOrders += 1;
     }
   }
 

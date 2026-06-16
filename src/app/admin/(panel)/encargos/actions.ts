@@ -60,6 +60,8 @@ interface EncargoItemInput {
   unit_cost: number;
 }
 
+type PaymentStatus = 'unpaid' | 'deposit' | 'paid';
+
 interface EncargoInput {
   id?: string;
   customer_name: string;
@@ -67,6 +69,7 @@ interface EncargoInput {
   supplier?: string;
   supplier_ordered?: boolean;
   paid?: boolean;
+  payment_status?: PaymentStatus;
   status?: string;
   notes?: string;
   items: EncargoItemInput[];
@@ -87,12 +90,16 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
   if (g) return g;
   const supabase = await createClient();
 
+  // payment_status manda; `paid` queda sincronizado para compatibilidad.
+  const payment_status: PaymentStatus =
+    input.payment_status ?? (input.paid ? 'paid' : 'unpaid');
   const header = {
     customer_name: input.customer_name?.trim() || 'Sin nombre',
     contact: input.contact?.trim() || null,
     supplier: input.supplier?.trim() || null,
     supplier_ordered: Boolean(input.supplier_ordered),
-    paid: Boolean(input.paid),
+    payment_status,
+    paid: payment_status === 'paid',
     status: input.status || 'pendiente',
     notes: input.notes?.trim() || null,
   };
@@ -169,6 +176,10 @@ export async function updateEncargo(
   const g = await guard();
   if (g) return g;
   const supabase = await createClient();
+  // Mantener `paid` sincronizado si se cambia el estado de pago.
+  if ('payment_status' in patch) {
+    patch = { ...patch, paid: patch.payment_status === 'paid' };
+  }
   const { error } = await supabase.from('encargos').update(patch).eq('id', id);
   if (error) return { error: error.message };
   // Si cambió el estado (ej. a/desde cancelado), recalcular reserva web.

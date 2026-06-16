@@ -22,9 +22,14 @@ export default async function EncargosPage() {
   ]);
   const activos = encargos.filter((e: any) => e.status !== 'cancelado');
 
-  const sinCobrar = activos.filter((e: any) => !e.paid).length;
+  // Fracción del total que todavía NO se cobró (seña = 50% pendiente).
+  const pendingFrac = (e: any) => {
+    const ps = e.payment_status ?? (e.paid ? 'paid' : 'unpaid');
+    return ps === 'paid' ? 0 : ps === 'deposit' ? 0.5 : 1;
+  };
+  const sinCobrar = activos.filter((e: any) => pendingFrac(e) > 0).length;
   const ganancia = activos.reduce((acc: number, e: any) => acc + totals(e).margin, 0);
-  const aCobrar = activos.filter((e: any) => !e.paid).reduce((acc: number, e: any) => acc + totals(e).total, 0);
+  const aCobrar = activos.reduce((acc: number, e: any) => acc + totals(e).total * pendingFrac(e), 0);
 
   // Unidades que faltan pedir y que sobran, según la matriz
   const porPedir = matrix.reduce((a, r) => a + Math.max(0, r.reserved - r.ordered), 0);
@@ -40,7 +45,7 @@ export default async function EncargosPage() {
       pedido_proveedor: i.ordered_qty,
       precio_venta: i.sale_price,
       costo: i.unit_cost,
-      pagado: e.paid ? 'sí' : 'no',
+      pagado: (e.payment_status ?? (e.paid ? 'paid' : 'unpaid')) === 'paid' ? 'sí' : (e.payment_status === 'deposit' ? 'seña 50%' : 'no'),
       estado: e.status,
     })),
   );

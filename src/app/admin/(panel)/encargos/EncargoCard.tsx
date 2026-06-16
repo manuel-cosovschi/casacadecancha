@@ -29,6 +29,8 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
   const cost = items.reduce((a, i) => a + Number(i.unit_cost) * i.quantity, 0);
   const margin = total - cost;
   const units = items.reduce((a, i) => a + i.quantity, 0);
+  const payment: 'unpaid' | 'deposit' | 'paid' = e.payment_status ?? (e.paid ? 'paid' : 'unpaid');
+  const collected = payment === 'paid' ? total : payment === 'deposit' ? total / 2 : 0;
 
   function patch(p: Record<string, unknown>) {
     start(async () => {
@@ -79,16 +81,31 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
           {total > 0 && <span className="text-navy/40"> ({((margin / total) * 100).toFixed(0)}%)</span>}
         </span>
         {e.supplier && <span className="text-navy/60">Proveedor: <b className="text-navy">{e.supplier}</b></span>}
+        {payment !== 'unpaid' && (
+          <span className="text-navy/60">
+            Cobrado: <b className="text-green-600">{formatPrice(collected)}</b>
+            {payment === 'deposit' && <span className="text-amber-600"> · resta {formatPrice(total - collected)}</span>}
+          </span>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy/10 pt-3">
-        <button
-          onClick={() => patch({ paid: !e.paid })}
+        <select
+          value={payment}
+          onChange={(ev) => patch({ payment_status: ev.target.value })}
           disabled={pending}
-          className={`badge ${e.paid ? 'bg-green-100 text-green-800' : 'border border-navy/20 text-navy/60'}`}
+          className={`rounded-lg border px-2 py-1 text-xs font-semibold ${
+            payment === 'paid'
+              ? 'border-green-300 bg-green-100 text-green-800'
+              : payment === 'deposit'
+                ? 'border-amber-300 bg-amber-50 text-amber-700'
+                : 'border-navy/20 text-navy/60'
+          }`}
         >
-          {e.paid ? '✓ Pagado' : 'Sin pagar'}
-        </button>
+          <option value="unpaid">Sin pagar</option>
+          <option value="deposit">Seña 50%</option>
+          <option value="paid">✓ Pagado</option>
+        </select>
         <select
           value={e.status}
           onChange={(ev) => patch({ status: ev.target.value })}

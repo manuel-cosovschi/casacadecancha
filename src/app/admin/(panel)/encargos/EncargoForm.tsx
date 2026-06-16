@@ -61,7 +61,9 @@ export function EncargoForm({
   const [contact, setContact] = useState(encargo?.contact ?? '');
   const [supplier, setSupplier] = useState(encargo?.supplier ?? '');
   const [status, setStatus] = useState(encargo?.status ?? 'pendiente');
-  const [paid, setPaid] = useState(Boolean(encargo?.paid));
+  const [payment, setPayment] = useState<'unpaid' | 'deposit' | 'paid'>(
+    encargo?.payment_status ?? (encargo?.paid ? 'paid' : 'unpaid'),
+  );
   const [notes, setNotes] = useState(encargo?.notes ?? '');
   const [items, setItems] = useState<Item[]>(
     encargo?.items?.length
@@ -130,7 +132,7 @@ export function EncargoForm({
       customer_name: customerName,
       contact,
       supplier,
-      paid,
+      payment_status: payment,
       status,
       notes,
       items,
@@ -237,9 +239,30 @@ export function EncargoForm({
         </span>
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="h-4 w-4" /> Ya me pagaron
-      </label>
+      <div>
+        <p className="label">Cobro</p>
+        <div className="flex flex-wrap gap-2">
+          {([
+            { v: 'unpaid', label: 'Sin pagar' },
+            { v: 'deposit', label: 'Seña (50%)' },
+            { v: 'paid', label: 'Pagado' },
+          ] as const).map((o) => (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => setPayment(o.v)}
+              className={`badge ${payment === o.v ? 'bg-navy text-white' : 'border border-navy/20 text-navy/60'}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {payment === 'deposit' && total > 0 && (
+          <p className="mt-1 text-xs font-medium text-navy/60">
+            Seña a cobrar: <b className="text-navy">{formatPrice(total / 2)}</b> · resta {formatPrice(total / 2)}
+          </p>
+        )}
+      </div>
 
       <Field label="Notas">
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="input min-h-16" />
