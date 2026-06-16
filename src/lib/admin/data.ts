@@ -305,3 +305,43 @@ export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   const rows = Array.from(map.values()).map((r) => ({ ...r, available: r.ordered - r.reserved }));
   return rows.sort((a, b) => a.product.localeCompare(b.product) || a.size.localeCompare(b.size));
 }
+
+export interface IncomingStockRow {
+  product: string;
+  size: string | null;
+  inTransit: number; // unidades pedidas al proveedor que todavía no llegaron
+  leftover: number; // lo que quedaría libre una vez que llegue (neto de reservas)
+}
+
+/**
+ * Stock "en camino": pedidos al proveedor en estado 'pedido' (sin recibir),
+ * vinculados a variantes web. `leftover` ya descuenta lo reservado (encargos + web),
+ * incluso cuando hoy hay stock negativo por reservas sin cubrir.
+ */
+export async function getIncomingStock(): Promise<IncomingStockRow[]> {
+  const supabase = await db();
+  const [{ data: variants }, { data: orders }] = await Promise.all([
+    supabase
+      .from('product_variants')
+      .select('id, size, stock_physical, stock_reserved, encargo_reserved, products(name)')
+      .eq('active', true),
+    supabase.from('supplier_orders').select('variant_id, quantity').eq('status', 'pedido'),
+  ]);
+
+  const pending = new Map<string, number>();
+  for (const o of (orders ?? []) as any[]) {
+    if (!o.variant_id) continue;
+    pending.set(o.variant_id, (pending.get(o.variant_id) || 0) + (o.quantity || 0));
+  }
+
+  const rows: IncomingStockRow[] = [];
+  for (const v of (variants ?? []) as any[]) {
+    const inTransit = pending.get(v.id) || 0;
+    if (inTransit <= 0) continue;
+    // Neto SIN piso en cero: si hay reservas sin cubrir, el pedido las absorbe primero.
+    const rawAvail = (v.stock_physical || 0) - (v.stock_reserved || 0) - (v.encargo_reserved || 0);
+    const product = (Array.isArray(v.products) ? v.products[0] : v.products)?.name ?? 'Producto';
+    rows.push({ product, size: v.size, inTransit, leftover: rawAvail + inTransit });
+  }
+  return rows.sort((a, b) => a.product.localeCompare(b.product) || (a.size || '').localeCompare(b.size || ''));
+}

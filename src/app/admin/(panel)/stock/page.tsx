@@ -1,12 +1,12 @@
 import { PageHeader, EmptyState } from '@/components/admin/ui';
 import { ExportButton } from '@/components/admin/ExportButton';
 import { StockBot } from './StockBot';
-import { getInventory } from '@/lib/admin/data';
+import { getInventory, getIncomingStock } from '@/lib/admin/data';
 import { adjustStock } from '../_crud-actions';
 import { availableStock, formatPrice } from '@/lib/utils';
 
 export default async function StockPage() {
-  const variants = await getInventory();
+  const [variants, incoming] = await Promise.all([getInventory(), getIncomingStock()]);
   const botRows = variants.map((v: any) => ({
     product: v.products?.name ?? 'Producto',
     size: v.size,
@@ -39,7 +39,7 @@ export default async function StockPage() {
         }
       />
 
-      <StockBot rows={botRows} />
+      <StockBot rows={botRows} incoming={incoming} />
 
       {variants.length === 0 ? (
         <EmptyState message="No hay variantes cargadas. Creá productos con talles." cta={{ label: 'Ir a productos', href: '/admin/productos' }} />
