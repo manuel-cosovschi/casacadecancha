@@ -3,7 +3,7 @@ import { ExportButton } from '@/components/admin/ExportButton';
 import { NewEncargoForm } from './NewEncargoForm';
 import { EncargoCard } from './EncargoCard';
 import { SupplierOrders } from './SupplierOrders';
-import { getEncargos, getStockMatrix, getSupplierOrders, getCatalogVariants } from '@/lib/admin/data';
+import { getEncargos, getStockMatrix, getSupplierBatches, getCatalogVariants } from '@/lib/admin/data';
 import { formatPrice } from '@/lib/utils';
 
 function totals(e: any) {
@@ -14,10 +14,10 @@ function totals(e: any) {
 }
 
 export default async function EncargosPage() {
-  const [encargos, matrix, supplierOrders, catalog] = await Promise.all([
+  const [encargos, matrix, supplierBatches, catalog] = await Promise.all([
     getEncargos(),
     getStockMatrix(),
-    getSupplierOrders(),
+    getSupplierBatches(),
     getCatalogVariants(),
   ]);
   const activos = encargos.filter((e: any) => e.status !== 'cancelado');
@@ -67,7 +67,7 @@ export default async function EncargosPage() {
 
       {/* Pedidos al proveedor */}
       <div className="mb-5">
-        <SupplierOrders orders={supplierOrders} catalog={catalog} />
+        <SupplierOrders batches={supplierBatches} catalog={catalog} />
       </div>
 
       {/* Stock por modelo y talle */}
