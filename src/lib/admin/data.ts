@@ -263,6 +263,69 @@ export async function getSupplierOrders() {
   return data ?? [];
 }
 
+export interface SupplierBatch {
+  batch_id: string;
+  supplier: string | null;
+  status: string; // 'pedido' | 'recibido'
+  created_at: string;
+  shipping_cost: number; // total del envío del pedido
+  total_qty: number;
+  total_cost: number; // mercadería + envío
+  items: {
+    id: string;
+    product: string;
+    size: string | null;
+    quantity: number;
+    unit_cost: number;
+    shipping_cost: number;
+    variant_id: string | null;
+  }[];
+}
+
+/** Pedidos al proveedor agrupados por batch_id (un pedido = varias líneas). */
+export async function getSupplierBatches(): Promise<SupplierBatch[]> {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('supplier_orders')
+    .select('id, batch_id, supplier, product, size, quantity, unit_cost, shipping_cost, status, variant_id, created_at')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  const map = new Map<string, SupplierBatch>();
+  for (const r of (data ?? []) as any[]) {
+    const key = r.batch_id || r.id;
+    let b = map.get(key);
+    if (!b) {
+      b = {
+        batch_id: key,
+        supplier: r.supplier ?? null,
+        status: r.status,
+        created_at: r.created_at,
+        shipping_cost: 0,
+        total_qty: 0,
+        total_cost: 0,
+        items: [],
+      };
+      map.set(key, b);
+    }
+    b.items.push({
+      id: r.id,
+      product: r.product,
+      size: r.size,
+      quantity: r.quantity,
+      unit_cost: Number(r.unit_cost) || 0,
+      shipping_cost: Number(r.shipping_cost) || 0,
+      variant_id: r.variant_id ?? null,
+    });
+    b.shipping_cost += Number(r.shipping_cost) || 0;
+    b.total_qty += r.quantity || 0;
+    b.total_cost += (Number(r.unit_cost) || 0) * (r.quantity || 0) + (Number(r.shipping_cost) || 0);
+    // Si alguna línea figura recibida, el pedido se considera recibido.
+    if (r.status === 'recibido') b.status = 'recibido';
+  }
+  return Array.from(map.values());
+}
+
 export interface StockMatrixRow {
   key: string;
   product: string;
