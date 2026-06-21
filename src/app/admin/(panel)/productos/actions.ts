@@ -26,6 +26,7 @@ const productSchema = z.object({
   featured: z.coerce.boolean(),
   allow_backorder: z.coerce.boolean(),
   hide_when_out_of_stock: z.coerce.boolean(),
+  transfer_discount: z.coerce.boolean(),
   seo_title: z.string().optional(),
   seo_description: z.string().optional(),
 });
@@ -66,6 +67,7 @@ export async function saveProduct(
     featured: formData.get('featured') === 'on',
     allow_backorder: formData.get('allow_backorder') === 'on',
     hide_when_out_of_stock: formData.get('hide_when_out_of_stock') === 'on',
+    transfer_discount: formData.get('transfer_discount') === 'on',
     seo_title: clean(formData.get('seo_title')),
     seo_description: clean(formData.get('seo_description')),
   };
@@ -96,6 +98,7 @@ export async function saveProduct(
     featured: data.featured,
     allow_backorder: data.allow_backorder,
     hide_when_out_of_stock: data.hide_when_out_of_stock,
+    transfer_discount: data.transfer_discount,
     seo_title: data.seo_title ?? null,
     seo_description: data.seo_description ?? null,
   };

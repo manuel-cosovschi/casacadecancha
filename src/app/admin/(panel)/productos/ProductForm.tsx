@@ -118,6 +118,7 @@ export function ProductForm({
           <Check name="featured" label="Producto destacado" defaultChecked={product?.featured ?? false} />
           <Check name="allow_backorder" label="Aceptar pedidos sin stock" defaultChecked={product?.allow_backorder ?? false} />
           <Check name="hide_when_out_of_stock" label="Ocultar si está agotado" defaultChecked={product?.hide_when_out_of_stock ?? false} />
+          <Check name="transfer_discount" label="Aplica descuento por transferencia" defaultChecked={product ? product.transfer_discount !== false : true} />
         </div>
       </div>
 

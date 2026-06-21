@@ -20,6 +20,7 @@ export function ProductCard({
   const sizes = (product.variants ?? []).filter((v) => v.active);
   const inStockSizes = sizes.filter((v) => availableStock(v) > 0);
   const soldOut = inStockSizes.length === 0;
+  const showTransfer = transferDiscount > 0 && product.transfer_discount !== false;
   const transferPrice = applyDiscount(product.price, transferDiscount);
   const hasCompare = product.compare_at_price && product.compare_at_price > product.price;
   const off = hasCompare
@@ -82,7 +83,7 @@ export function ProductCard({
           )}
         </div>
 
-        {transferDiscount > 0 && (
+        {showTransfer && (
           <p className="mt-1 text-xs font-semibold text-celeste-bright">
             <span className="text-navy/70">{formatPrice(transferPrice)}</span> por transferencia
           </p>
