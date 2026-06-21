@@ -135,7 +135,7 @@ export default async function ProductPage({
               label="Cambios"
               value="Cambios según política vigente. Consultanos por WhatsApp."
             />
-            {transferDiscount > 0 && (
+            {transferDiscount > 0 && product.transfer_discount !== false && (
               <Spec
                 label="Transferencia"
                 value={`Pagando por transferencia: ${formatPrice(

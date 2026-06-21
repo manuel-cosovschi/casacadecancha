@@ -73,6 +73,7 @@ export interface Product {
   featured: boolean;
   allow_backorder: boolean;
   hide_when_out_of_stock: boolean;
+  transfer_discount: boolean;
   sort_order: number;
   seo_title: string | null;
   seo_description: string | null;
@@ -226,4 +227,6 @@ export interface CartItem {
   image: string | null;
   quantity: number;
   maxStock: number;
+  /** Si el producto aplica al descuento por transferencia (default true). */
+  transferEligible?: boolean;
 }

@@ -75,7 +75,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const variantIds = data.items.map((i) => i.variantId);
   const { data: variants, error: vErr } = await supabase
     .from('product_variants')
-    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_cost, variant_price, active, products(name, price, unit_cost, packaging_cost, allow_backorder)')
+    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_cost, variant_price, active, products(name, price, unit_cost, packaging_cost, allow_backorder, transfer_discount)')
     .in('id', variantIds);
 
   if (vErr || !variants) {
@@ -84,6 +84,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
 
   // 2. Construir items validados
   let subtotal = 0;
+  let eligibleSubtotal = 0; // base para el descuento por transferencia
   let estimatedCost = 0;
   const orderItems: {
     product_id: string;
@@ -117,6 +118,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     const cost = (v.variant_cost ?? product?.unit_cost ?? 0) + (product?.packaging_cost ?? 0);
     const lineSubtotal = price * item.quantity;
     subtotal += lineSubtotal;
+    if (product?.transfer_discount !== false) eligibleSubtotal += lineSubtotal;
     estimatedCost += cost * item.quantity;
 
     orderItems.push({
@@ -150,7 +152,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // 4. Calcular totales
   const transferDiscount =
     data.payment_method === 'transfer' && transferPct > 0
-      ? subtotal - applyDiscount(subtotal, transferPct)
+      ? eligibleSubtotal - applyDiscount(eligibleSubtotal, transferPct)
       : 0;
   const discount = transferDiscount + couponDiscount;
 

@@ -49,8 +49,13 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
   const paymentMethod = watch('payment_method');
   const shippingMethod = (watch('shipping_method') || 'mdp') as 'mdp' | 'nacional';
   const isNacional = shippingMethod === 'nacional';
+  // El descuento por transferencia solo aplica a los productos elegibles.
+  const eligibleSubtotal = items.reduce(
+    (a, i) => a + (i.transferEligible !== false ? i.price * i.quantity : 0),
+    0,
+  );
   const showTransfer = paymentMethod === 'transfer' && transferDiscount > 0;
-  const transferDisc = showTransfer ? discountAmount(subtotal, transferDiscount) : 0;
+  const transferDisc = showTransfer ? discountAmount(eligibleSubtotal, transferDiscount) : 0;
   const discount = transferDisc + couponDiscount;
   const shippingQuote = quoteShipping(shippingMethod, shipping);
   const total = Math.max(0, subtotal - discount + shippingQuote.cost);

@@ -13,8 +13,13 @@ export function CartDrawer({ transferDiscount }: { transferDiscount: number }) {
   const { items, isOpen, close, subtotal, updateQuantity, removeItem, count } =
     useCart();
 
-  const transferTotal = applyDiscount(subtotal, transferDiscount);
-  const saving = discountAmount(subtotal, transferDiscount);
+  // El descuento solo aplica a los productos elegibles (precio no fijo).
+  const eligibleSubtotal = items.reduce(
+    (a, i) => a + (i.transferEligible !== false ? i.price * i.quantity : 0),
+    0,
+  );
+  const saving = discountAmount(eligibleSubtotal, transferDiscount);
+  const transferTotal = subtotal - saving;
 
   return (
     <>
@@ -116,7 +121,7 @@ export function CartDrawer({ transferDiscount }: { transferDiscount: number }) {
                 <span className="text-navy/70">Subtotal</span>
                 <span className="font-semibold">{formatPrice(subtotal)}</span>
               </div>
-              {transferDiscount > 0 && (
+              {saving > 0 && (
                 <div className="mb-3 rounded-lg bg-celeste/20 p-2.5 text-center text-sm font-semibold text-navy">
                   Ahorrás {formatPrice(saving)} pagando por transferencia
                   <div className="text-xs font-normal text-navy/70">
