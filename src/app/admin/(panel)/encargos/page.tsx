@@ -33,10 +33,13 @@ export default async function EncargosPage() {
   };
   const ganancia = vigentes.reduce((acc: number, e: any) => acc + totals(e).margin, 0);
   const aCobrar = vigentes.reduce((acc: number, e: any) => acc + totals(e).total * pendingFrac(e), 0);
+  const cambiosPendientes = encargos.reduce(
+    (acc: number, e: any) => acc + (e.exchanges ?? []).filter((x: any) => x.status === 'pendiente').length,
+    0,
+  );
 
   // Unidades que faltan pedir y que sobran, según la matriz (incluye ajustes manuales)
   const porPedir = matrix.reduce((a, r) => a + Math.max(0, r.reserved - r.ordered - r.adjusted), 0);
-  const sobrante = matrix.reduce((a, r) => a + Math.max(0, r.available), 0);
   const matrixRows = matrix.filter((r) => r.reserved > 0 || r.ordered > 0 || r.adjusted !== 0);
 
   const rows = encargos.flatMap((e: any) =>
@@ -64,7 +67,7 @@ export default async function EncargosPage() {
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Encargos activos" value={String(activos.length)} />
         <StatCard label="Unidades por pedir" value={String(porPedir)} accent={porPedir > 0 ? 'amber' : 'green'} hint="al proveedor" />
-        <StatCard label="Stock sobrante" value={String(sobrante)} hint="pediste de más" />
+        <StatCard label="Cambios pendientes" value={String(cambiosPendientes)} accent={cambiosPendientes > 0 ? 'amber' : 'green'} hint="cambios por hacer" />
         <StatCard label="Ganancia estimada" value={formatPrice(ganancia)} accent="green" hint={aCobrar > 0 ? `${formatPrice(aCobrar)} a cobrar` : undefined} />
       </div>
 

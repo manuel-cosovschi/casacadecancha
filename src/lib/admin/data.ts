@@ -151,11 +151,14 @@ export async function getEncargos() {
   const supabase = await db();
   const { data } = await supabase
     .from('encargos')
-    .select('*, items:encargo_items(*)')
+    .select('*, items:encargo_items(*), exchanges:encargo_exchanges(*)')
     .order('created_at', { ascending: false });
   return (data ?? []).map((e: any) => ({
     ...e,
     items: (e.items ?? []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    exchanges: (e.exchanges ?? []).sort(
+      (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    ),
   }));
 }
 
