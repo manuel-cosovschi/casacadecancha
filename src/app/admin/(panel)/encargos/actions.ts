@@ -212,6 +212,7 @@ interface ExchangeInput {
   newSize?: string | null;
   newVariantId?: string | null;
   newUnitCost?: number | null;
+  status?: 'pendiente' | 'hecho';
 }
 
 /**
@@ -269,19 +270,32 @@ export async function exchangeEncargoItem(input: ExchangeInput): Promise<Result>
     if (iErr) return { error: iErr.message };
   }
 
-  // Dejar registro del cambio en las notas del encargo.
-  const { data: enc } = await supabase.from('encargos').select('notes').eq('id', input.encargoId).maybeSingle();
-  const stamp = new Date().toLocaleDateString('es-AR');
-  const oldLabel = `${item.product}${item.size ? ` ${item.size}` : ''}`;
-  const newLabel = `${newFields.product}${newFields.size ? ` ${newFields.size}` : ''}`;
-  const line = `Cambio ${stamp}: ${qty}× ${oldLabel} → ${newLabel}`;
-  await supabase
-    .from('encargos')
-    .update({ notes: [enc?.notes, line].filter(Boolean).join('\n') })
-    .eq('id', input.encargoId);
+  // Guardar el cambio con su estado (pendiente / hecho).
+  await supabase.from('encargo_exchanges').insert({
+    encargo_id: input.encargoId,
+    old_product: item.product,
+    old_size: item.size,
+    old_variant_id: oldVariantId,
+    new_product: newFields.product,
+    new_size: newFields.size,
+    new_variant_id: newVariantId,
+    quantity: qty,
+    status: input.status === 'hecho' ? 'hecho' : 'pendiente',
+  });
 
   // Re-sincronizar reservas de las variantes afectadas (devuelve/quita stock).
   await syncEncargoReserved([oldVariantId, newVariantId]);
+  revalidatePath('/admin/encargos');
+  return { ok: true };
+}
+
+/** Marca un cambio como hecho o pendiente (el stock ya quedó afectado al registrarlo). */
+export async function setExchangeStatus(id: string, status: 'pendiente' | 'hecho'): Promise<Result> {
+  const g = await guard();
+  if (g) return g;
+  const supabase = await createClient();
+  const { error } = await supabase.from('encargo_exchanges').update({ status }).eq('id', id);
+  if (error) return { error: error.message };
   revalidatePath('/admin/encargos');
   return { ok: true };
 }

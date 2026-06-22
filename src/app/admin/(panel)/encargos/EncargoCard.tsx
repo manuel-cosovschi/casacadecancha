@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateEncargo, deleteEncargo, exchangeEncargoItem } from './actions';
+import { updateEncargo, deleteEncargo, exchangeEncargoItem, setExchangeStatus } from './actions';
 import { EncargoForm, type MatrixRow, type CatalogVariant } from './EncargoForm';
 import { formatPrice } from '@/lib/utils';
 
@@ -45,6 +45,15 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
     await deleteEncargo(e.id);
     router.refresh();
   }
+
+  function toggleExchange(id: string, status: 'pendiente' | 'hecho') {
+    start(async () => {
+      await setExchangeStatus(id, status === 'hecho' ? 'pendiente' : 'hecho');
+      router.refresh();
+    });
+  }
+
+  const exchanges: any[] = e.exchanges ?? [];
 
   if (editing) {
     return <EncargoForm encargo={e} matrix={matrix} catalog={catalog} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />;
@@ -89,6 +98,29 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
           </span>
         )}
       </div>
+
+      {exchanges.length > 0 && (
+        <div className="mt-3 space-y-1.5 rounded-xl border border-celeste/30 bg-celeste/10 p-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-navy/50">Cambios</p>
+          {exchanges.map((x) => {
+            const done = x.status === 'hecho';
+            return (
+              <div key={x.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-navy/80">
+                  {x.quantity}× {x.old_product}{x.old_size ? ` ${x.old_size}` : ''} → <b>{x.new_product}{x.new_size ? ` ${x.new_size}` : ''}</b>
+                </span>
+                <button
+                  onClick={() => toggleExchange(x.id, x.status)}
+                  disabled={pending}
+                  className={`badge ${done ? 'bg-green-100 text-green-800' : 'border border-amber-300 text-amber-700'}`}
+                >
+                  {done ? '✓ Hecho' : '⏳ Lo tengo que hacer'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy/10 pt-3">
         <select
@@ -152,6 +184,7 @@ function ExchangePanel({
   const [product, setProduct] = useState('');
   const [size, setSize] = useState('');
   const [unitCost, setUnitCost] = useState<number | null>(null);
+  const [status, setStatus] = useState<'pendiente' | 'hecho'>('pendiente');
 
   const selectedItem = items.find((i) => i.id === itemId) || items[0];
 
@@ -179,6 +212,7 @@ function ExchangePanel({
         newSize: size,
         newVariantId: variantId || null,
         newUnitCost: unitCost,
+        status,
       });
       if (res?.error) {
         setError(res.error);
@@ -225,6 +259,26 @@ function ExchangePanel({
           <span className="text-[11px] text-navy/50">Talle</span>
           <input value={size} onChange={(ev) => setSize(ev.target.value)} className="input !py-1.5" placeholder="M" />
         </label>
+      </div>
+
+      <div className="mt-2">
+        <span className="text-[11px] text-navy/50">¿El cambio ya lo hiciste?</span>
+        <div className="mt-1 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setStatus('pendiente')}
+            className={`badge ${status === 'pendiente' ? 'bg-navy text-white' : 'border border-navy/20 text-navy/60'}`}
+          >
+            ⏳ Lo tengo que hacer
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatus('hecho')}
+            className={`badge ${status === 'hecho' ? 'bg-navy text-white' : 'border border-navy/20 text-navy/60'}`}
+          >
+            ✓ Ya lo hice
+          </button>
+        </div>
       </div>
 
       {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
