@@ -36,7 +36,8 @@ export function StockAdjustments({
   const [variantId, setVariantId] = useState('');
   const [product, setProduct] = useState('');
   const [size, setSize] = useState('');
-  const [delta, setDelta] = useState(0);
+  const [mode, setMode] = useState<'add' | 'remove'>('add');
+  const [qty, setQty] = useState(1);
   const [reason, setReason] = useState('');
 
   function selectVariant(id: string) {
@@ -52,7 +53,8 @@ export function StockAdjustments({
     setVariantId('');
     setProduct('');
     setSize('');
-    setDelta(0);
+    setMode('add');
+    setQty(1);
     setReason('');
     setError(null);
   }
@@ -62,10 +64,12 @@ export function StockAdjustments({
       setError('Elegí o escribí el modelo.');
       return;
     }
-    if (!delta) {
-      setError('Ingresá una cantidad distinta de cero (usá − para restar).');
+    const n = Math.abs(Math.trunc(Number(qty) || 0));
+    if (n < 1) {
+      setError('Ingresá una cantidad de 1 o más.');
       return;
     }
+    const delta = mode === 'remove' ? -n : n;
     start(async () => {
       const res = await addStockAdjustment({ product, size, delta, reason, variant_id: variantId || null });
       if (res?.error) {
@@ -117,12 +121,19 @@ export function StockAdjustments({
               <input value={size} onChange={(e) => setSize(e.target.value)} className="input !py-1.5" placeholder="M" />
             </label>
             <label className="text-xs sm:col-span-2">
-              <span className="text-[11px] text-navy/50">Ajuste (+/−)</span>
-              <input type="number" value={delta} onChange={(e) => setDelta(Number(e.target.value))} className="input !py-1.5" placeholder="-1" />
+              <span className="text-[11px] text-navy/50">Acción</span>
+              <select value={mode} onChange={(e) => setMode(e.target.value as 'add' | 'remove')} className="input !py-1.5">
+                <option value="add">Agregar (+)</option>
+                <option value="remove">Sacar (−)</option>
+              </select>
             </label>
-            <label className="col-span-2 text-xs sm:col-span-4">
+            <label className="text-xs sm:col-span-2">
+              <span className="text-[11px] text-navy/50">Cantidad</span>
+              <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} className="input !py-1.5" placeholder="1" />
+            </label>
+            <label className="col-span-2 text-xs sm:col-span-2">
               <span className="text-[11px] text-navy/50">Motivo (opcional)</span>
-              <input value={reason} onChange={(e) => setReason(e.target.value)} className="input !py-1.5" placeholder="Conteo físico, rotura, error de carga…" />
+              <input value={reason} onChange={(e) => setReason(e.target.value)} className="input !py-1.5" placeholder="Conteo, rotura, error…" />
             </label>
           </div>
           {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
