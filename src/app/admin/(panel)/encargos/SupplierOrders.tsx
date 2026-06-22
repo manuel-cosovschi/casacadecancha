@@ -50,6 +50,7 @@ const emptyItem: Item = { product: '', size: '', quantity: 1, unit_cost: 0, vari
 export function SupplierOrders({ batches = [], catalog = [] }: { batches?: Batch[]; catalog?: CatalogVariant[] }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showReceived, setShowReceived] = useState(false);
 
   return (
     <div className="card p-4 sm:p-5">
@@ -67,17 +68,34 @@ export function SupplierOrders({ batches = [], catalog = [] }: { batches?: Batch
         <BatchForm catalog={catalog} onClose={() => setOpen(false)} />
       )}
 
-      {batches.length > 0 && (
-        <div className="mt-4 space-y-3">
-          {batches.map((b) =>
-            editingId === b.batch_id ? (
-              <BatchForm key={b.batch_id} catalog={catalog} batch={b} onClose={() => setEditingId(null)} />
-            ) : (
-              <BatchCard key={b.batch_id} b={b} onEdit={() => setEditingId(b.batch_id)} />
-            ),
-          )}
-        </div>
-      )}
+      {batches.length > 0 && (() => {
+        const enCamino = batches.filter((b) => b.status !== 'recibido');
+        const recibidos = batches.filter((b) => b.status === 'recibido');
+        const render = (b: Batch) =>
+          editingId === b.batch_id ? (
+            <BatchForm key={b.batch_id} catalog={catalog} batch={b} onClose={() => setEditingId(null)} />
+          ) : (
+            <BatchCard key={b.batch_id} b={b} onEdit={() => setEditingId(b.batch_id)} />
+          );
+        return (
+          <div className="mt-4 space-y-4">
+            {enCamino.length > 0 && <div className="space-y-3">{enCamino.map(render)}</div>}
+
+            {recibidos.length > 0 && (
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowReceived((s) => !s)}
+                  className="flex w-full items-center justify-between rounded-xl border border-navy/10 bg-cream-soft/60 px-3 py-2 text-xs font-bold uppercase tracking-wide text-navy/60 hover:bg-cream-soft"
+                >
+                  <span>Recibidos <span className="text-navy/40">({recibidos.length})</span></span>
+                  <span className="font-semibold normal-case text-navy/50">{showReceived ? 'Ocultar ▲' : 'Mostrar ▼'}</span>
+                </button>
+                {showReceived && recibidos.map(render)}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
