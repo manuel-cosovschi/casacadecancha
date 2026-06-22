@@ -204,6 +204,88 @@ export async function updateItemOrdered(itemId: string, orderedQty: number): Pro
   return { ok: true };
 }
 
+interface ExchangeInput {
+  encargoId: string;
+  itemId: string;
+  quantity: number;
+  newProduct: string;
+  newSize?: string | null;
+  newVariantId?: string | null;
+  newUnitCost?: number | null;
+}
+
+/**
+ * Registra un cambio en un encargo (otro talle/modelo).
+ * El stock se actualiza solo: lo que vuelve queda disponible y lo nuevo queda reservado
+ * (en la matriz y en el stock web si está vinculado).
+ */
+export async function exchangeEncargoItem(input: ExchangeInput): Promise<Result> {
+  const g = await guard();
+  if (g) return g;
+  const supabase = await createClient();
+
+  const { data: item } = await supabase
+    .from('encargo_items')
+    .select('*')
+    .eq('id', input.itemId)
+    .maybeSingle();
+  if (!item || item.encargo_id !== input.encargoId) return { error: 'No se encontró el ítem a cambiar.' };
+
+  const newProduct = (input.newProduct || '').trim();
+  if (!newProduct) return { error: 'Elegí el nuevo modelo.' };
+  const qty = Math.max(1, Math.min(Math.round(Number(input.quantity) || 1), item.quantity));
+
+  const oldVariantId: string | null = item.variant_id || null;
+  const newVariantId: string | null = input.newVariantId || null;
+  const newFields = {
+    product: newProduct,
+    size: (input.newSize || '').toString().trim() || null,
+    variant_id: newVariantId,
+    unit_cost: input.newUnitCost != null ? Number(input.newUnitCost) : Number(item.unit_cost) || 0,
+  };
+
+  if (qty >= item.quantity) {
+    // Cambia toda la línea.
+    const { error } = await supabase.from('encargo_items').update(newFields).eq('id', item.id);
+    if (error) return { error: error.message };
+  } else {
+    // Cambio parcial: reduce la línea original y agrega una nueva con lo cambiado.
+    const { error: uErr } = await supabase
+      .from('encargo_items')
+      .update({ quantity: item.quantity - qty })
+      .eq('id', item.id);
+    if (uErr) return { error: uErr.message };
+    const { error: iErr } = await supabase.from('encargo_items').insert({
+      encargo_id: input.encargoId,
+      product: newFields.product,
+      size: newFields.size,
+      quantity: qty,
+      variant_id: newFields.variant_id,
+      sale_price: Number(item.sale_price) || 0,
+      unit_cost: newFields.unit_cost,
+      ordered_qty: 0,
+      sort_order: (item.sort_order ?? 0) + 1,
+    });
+    if (iErr) return { error: iErr.message };
+  }
+
+  // Dejar registro del cambio en las notas del encargo.
+  const { data: enc } = await supabase.from('encargos').select('notes').eq('id', input.encargoId).maybeSingle();
+  const stamp = new Date().toLocaleDateString('es-AR');
+  const oldLabel = `${item.product}${item.size ? ` ${item.size}` : ''}`;
+  const newLabel = `${newFields.product}${newFields.size ? ` ${newFields.size}` : ''}`;
+  const line = `Cambio ${stamp}: ${qty}× ${oldLabel} → ${newLabel}`;
+  await supabase
+    .from('encargos')
+    .update({ notes: [enc?.notes, line].filter(Boolean).join('\n') })
+    .eq('id', input.encargoId);
+
+  // Re-sincronizar reservas de las variantes afectadas (devuelve/quita stock).
+  await syncEncargoReserved([oldVariantId, newVariantId]);
+  revalidatePath('/admin/encargos');
+  return { ok: true };
+}
+
 export async function deleteEncargo(id: string): Promise<Result> {
   const g = await guard();
   if (g) return g;
