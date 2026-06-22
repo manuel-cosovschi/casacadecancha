@@ -332,15 +332,17 @@ export interface StockMatrixRow {
   size: string;
   reserved: number; // demanda de encargos (no cancelados): pendiente + entregado
   ordered: number; // comprado al proveedor
-  available: number; // ordered - reserved
+  adjusted: number; // ajustes manuales (+/-)
+  available: number; // ordered + adjusted - reserved
 }
 
-/** Stock por modelo+talle: comprado al proveedor vs reservado por encargos. */
+/** Stock por modelo+talle: comprado al proveedor + ajustes manuales vs reservado por encargos. */
 export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   const supabase = await db();
-  const [{ data: items }, { data: orders }] = await Promise.all([
+  const [{ data: items }, { data: orders }, { data: adjustments }] = await Promise.all([
     supabase.from('encargo_items').select('product, size, quantity, encargos(status)'),
     supabase.from('supplier_orders').select('product, size, quantity'),
+    supabase.from('stock_adjustments').select('product, size, delta'),
   ]);
 
   const map = new Map<string, StockMatrixRow>();
@@ -350,7 +352,7 @@ export async function getStockMatrix(): Promise<StockMatrixRow[]> {
     const key = `${p.toLowerCase()}|${s.toLowerCase()}`;
     let row = map.get(key);
     if (!row) {
-      row = { key, product: p, size: s, reserved: 0, ordered: 0, available: 0 };
+      row = { key, product: p, size: s, reserved: 0, ordered: 0, adjusted: 0, available: 0 };
       map.set(key, row);
     }
     return row;
@@ -364,9 +366,25 @@ export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   for (const o of (orders ?? []) as any[]) {
     get(o.product, o.size).ordered += o.quantity || 0;
   }
+  for (const a of (adjustments ?? []) as any[]) {
+    get(a.product, a.size).adjusted += a.delta || 0;
+  }
 
-  const rows = Array.from(map.values()).map((r) => ({ ...r, available: r.ordered - r.reserved }));
+  const rows = Array.from(map.values()).map((r) => ({
+    ...r,
+    available: r.ordered + r.adjusted - r.reserved,
+  }));
   return rows.sort((a, b) => a.product.localeCompare(b.product) || a.size.localeCompare(b.size));
+}
+
+export async function getStockAdjustments() {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('stock_adjustments')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  return data ?? [];
 }
 
 export interface IncomingStockRow {
