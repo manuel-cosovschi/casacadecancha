@@ -157,6 +157,7 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
           encargoId={e.id}
           items={items}
           catalog={catalog}
+          matrix={matrix}
           onClose={() => setExchanging(false)}
         />
       )}
@@ -168,11 +169,13 @@ function ExchangePanel({
   encargoId,
   items,
   catalog,
+  matrix,
   onClose,
 }: {
   encargoId: string;
   items: any[];
   catalog: CatalogVariant[];
+  matrix: MatrixRow[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -187,6 +190,24 @@ function ExchangePanel({
   const [status, setStatus] = useState<'pendiente' | 'hecho'>('pendiente');
 
   const selectedItem = items.find((i) => i.id === itemId) || items[0];
+
+  // Stock libre del modelo/talle NUEVO (para avisar si se puede o hay que pedir).
+  let hint: { text: string; cls: string } | null = null;
+  if (product.trim() && qty > 0) {
+    const key = `${product.trim().toLowerCase()}|${(size || '').trim().toLowerCase()}`;
+    const m = matrix.find((r) => r.key === key);
+    const free = m ? (m.ordered || 0) + (m.adjusted || 0) - (m.gifted || 0) - (m.reserved || 0) : 0;
+    if (free >= qty) {
+      hint = { text: `✓ Tenés stock para el cambio (${free} disp.).`, cls: 'text-green-700' };
+    } else {
+      const have = Math.max(0, free);
+      const faltan = qty - have;
+      hint = {
+        text: have > 0 ? `Tenés ${have}; pedí ${faltan} más al proveedor.` : `No tenés stock: pedí ${faltan} al proveedor.`,
+        cls: 'text-amber-700',
+      };
+    }
+  }
 
   function selectVariant(id: string) {
     setVariantId(id);
@@ -260,6 +281,8 @@ function ExchangePanel({
           <input value={size} onChange={(ev) => setSize(ev.target.value)} className="input !py-1.5" placeholder="M" />
         </label>
       </div>
+
+      {hint && <p className={`mt-2 text-xs font-medium ${hint.cls}`}>{hint.text}</p>}
 
       <div className="mt-2">
         <span className="text-[11px] text-navy/50">¿El cambio ya lo hiciste?</span>
