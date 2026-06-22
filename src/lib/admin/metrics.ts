@@ -66,6 +66,7 @@ export interface DashboardMetrics {
   grossMargin: number;
   adSpend: number;
   expensesTotal: number;
+  giftsCost: number;
   netProfit: number;
   cpa: number;
   roas: number;
@@ -97,6 +98,7 @@ const empty = (label: string): DashboardMetrics => ({
   grossMargin: 0,
   adSpend: 0,
   expensesTotal: 0,
+  giftsCost: 0,
   netProfit: 0,
   cpa: 0,
   roas: 0,
@@ -132,7 +134,7 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
 
-  const [{ data: ordersData }, { data: expensesData }, { data: adsData }, { data: lowStock }, { data: encargosData }] =
+  const [{ data: ordersData }, { data: expensesData }, { data: adsData }, { data: lowStock }, { data: encargosData }, { data: giftsData }] =
     await Promise.all([
       supabase
         .from('orders')
@@ -145,6 +147,11 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
       supabase
         .from('encargos')
         .select('paid, payment_status, status, created_at, items:encargo_items(product, size, quantity, sale_price, unit_cost)')
+        .gte('created_at', fromIso)
+        .lte('created_at', toIso),
+      supabase
+        .from('gifts')
+        .select('quantity, unit_cost')
         .gte('created_at', fromIso)
         .lte('created_at', toIso),
     ]);
@@ -251,8 +258,13 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
   result.expensesTotal = (expensesData ?? []).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   result.lowStockCount = (lowStock ?? []).length;
 
+  result.giftsCost = (giftsData ?? []).reduce(
+    (acc, g: any) => acc + (Number(g.unit_cost) || 0) * (g.quantity || 0),
+    0,
+  );
+
   result.grossMargin = result.collectedRevenue - result.cogs;
-  result.netProfit = result.grossMargin - result.adSpend - result.expensesTotal;
+  result.netProfit = result.grossMargin - result.adSpend - result.expensesTotal - result.giftsCost;
   result.averageTicket = result.paidOrders > 0 ? result.collectedRevenue / result.paidOrders : 0;
   result.cpa = result.paidOrders > 0 ? result.adSpend / result.paidOrders : 0;
   result.roas = result.adSpend > 0 ? adRevenue / result.adSpend : 0;
