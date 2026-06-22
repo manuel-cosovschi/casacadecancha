@@ -21,6 +21,7 @@ export interface MatrixRow {
   reserved: number;
   ordered: number;
   adjusted?: number;
+  gifted?: number;
 }
 
 export interface CatalogVariant {
@@ -94,7 +95,7 @@ export function EncargoForm({
     const k = keyOf(product, size);
     const m = matrix.find((r) => r.key === k);
     const reserved = (m?.reserved || 0) - (ownReserved.get(k) || 0);
-    const ordered = (m?.ordered || 0) + (m?.adjusted || 0);
+    const ordered = (m?.ordered || 0) + (m?.adjusted || 0) - (m?.gifted || 0);
     return ordered - reserved;
   }
 

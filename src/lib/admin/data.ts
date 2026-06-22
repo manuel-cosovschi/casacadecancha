@@ -336,16 +336,18 @@ export interface StockMatrixRow {
   reserved: number; // demanda de encargos (no cancelados): pendiente + entregado
   ordered: number; // comprado al proveedor
   adjusted: number; // ajustes manuales (+/-)
-  available: number; // ordered + adjusted - reserved
+  gifted: number; // regalado (sale del stock)
+  available: number; // ordered + adjusted - gifted - reserved
 }
 
-/** Stock por modelo+talle: comprado al proveedor + ajustes manuales vs reservado por encargos. */
+/** Stock por modelo+talle: comprado al proveedor + ajustes vs reservado por encargos y regalos. */
 export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   const supabase = await db();
-  const [{ data: items }, { data: orders }, { data: adjustments }] = await Promise.all([
+  const [{ data: items }, { data: orders }, { data: adjustments }, { data: gifts }] = await Promise.all([
     supabase.from('encargo_items').select('product, size, quantity, encargos(status)'),
     supabase.from('supplier_orders').select('product, size, quantity'),
     supabase.from('stock_adjustments').select('product, size, delta'),
+    supabase.from('gifts').select('product, size, quantity'),
   ]);
 
   const map = new Map<string, StockMatrixRow>();
@@ -355,7 +357,7 @@ export async function getStockMatrix(): Promise<StockMatrixRow[]> {
     const key = `${p.toLowerCase()}|${s.toLowerCase()}`;
     let row = map.get(key);
     if (!row) {
-      row = { key, product: p, size: s, reserved: 0, ordered: 0, adjusted: 0, available: 0 };
+      row = { key, product: p, size: s, reserved: 0, ordered: 0, adjusted: 0, gifted: 0, available: 0 };
       map.set(key, row);
     }
     return row;
@@ -372,10 +374,13 @@ export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   for (const a of (adjustments ?? []) as any[]) {
     get(a.product, a.size).adjusted += a.delta || 0;
   }
+  for (const gft of (gifts ?? []) as any[]) {
+    get(gft.product, gft.size).gifted += gft.quantity || 0;
+  }
 
   const rows = Array.from(map.values()).map((r) => ({
     ...r,
-    available: r.ordered + r.adjusted - r.reserved,
+    available: r.ordered + r.adjusted - r.gifted - r.reserved,
   }));
   return rows.sort((a, b) => a.product.localeCompare(b.product) || a.size.localeCompare(b.size));
 }
@@ -384,6 +389,16 @@ export async function getStockAdjustments() {
   const supabase = await db();
   const { data } = await supabase
     .from('stock_adjustments')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  return data ?? [];
+}
+
+export async function getGifts() {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('gifts')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);

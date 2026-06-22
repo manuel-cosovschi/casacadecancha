@@ -4,7 +4,8 @@ import { NewEncargoForm } from './NewEncargoForm';
 import { EncargosList } from './EncargosList';
 import { SupplierOrders } from './SupplierOrders';
 import { StockAdjustments } from './StockAdjustments';
-import { getEncargos, getStockMatrix, getSupplierBatches, getCatalogVariants, getStockAdjustments } from '@/lib/admin/data';
+import { Gifts } from './Gifts';
+import { getEncargos, getStockMatrix, getSupplierBatches, getCatalogVariants, getStockAdjustments, getGifts } from '@/lib/admin/data';
 import { formatPrice } from '@/lib/utils';
 
 function totals(e: any) {
@@ -15,12 +16,13 @@ function totals(e: any) {
 }
 
 export default async function EncargosPage() {
-  const [encargos, matrix, supplierBatches, catalog, adjustments] = await Promise.all([
+  const [encargos, matrix, supplierBatches, catalog, adjustments, gifts] = await Promise.all([
     getEncargos(),
     getStockMatrix(),
     getSupplierBatches(),
     getCatalogVariants(),
     getStockAdjustments(),
+    getGifts(),
   ]);
   // Vigentes = no cancelados (para plata). Activos = vigentes que todavía no se entregaron.
   const vigentes = encargos.filter((e: any) => e.status !== 'cancelado');
@@ -40,7 +42,7 @@ export default async function EncargosPage() {
 
   // Unidades que faltan pedir y que sobran, según la matriz (incluye ajustes manuales)
   const porPedir = matrix.reduce((a, r) => a + Math.max(0, r.reserved - r.ordered - r.adjusted), 0);
-  const matrixRows = matrix.filter((r) => r.reserved > 0 || r.ordered > 0 || r.adjusted !== 0);
+  const matrixRows = matrix.filter((r) => r.reserved > 0 || r.ordered > 0 || r.adjusted !== 0 || r.gifted > 0);
 
   const rows = encargos.flatMap((e: any) =>
     (e.items ?? []).map((i: any) => ({
@@ -91,6 +93,7 @@ export default async function EncargosPage() {
                 <th className="px-4 py-2 text-center">Reservado</th>
                 <th className="px-4 py-2 text-center">Pedido</th>
                 <th className="px-4 py-2 text-center">Ajuste</th>
+                <th className="px-4 py-2 text-center">Regalado</th>
                 <th className="px-4 py-2 text-center">Estado</th>
               </tr>
             </thead>
@@ -106,6 +109,7 @@ export default async function EncargosPage() {
                     <td className="px-4 py-2 text-center text-navy/60">
                       {r.adjusted === 0 ? '—' : r.adjusted > 0 ? `+${r.adjusted}` : r.adjusted}
                     </td>
+                    <td className="px-4 py-2 text-center text-navy/60">{r.gifted > 0 ? r.gifted : '—'}</td>
                     <td className="px-4 py-2 text-center">
                       {diff < 0 ? (
                         <span className="badge bg-amber-100 text-amber-800">Faltan pedir {-diff}</span>
@@ -126,6 +130,11 @@ export default async function EncargosPage() {
       {/* Ajustes manuales de stock */}
       <div className="mb-5">
         <StockAdjustments catalog={catalog} adjustments={adjustments} />
+      </div>
+
+      {/* Regalos / cortesías */}
+      <div className="mb-5">
+        <Gifts catalog={catalog} gifts={gifts} />
       </div>
 
       <div className="mb-5">

@@ -47,6 +47,7 @@ export default async function ProfitabilityPage({
         <StatCard label="Margen de contribución" value={formatPrice(contributionMargin)} />
         <StatCard label="Inversión publicitaria" value={formatPrice(m.adSpend)} />
         <StatCard label="Otros gastos" value={formatPrice(m.expensesTotal)} />
+        <StatCard label="Regalos (pérdida)" value={formatPrice(m.giftsCost)} accent={m.giftsCost > 0 ? 'red' : undefined} />
         <StatCard label="Margen %" value={`${marginPct.toFixed(1)}%`} />
         <StatCard label="Ganancia encargos" value={formatPrice(enc.paidMargin)} accent="green" hint={`${enc.paidCount} cobrados`} />
         <StatCard label="Pendiente de cobro" value={formatPrice(pendingRevenue)} accent="amber" hint={`Encargos: ${formatPrice(enc.pendingRevenue)}`} />
