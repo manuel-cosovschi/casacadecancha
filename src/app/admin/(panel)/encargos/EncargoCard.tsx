@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateEncargo, deleteEncargo } from './actions';
+import { updateEncargo, deleteEncargo, exchangeEncargoItem } from './actions';
 import { EncargoForm, type MatrixRow, type CatalogVariant } from './EncargoForm';
 import { formatPrice } from '@/lib/utils';
 
@@ -22,6 +22,7 @@ const STATUS_STYLE: Record<string, string> = {
 export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[]; catalog: CatalogVariant[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [exchanging, setExchanging] = useState(false);
   const [pending, start] = useTransition();
 
   const items: any[] = e.items ?? [];
@@ -114,8 +115,122 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
         >
           {STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <button onClick={() => setEditing(true)} className="ml-auto text-sm font-semibold text-navy hover:underline">Editar</button>
+        <button onClick={() => setExchanging((v) => !v)} className="ml-auto text-sm font-semibold text-navy hover:underline">Cambio</button>
+        <button onClick={() => setEditing(true)} className="text-sm font-semibold text-navy hover:underline">Editar</button>
         <button onClick={onDelete} className="text-sm font-semibold text-red-600 hover:underline">Eliminar</button>
+      </div>
+
+      {exchanging && (
+        <ExchangePanel
+          encargoId={e.id}
+          items={items}
+          catalog={catalog}
+          onClose={() => setExchanging(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExchangePanel({
+  encargoId,
+  items,
+  catalog,
+  onClose,
+}: {
+  encargoId: string;
+  items: any[];
+  catalog: CatalogVariant[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [itemId, setItemId] = useState<string>(items[0]?.id ?? '');
+  const [qty, setQty] = useState(1);
+  const [variantId, setVariantId] = useState('');
+  const [product, setProduct] = useState('');
+  const [size, setSize] = useState('');
+  const [unitCost, setUnitCost] = useState<number | null>(null);
+
+  const selectedItem = items.find((i) => i.id === itemId) || items[0];
+
+  function selectVariant(id: string) {
+    setVariantId(id);
+    if (id) {
+      const v = catalog.find((c) => c.id === id);
+      setProduct(v?.productName || '');
+      setSize(v?.size || '');
+      setUnitCost(v?.cost && v.cost > 0 ? Math.round(v.cost) : null);
+    }
+  }
+
+  function submit() {
+    if (!product.trim()) {
+      setError('Elegí el nuevo modelo/talle.');
+      return;
+    }
+    start(async () => {
+      const res = await exchangeEncargoItem({
+        encargoId,
+        itemId: selectedItem.id,
+        quantity: qty,
+        newProduct: product,
+        newSize: size,
+        newVariantId: variantId || null,
+        newUnitCost: unitCost,
+      });
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+      onClose();
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border border-celeste/40 bg-celeste/10 p-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-navy/60">Registrar cambio</p>
+      <p className="mb-2 text-[11px] text-navy/50">Lo que se cambia vuelve a stock disponible y lo nuevo queda reservado, todo automático.</p>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-12 sm:items-end">
+        <label className="col-span-2 text-xs sm:col-span-5">
+          <span className="text-[11px] text-navy/50">Ítem a cambiar</span>
+          <select value={itemId} onChange={(ev) => { setItemId(ev.target.value); setQty(1); }} className="input !py-1.5">
+            {items.map((i) => (
+              <option key={i.id} value={i.id}>{i.quantity}× {i.product}{i.size ? ` · ${i.size}` : ''}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs sm:col-span-2">
+          <span className="text-[11px] text-navy/50">Cant.</span>
+          <input type="number" min={1} max={selectedItem?.quantity || 1} value={qty} onChange={(ev) => setQty(Number(ev.target.value))} className="input !py-1.5" />
+        </label>
+      </div>
+
+      <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-navy/40">Cambiar por</p>
+      {catalog.length > 0 && (
+        <select value={variantId} onChange={(ev) => selectVariant(ev.target.value)} className="input !py-1.5 mt-1">
+          <option value="">Producto manual (no afecta stock web)</option>
+          {catalog.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+      )}
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-12 sm:items-end">
+        <label className="col-span-2 text-xs sm:col-span-7">
+          <span className="text-[11px] text-navy/50">Modelo *</span>
+          <input value={product} onChange={(ev) => setProduct(ev.target.value)} className="input !py-1.5" placeholder="Titular 2026" />
+        </label>
+        <label className="text-xs sm:col-span-3">
+          <span className="text-[11px] text-navy/50">Talle</span>
+          <input value={size} onChange={(ev) => setSize(ev.target.value)} className="input !py-1.5" placeholder="M" />
+        </label>
+      </div>
+
+      {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
+      <div className="mt-3 flex gap-2">
+        <button onClick={submit} disabled={pending} className="btn-primary !py-2">Confirmar cambio</button>
+        <button onClick={onClose} className="btn-outline !py-2">Cancelar</button>
       </div>
     </div>
   );
