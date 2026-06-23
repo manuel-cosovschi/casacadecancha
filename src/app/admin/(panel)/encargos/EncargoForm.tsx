@@ -66,6 +66,7 @@ export function EncargoForm({
   const [payment, setPayment] = useState<'unpaid' | 'deposit' | 'paid'>(
     encargo?.payment_status ?? (encargo?.paid ? 'paid' : 'unpaid'),
   );
+  const [paidAmount, setPaidAmount] = useState<number>(Number(encargo?.paid_amount) || 0);
   const [notes, setNotes] = useState(encargo?.notes ?? '');
   const [items, setItems] = useState<Item[]>(
     encargo?.items?.length
@@ -135,6 +136,7 @@ export function EncargoForm({
       contact,
       supplier,
       payment_status: payment,
+      paid_amount: paidAmount,
       status,
       notes,
       items,
@@ -246,23 +248,42 @@ export function EncargoForm({
         <div className="flex flex-wrap gap-2">
           {([
             { v: 'unpaid', label: 'Sin pagar' },
-            { v: 'deposit', label: 'Seña (50%)' },
+            { v: 'deposit', label: 'Seña / parcial' },
             { v: 'paid', label: 'Pagado' },
           ] as const).map((o) => (
             <button
               key={o.v}
               type="button"
-              onClick={() => setPayment(o.v)}
+              onClick={() => {
+                setPayment(o.v);
+                if (o.v === 'deposit' && !paidAmount) setPaidAmount(Math.round(total / 2));
+              }}
               className={`badge ${payment === o.v ? 'bg-navy text-white' : 'border border-navy/20 text-navy/60'}`}
             >
               {o.label}
             </button>
           ))}
         </div>
-        {payment === 'deposit' && total > 0 && (
-          <p className="mt-1 text-xs font-medium text-navy/60">
-            Seña a cobrar: <b className="text-navy">{formatPrice(total / 2)}</b> · resta {formatPrice(total / 2)}
-          </p>
+        {payment === 'deposit' && (
+          <div className="mt-2">
+            <label className="block text-xs">
+              <span className="text-[11px] text-navy/50">¿Cuánto te pagó? (seña / parte)</span>
+              <input
+                type="number"
+                min={0}
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(Number(e.target.value))}
+                className="input !py-1.5 sm:max-w-48"
+                placeholder={String(Math.round(total / 2))}
+              />
+            </label>
+            {total > 0 && (
+              <p className="mt-1 text-xs font-medium text-navy/60">
+                Cobrado: <b className="text-green-600">{formatPrice(Math.min(paidAmount, total))}</b> · resta{' '}
+                <b className="text-amber-600">{formatPrice(Math.max(0, total - paidAmount))}</b>
+              </p>
+            )}
+          </div>
         )}
       </div>
 

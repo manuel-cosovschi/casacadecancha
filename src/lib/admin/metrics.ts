@@ -146,7 +146,7 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
       supabase.from('variant_stock').select('low_stock').eq('low_stock', true),
       supabase
         .from('encargos')
-        .select('paid, payment_status, status, created_at, items:encargo_items(product, size, quantity, sale_price, unit_cost)')
+        .select('paid, payment_status, paid_amount, status, created_at, items:encargo_items(product, size, quantity, sale_price, unit_cost)')
         .gte('created_at', fromIso)
         .lte('created_at', toIso),
       supabase
@@ -222,9 +222,11 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
     }
     result.orders += 1;
     result.grossRevenue += rev;
-    // Seña = 50% cobrado / 50% pendiente. Pagado = 100% cobrado.
+    // Cobrado real: total si pagado, monto de la seña si parcial, 0 si no pagó.
     const payStatus: string = e.payment_status ?? (e.paid ? 'paid' : 'unpaid');
-    const f = payStatus === 'paid' ? 1 : payStatus === 'deposit' ? 0.5 : 0;
+    const collected =
+      payStatus === 'paid' ? rev : payStatus === 'deposit' ? Math.min(Number(e.paid_amount) || 0, rev) : 0;
+    const f = rev > 0 ? collected / rev : payStatus === 'paid' ? 1 : 0;
     if (f > 0) {
       result.paidOrders += 1;
       result.collectedRevenue += rev * f;
