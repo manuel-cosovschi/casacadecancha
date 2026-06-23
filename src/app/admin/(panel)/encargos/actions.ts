@@ -70,6 +70,7 @@ interface EncargoInput {
   supplier_ordered?: boolean;
   paid?: boolean;
   payment_status?: PaymentStatus;
+  paid_amount?: number;
   status?: string;
   notes?: string;
   items: EncargoItemInput[];
@@ -93,6 +94,17 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
   // payment_status manda; `paid` queda sincronizado para compatibilidad.
   const payment_status: PaymentStatus =
     input.payment_status ?? (input.paid ? 'paid' : 'unpaid');
+  // Monto cobrado: total si está pagado, lo ingresado si es seña, 0 si no pagó.
+  const orderTotal = (input.items || []).reduce(
+    (a, i) => a + (Number(i.sale_price) || 0) * Math.max(1, Number(i.quantity) || 1),
+    0,
+  );
+  const paid_amount =
+    payment_status === 'paid'
+      ? orderTotal
+      : payment_status === 'deposit'
+        ? Math.max(0, Math.min(Number(input.paid_amount) || 0, orderTotal))
+        : 0;
   const header = {
     customer_name: input.customer_name?.trim() || 'Sin nombre',
     contact: input.contact?.trim() || null,
@@ -100,6 +112,7 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
     supplier_ordered: Boolean(input.supplier_ordered),
     payment_status,
     paid: payment_status === 'paid',
+    paid_amount,
     status: input.status || 'pendiente',
     notes: input.notes?.trim() || null,
   };
@@ -176,9 +189,19 @@ export async function updateEncargo(
   const g = await guard();
   if (g) return g;
   const supabase = await createClient();
-  // Mantener `paid` sincronizado si se cambia el estado de pago.
+  // Mantener `paid` y `paid_amount` sincronizados si se cambia el estado de pago.
   if ('payment_status' in patch) {
-    patch = { ...patch, paid: patch.payment_status === 'paid' };
+    const ps = patch.payment_status;
+    patch = { ...patch, paid: ps === 'paid' };
+    if (ps === 'paid') {
+      // Cobrado = total del encargo.
+      const { data: its } = await supabase.from('encargo_items').select('sale_price, quantity').eq('encargo_id', id);
+      const total = (its ?? []).reduce((a: number, i: any) => a + (Number(i.sale_price) || 0) * (i.quantity || 0), 0);
+      patch.paid_amount = total;
+    } else if (ps === 'unpaid') {
+      patch.paid_amount = 0;
+    }
+    // 'deposit': se conserva el paid_amount actual (se edita aparte).
   }
   const { error } = await supabase.from('encargos').update(patch).eq('id', id);
   if (error) return { error: error.message };

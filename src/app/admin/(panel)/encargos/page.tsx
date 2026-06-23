@@ -28,13 +28,15 @@ export default async function EncargosPage() {
   const vigentes = encargos.filter((e: any) => e.status !== 'cancelado');
   const activos = vigentes.filter((e: any) => e.status !== 'entregado');
 
-  // Fracción del total que todavía NO se cobró (seña = 50% pendiente).
-  const pendingFrac = (e: any) => {
+  // Monto que todavía NO se cobró (total − cobrado real).
+  const pendingOf = (e: any) => {
+    const total = totals(e).total;
     const ps = e.payment_status ?? (e.paid ? 'paid' : 'unpaid');
-    return ps === 'paid' ? 0 : ps === 'deposit' ? 0.5 : 1;
+    const collected = ps === 'paid' ? total : ps === 'deposit' ? Math.min(Number(e.paid_amount) || 0, total) : 0;
+    return Math.max(0, total - collected);
   };
   const ganancia = vigentes.reduce((acc: number, e: any) => acc + totals(e).margin, 0);
-  const aCobrar = vigentes.reduce((acc: number, e: any) => acc + totals(e).total * pendingFrac(e), 0);
+  const aCobrar = vigentes.reduce((acc: number, e: any) => acc + pendingOf(e), 0);
   const cambiosPendientes = encargos.reduce(
     (acc: number, e: any) => acc + (e.exchanges ?? []).filter((x: any) => x.status === 'pendiente').length,
     0,

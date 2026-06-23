@@ -31,7 +31,7 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
   const margin = total - cost;
   const units = items.reduce((a, i) => a + i.quantity, 0);
   const payment: 'unpaid' | 'deposit' | 'paid' = e.payment_status ?? (e.paid ? 'paid' : 'unpaid');
-  const collected = payment === 'paid' ? total : payment === 'deposit' ? total / 2 : 0;
+  const collected = payment === 'paid' ? total : payment === 'deposit' ? Math.min(Number(e.paid_amount) || 0, total) : 0;
 
   function patch(p: Record<string, unknown>) {
     start(async () => {
@@ -136,9 +136,12 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
           }`}
         >
           <option value="unpaid">Sin pagar</option>
-          <option value="deposit">Seña 50%</option>
+          <option value="deposit">Seña / parcial</option>
           <option value="paid">✓ Pagado</option>
         </select>
+        {payment === 'deposit' && (
+          <DepositField id={e.id} initial={collected} total={total} disabled={pending} onSaved={() => router.refresh()} />
+        )}
         <select
           value={e.status}
           onChange={(ev) => patch({ status: ev.target.value })}
@@ -310,5 +313,49 @@ function ExchangePanel({
         <button onClick={onClose} className="btn-outline !py-2">Cancelar</button>
       </div>
     </div>
+  );
+}
+
+/** Campo para editar cuánto se cobró (seña / pago parcial) de un encargo. */
+function DepositField({
+  id,
+  initial,
+  total,
+  disabled,
+  onSaved,
+}: {
+  id: string;
+  initial: number;
+  total: number;
+  disabled?: boolean;
+  onSaved: () => void;
+}) {
+  const [amount, setAmount] = useState(initial);
+  const [saving, startSave] = useTransition();
+
+  function save() {
+    const v = Math.max(0, Math.min(amount, total));
+    if (v === initial) return;
+    startSave(async () => {
+      await updateEncargo(id, { paid_amount: v });
+      onSaved();
+    });
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-navy/60">
+      Cobrado $
+      <input
+        type="number"
+        min={0}
+        value={amount}
+        onChange={(e) => setAmount(Number(e.target.value))}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        disabled={disabled || saving}
+        className="w-24 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 font-semibold text-amber-700"
+      />
+      <span className="text-navy/40">/ {formatPrice(total)}</span>
+    </span>
   );
 }
