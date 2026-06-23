@@ -238,21 +238,23 @@ interface ExchangeInput {
   status?: 'pendiente' | 'hecho';
 }
 
-/**
- * Registra un cambio en un encargo (otro talle/modelo).
- * El stock se actualiza solo: lo que vuelve queda disponible y lo nuevo queda reservado
- * (en la matriz y en el stock web si está vinculado).
- */
-export async function exchangeEncargoItem(input: ExchangeInput): Promise<Result> {
-  const g = await guard();
-  if (g) return g;
-  const supabase = await createClient();
-
-  const { data: item } = await supabase
-    .from('encargo_items')
-    .select('*')
-    .eq('id', input.itemId)
-    .maybeSingle();
+/** Aplica el efecto de un cambio sobre los ítems y devuelve datos para el registro. */
+async function applyExchange(
+  supabase: SupabaseClient,
+  input: ExchangeInput,
+): Promise<
+  | { error: string }
+  | {
+      oldVariantId: string | null;
+      newVariantId: string | null;
+      itemId: string;
+      sourceItemId: string | null;
+      snapshot: { product: string; size: string | null; variant_id: string | null; unit_cost: number };
+      qty: number;
+      newFields: { product: string; size: string | null; variant_id: string | null; unit_cost: number };
+    }
+> {
+  const { data: item } = await supabase.from('encargo_items').select('*').eq('id', input.itemId).maybeSingle();
   if (!item || item.encargo_id !== input.encargoId) return { error: 'No se encontró el ítem a cambiar.' };
 
   const newProduct = (input.newProduct || '').trim();
@@ -267,47 +269,155 @@ export async function exchangeEncargoItem(input: ExchangeInput): Promise<Result>
     variant_id: newVariantId,
     unit_cost: input.newUnitCost != null ? Number(input.newUnitCost) : Number(item.unit_cost) || 0,
   };
+  const snapshot = {
+    product: item.product,
+    size: item.size,
+    variant_id: oldVariantId,
+    unit_cost: Number(item.unit_cost) || 0,
+  };
 
+  let itemId = item.id;
+  let sourceItemId: string | null = null;
   if (qty >= item.quantity) {
-    // Cambia toda la línea.
-    const { error } = await supabase.from('encargo_items').update(newFields).eq('id', item.id);
-    if (error) return { error: error.message };
+    await supabase.from('encargo_items').update(newFields).eq('id', item.id);
   } else {
     // Cambio parcial: reduce la línea original y agrega una nueva con lo cambiado.
-    const { error: uErr } = await supabase
+    await supabase.from('encargo_items').update({ quantity: item.quantity - qty }).eq('id', item.id);
+    const { data: created } = await supabase
       .from('encargo_items')
-      .update({ quantity: item.quantity - qty })
-      .eq('id', item.id);
-    if (uErr) return { error: uErr.message };
-    const { error: iErr } = await supabase.from('encargo_items').insert({
-      encargo_id: input.encargoId,
-      product: newFields.product,
-      size: newFields.size,
-      quantity: qty,
-      variant_id: newFields.variant_id,
-      sale_price: Number(item.sale_price) || 0,
-      unit_cost: newFields.unit_cost,
-      ordered_qty: 0,
-      sort_order: (item.sort_order ?? 0) + 1,
-    });
-    if (iErr) return { error: iErr.message };
+      .insert({
+        encargo_id: input.encargoId,
+        product: newFields.product,
+        size: newFields.size,
+        quantity: qty,
+        variant_id: newFields.variant_id,
+        sale_price: Number(item.sale_price) || 0,
+        unit_cost: newFields.unit_cost,
+        ordered_qty: 0,
+        sort_order: (item.sort_order ?? 0) + 1,
+      })
+      .select('id')
+      .single();
+    itemId = created?.id ?? item.id;
+    sourceItemId = item.id;
   }
 
-  // Guardar el cambio con su estado (pendiente / hecho).
+  return { oldVariantId, newVariantId, itemId, sourceItemId, snapshot, qty, newFields };
+}
+
+/** Revierte el efecto de un cambio sobre los ítems (deja el stock como antes). */
+async function revertExchange(supabase: SupabaseClient, x: any): Promise<void> {
+  if (x.source_item_id) {
+    // Era parcial: borrar la línea nueva y devolver la cantidad a la original.
+    const { data: src } = await supabase.from('encargo_items').select('quantity').eq('id', x.source_item_id).maybeSingle();
+    if (x.item_id) await supabase.from('encargo_items').delete().eq('id', x.item_id);
+    if (src) await supabase.from('encargo_items').update({ quantity: (src.quantity || 0) + (x.quantity || 0) }).eq('id', x.source_item_id);
+  } else {
+    // Línea entera: restaurar el valor viejo. item_id o, si es legacy, matchear por nuevo modelo/talle.
+    let targetId: string | null = x.item_id || null;
+    if (!targetId) {
+      const { data: match } = await supabase
+        .from('encargo_items')
+        .select('id')
+        .eq('encargo_id', x.encargo_id)
+        .ilike('product', x.new_product || '')
+        .limit(1);
+      targetId = match?.[0]?.id ?? null;
+    }
+    if (targetId) {
+      await supabase
+        .from('encargo_items')
+        .update({
+          product: x.old_product,
+          size: x.old_size,
+          variant_id: x.old_variant_id,
+          ...(x.old_unit_cost != null ? { unit_cost: x.old_unit_cost } : {}),
+        })
+        .eq('id', targetId);
+    }
+  }
+  await syncEncargoReserved([x.old_variant_id, x.new_variant_id]);
+}
+
+/**
+ * Registra un cambio en un encargo (otro talle/modelo).
+ * El stock se actualiza solo: lo que vuelve queda disponible y lo nuevo queda reservado.
+ */
+export async function exchangeEncargoItem(input: ExchangeInput): Promise<Result> {
+  const g = await guard();
+  if (g) return g;
+  const supabase = await createClient();
+
+  const res = await applyExchange(supabase, input);
+  if ('error' in res) return res;
+
   await supabase.from('encargo_exchanges').insert({
     encargo_id: input.encargoId,
-    old_product: item.product,
-    old_size: item.size,
-    old_variant_id: oldVariantId,
-    new_product: newFields.product,
-    new_size: newFields.size,
-    new_variant_id: newVariantId,
-    quantity: qty,
+    old_product: res.snapshot.product,
+    old_size: res.snapshot.size,
+    old_variant_id: res.snapshot.variant_id,
+    old_unit_cost: res.snapshot.unit_cost,
+    new_product: res.newFields.product,
+    new_size: res.newFields.size,
+    new_variant_id: res.newVariantId,
+    quantity: res.qty,
     status: input.status === 'hecho' ? 'hecho' : 'pendiente',
+    item_id: res.itemId,
+    source_item_id: res.sourceItemId,
   });
 
-  // Re-sincronizar reservas de las variantes afectadas (devuelve/quita stock).
-  await syncEncargoReserved([oldVariantId, newVariantId]);
+  await syncEncargoReserved([res.oldVariantId, res.newVariantId]);
+  revalidatePath('/admin/encargos');
+  return { ok: true };
+}
+
+/** Edita un cambio existente: revierte el efecto anterior y aplica el corregido. */
+export async function updateExchange(id: string, input: ExchangeInput): Promise<Result> {
+  const g = await guard();
+  if (g) return g;
+  const supabase = await createClient();
+
+  const { data: x } = await supabase.from('encargo_exchanges').select('*').eq('id', id).maybeSingle();
+  if (!x) return { error: 'No se encontró el cambio.' };
+
+  await revertExchange(supabase, x);
+
+  const res = await applyExchange(supabase, input);
+  if ('error' in res) return res;
+
+  const { error } = await supabase
+    .from('encargo_exchanges')
+    .update({
+      old_product: res.snapshot.product,
+      old_size: res.snapshot.size,
+      old_variant_id: res.snapshot.variant_id,
+      old_unit_cost: res.snapshot.unit_cost,
+      new_product: res.newFields.product,
+      new_size: res.newFields.size,
+      new_variant_id: res.newVariantId,
+      quantity: res.qty,
+      status: input.status === 'hecho' ? 'hecho' : 'pendiente',
+      item_id: res.itemId,
+      source_item_id: res.sourceItemId,
+    })
+    .eq('id', id);
+  if (error) return { error: error.message };
+
+  await syncEncargoReserved([res.oldVariantId, res.newVariantId]);
+  revalidatePath('/admin/encargos');
+  return { ok: true };
+}
+
+/** Elimina un cambio y revierte su efecto en el stock. */
+export async function deleteExchange(id: string): Promise<Result> {
+  const g = await guard();
+  if (g) return g;
+  const supabase = await createClient();
+  const { data: x } = await supabase.from('encargo_exchanges').select('*').eq('id', id).maybeSingle();
+  if (!x) return { ok: true };
+  await revertExchange(supabase, x);
+  const { error } = await supabase.from('encargo_exchanges').delete().eq('id', id);
+  if (error) return { error: error.message };
   revalidatePath('/admin/encargos');
   return { ok: true };
 }

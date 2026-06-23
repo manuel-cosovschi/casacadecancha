@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateEncargo, deleteEncargo, exchangeEncargoItem, setExchangeStatus } from './actions';
+import { updateEncargo, deleteEncargo, exchangeEncargoItem, updateExchange, deleteExchange, setExchangeStatus } from './actions';
 import { EncargoForm, type MatrixRow, type CatalogVariant } from './EncargoForm';
 import { formatPrice } from '@/lib/utils';
 
@@ -23,6 +23,7 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [exchanging, setExchanging] = useState(false);
+  const [editingExchange, setEditingExchange] = useState<any | null>(null);
   const [pending, start] = useTransition();
 
   const items: any[] = e.items ?? [];
@@ -53,7 +54,16 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
     });
   }
 
+  function removeExchange(id: string) {
+    if (!confirm('¿Eliminar este cambio? Se revierte su efecto en el stock.')) return;
+    start(async () => {
+      await deleteExchange(id);
+      router.refresh();
+    });
+  }
+
   const exchanges: any[] = e.exchanges ?? [];
+  const partial = Boolean(e.partial_delivery);
 
   if (editing) {
     return <EncargoForm encargo={e} matrix={matrix} catalog={catalog} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />;
@@ -66,9 +76,12 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
           <p className="font-bold text-navy">{e.customer_name}</p>
           {e.contact && <p className="text-xs text-navy/50">{e.contact}</p>}
         </div>
-        <span className={`badge ${STATUS_STYLE[e.status] || 'bg-navy/10 text-navy'}`}>
-          {STATUS.find((s) => s.value === e.status)?.label || e.status}
-        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {partial && <span className="badge bg-purple-100 text-purple-800">Entrega parcial</span>}
+          <span className={`badge ${STATUS_STYLE[e.status] || 'bg-navy/10 text-navy'}`}>
+            {STATUS.find((s) => s.value === e.status)?.label || e.status}
+          </span>
+        </div>
       </div>
 
       <ul className="mt-3 divide-y divide-navy/5 rounded-xl bg-cream-soft/60 px-3">
@@ -109,13 +122,17 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
                 <span className="text-navy/80">
                   {x.quantity}× {x.old_product}{x.old_size ? ` ${x.old_size}` : ''} → <b>{x.new_product}{x.new_size ? ` ${x.new_size}` : ''}</b>
                 </span>
-                <button
-                  onClick={() => toggleExchange(x.id, x.status)}
-                  disabled={pending}
-                  className={`badge ${done ? 'bg-green-100 text-green-800' : 'border border-amber-300 text-amber-700'}`}
-                >
-                  {done ? '✓ Hecho' : '⏳ Lo tengo que hacer'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleExchange(x.id, x.status)}
+                    disabled={pending}
+                    className={`badge ${done ? 'bg-green-100 text-green-800' : 'border border-amber-300 text-amber-700'}`}
+                  >
+                    {done ? '✓ Hecho' : '⏳ Lo tengo que hacer'}
+                  </button>
+                  <button onClick={() => { setEditingExchange(x); setExchanging(false); }} disabled={pending} className="font-semibold text-navy hover:underline">Editar</button>
+                  <button onClick={() => removeExchange(x.id)} disabled={pending} className="font-semibold text-red-600 hover:underline">✕</button>
+                </div>
               </div>
             );
           })}
@@ -150,18 +167,26 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
         >
           {STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <button onClick={() => setExchanging((v) => !v)} className="ml-auto text-sm font-semibold text-navy hover:underline">Cambio</button>
+        <button
+          onClick={() => patch({ partial_delivery: !partial })}
+          disabled={pending}
+          className={`badge ${partial ? 'bg-purple-100 text-purple-800' : 'border border-navy/20 text-navy/60'}`}
+        >
+          Entrega parcial
+        </button>
+        <button onClick={() => { setExchanging((v) => !v); setEditingExchange(null); }} className="ml-auto text-sm font-semibold text-navy hover:underline">Cambio</button>
         <button onClick={() => setEditing(true)} className="text-sm font-semibold text-navy hover:underline">Editar</button>
         <button onClick={onDelete} className="text-sm font-semibold text-red-600 hover:underline">Eliminar</button>
       </div>
 
-      {exchanging && (
+      {(exchanging || editingExchange) && (
         <ExchangePanel
           encargoId={e.id}
           items={items}
           catalog={catalog}
           matrix={matrix}
-          onClose={() => setExchanging(false)}
+          exchange={editingExchange}
+          onClose={() => { setExchanging(false); setEditingExchange(null); }}
         />
       )}
     </div>
@@ -173,24 +198,26 @@ function ExchangePanel({
   items,
   catalog,
   matrix,
+  exchange,
   onClose,
 }: {
   encargoId: string;
   items: any[];
   catalog: CatalogVariant[];
   matrix: MatrixRow[];
+  exchange?: any | null;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [itemId, setItemId] = useState<string>(items[0]?.id ?? '');
-  const [qty, setQty] = useState(1);
-  const [variantId, setVariantId] = useState('');
-  const [product, setProduct] = useState('');
-  const [size, setSize] = useState('');
+  const [itemId, setItemId] = useState<string>(exchange?.item_id ?? items[0]?.id ?? '');
+  const [qty, setQty] = useState(exchange?.quantity ?? 1);
+  const [variantId, setVariantId] = useState(exchange?.new_variant_id ?? '');
+  const [product, setProduct] = useState(exchange?.new_product ?? '');
+  const [size, setSize] = useState(exchange?.new_size ?? '');
   const [unitCost, setUnitCost] = useState<number | null>(null);
-  const [status, setStatus] = useState<'pendiente' | 'hecho'>('pendiente');
+  const [status, setStatus] = useState<'pendiente' | 'hecho'>(exchange?.status === 'hecho' ? 'hecho' : 'pendiente');
 
   const selectedItem = items.find((i) => i.id === itemId) || items[0];
 
@@ -228,7 +255,7 @@ function ExchangePanel({
       return;
     }
     start(async () => {
-      const res = await exchangeEncargoItem({
+      const payload = {
         encargoId,
         itemId: selectedItem.id,
         quantity: qty,
@@ -237,7 +264,10 @@ function ExchangePanel({
         newVariantId: variantId || null,
         newUnitCost: unitCost,
         status,
-      });
+      };
+      const res = exchange
+        ? await updateExchange(exchange.id, payload)
+        : await exchangeEncargoItem(payload);
       if (res?.error) {
         setError(res.error);
         return;
@@ -249,7 +279,7 @@ function ExchangePanel({
 
   return (
     <div className="mt-3 rounded-xl border border-celeste/40 bg-celeste/10 p-3">
-      <p className="text-xs font-bold uppercase tracking-wide text-navy/60">Registrar cambio</p>
+      <p className="text-xs font-bold uppercase tracking-wide text-navy/60">{exchange ? 'Editar cambio' : 'Registrar cambio'}</p>
       <p className="mb-2 text-[11px] text-navy/50">Lo que se cambia vuelve a stock disponible y lo nuevo queda reservado, todo automático.</p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-12 sm:items-end">
