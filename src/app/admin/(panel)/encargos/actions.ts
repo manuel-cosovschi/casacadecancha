@@ -433,6 +433,17 @@ export async function setExchangeStatus(id: string, status: 'pendiente' | 'hecho
   return { ok: true };
 }
 
+/** Marca un ítem del encargo como entregado / no entregado (entregas parciales). */
+export async function setItemDelivered(itemId: string, delivered: boolean): Promise<Result> {
+  const g = await guard();
+  if (g) return g;
+  const supabase = await createClient();
+  const { error } = await supabase.from('encargo_items').update({ delivered }).eq('id', itemId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/encargos');
+  return { ok: true };
+}
+
 export async function deleteEncargo(id: string): Promise<Result> {
   const g = await guard();
   if (g) return g;
