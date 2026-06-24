@@ -5,6 +5,7 @@ import { EncargosList } from './EncargosList';
 import { SupplierOrders } from './SupplierOrders';
 import { StockAdjustments } from './StockAdjustments';
 import { Gifts } from './Gifts';
+import { PorPedirStat } from './PorPedirStat';
 import { getEncargos, getStockMatrix, getSupplierBatches, getCatalogVariants, getStockAdjustments, getGifts } from '@/lib/admin/data';
 import { formatPrice } from '@/lib/utils';
 
@@ -46,6 +47,27 @@ export default async function EncargosPage() {
   const porPedir = matrix.reduce((a, r) => a + Math.max(0, r.reserved - r.ordered - r.adjusted), 0);
   const matrixRows = matrix.filter((r) => r.reserved > 0 || r.ordered > 0 || r.adjusted !== 0 || r.gifted > 0);
 
+  // Detalle de "por pedir": qué modelo/talle falta y para qué clientes (encargos no entregados).
+  const keyOf = (p: string, s: string) => `${(p || '').trim().toLowerCase()}|${(s || '').trim().toLowerCase()}`;
+  const whoByKey = new Map<string, Map<string, number>>();
+  for (const e of encargos as any[]) {
+    if (e.status === 'cancelado' || e.status === 'entregado') continue;
+    for (const i of e.items ?? []) {
+      const k = keyOf(i.product, i.size);
+      if (!whoByKey.has(k)) whoByKey.set(k, new Map());
+      const m = whoByKey.get(k)!;
+      m.set(e.customer_name, (m.get(e.customer_name) || 0) + (i.quantity || 0));
+    }
+  }
+  const porPedirDetalle = matrix
+    .filter((r) => r.reserved - r.ordered - r.adjusted > 0)
+    .map((r) => ({
+      product: r.product,
+      size: r.size,
+      faltan: r.reserved - r.ordered - r.adjusted,
+      who: Array.from((whoByKey.get(r.key) ?? new Map()).entries()).map(([name, qty]) => ({ name, qty })),
+    }));
+
   const rows = encargos.flatMap((e: any) =>
     (e.items ?? []).map((i: any) => ({
       cliente: e.customer_name,
@@ -70,7 +92,7 @@ export default async function EncargosPage() {
 
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Encargos activos" value={String(activos.length)} />
-        <StatCard label="Unidades por pedir" value={String(porPedir)} accent={porPedir > 0 ? 'amber' : 'green'} hint="al proveedor" />
+        <PorPedirStat total={porPedir} detalle={porPedirDetalle} />
         <StatCard label="Cambios pendientes" value={String(cambiosPendientes)} accent={cambiosPendientes > 0 ? 'amber' : 'green'} hint="cambios por hacer" />
         <StatCard label="Ganancia estimada" value={formatPrice(ganancia)} accent="green" hint={aCobrar > 0 ? `${formatPrice(aCobrar)} a cobrar` : undefined} />
       </div>
