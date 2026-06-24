@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateEncargo, deleteEncargo, exchangeEncargoItem, updateExchange, deleteExchange, setExchangeStatus } from './actions';
+import { updateEncargo, deleteEncargo, exchangeEncargoItem, updateExchange, deleteExchange, setExchangeStatus, setItemDelivered } from './actions';
 import { EncargoForm, type MatrixRow, type CatalogVariant } from './EncargoForm';
 import { formatPrice } from '@/lib/utils';
 
@@ -65,6 +65,13 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
   const exchanges: any[] = e.exchanges ?? [];
   const partial = Boolean(e.partial_delivery);
 
+  function toggleDelivered(itemId: string, delivered: boolean) {
+    start(async () => {
+      await setItemDelivered(itemId, !delivered);
+      router.refresh();
+    });
+  }
+
   if (editing) {
     return <EncargoForm encargo={e} matrix={matrix} catalog={catalog} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />;
   }
@@ -90,8 +97,20 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
             <span className="text-navy/80">
               <b className="text-navy">{i.quantity}×</b> {i.product}
               {i.size ? <span className="text-navy/50"> · Talle {i.size}</span> : ''}
+              {i.delivered && <span className="ml-1.5 badge bg-green-100 text-green-800">✓ Entregado</span>}
             </span>
-            <span className="shrink-0 font-medium text-navy/70">{formatPrice(Number(i.sale_price) * i.quantity)}</span>
+            <span className="flex shrink-0 items-center gap-2">
+              {partial && (
+                <button
+                  onClick={() => toggleDelivered(i.id, i.delivered)}
+                  disabled={pending}
+                  className={`text-xs font-semibold hover:underline ${i.delivered ? 'text-navy/50' : 'text-green-700'}`}
+                >
+                  {i.delivered ? 'Marcar pendiente' : 'Marcar entregado'}
+                </button>
+              )}
+              <span className="font-medium text-navy/70">{formatPrice(Number(i.sale_price) * i.quantity)}</span>
+            </span>
           </li>
         ))}
       </ul>
