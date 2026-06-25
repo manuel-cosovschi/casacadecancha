@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentProfile, isOwnerRole } from '@/lib/admin/auth';
 import type { Order, OrderItem } from '@/lib/types';
 
 export type RangeKey =
@@ -134,24 +135,34 @@ export async function getDashboardMetrics(key: RangeKey): Promise<DashboardMetri
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
 
+  // Workspace del usuario: el dueño ve web + lo suyo; un vendedor solo sus encargos/regalos.
+  const profile = await getCurrentProfile();
+  const sid = profile?.id ?? '00000000-0000-0000-0000-000000000000';
+  const owner = profile ? isOwnerRole(profile.role) : false;
+  const empties = { data: [] as any[] };
+
   const [{ data: ordersData }, { data: expensesData }, { data: adsData }, { data: lowStock }, { data: encargosData }, { data: giftsData }] =
     await Promise.all([
-      supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .gte('created_at', fromIso)
-        .lte('created_at', toIso),
-      supabase.from('expenses').select('amount, category').gte('date', from.toISOString().slice(0, 10)).lte('date', to.toISOString().slice(0, 10)),
-      supabase.from('ad_metrics').select('spend, revenue').gte('date', from.toISOString().slice(0, 10)).lte('date', to.toISOString().slice(0, 10)),
-      supabase.from('variant_stock').select('low_stock').eq('low_stock', true),
+      owner
+        ? supabase.from('orders').select('*, order_items(*)').gte('created_at', fromIso).lte('created_at', toIso)
+        : Promise.resolve(empties),
+      owner
+        ? supabase.from('expenses').select('amount, category').gte('date', from.toISOString().slice(0, 10)).lte('date', to.toISOString().slice(0, 10))
+        : Promise.resolve(empties),
+      owner
+        ? supabase.from('ad_metrics').select('spend, revenue').gte('date', from.toISOString().slice(0, 10)).lte('date', to.toISOString().slice(0, 10))
+        : Promise.resolve(empties),
+      owner ? supabase.from('variant_stock').select('low_stock').eq('low_stock', true) : Promise.resolve(empties),
       supabase
         .from('encargos')
         .select('paid, payment_status, paid_amount, status, created_at, items:encargo_items(product, size, quantity, sale_price, unit_cost)')
+        .eq('seller_id', sid)
         .gte('created_at', fromIso)
         .lte('created_at', toIso),
       supabase
         .from('gifts')
         .select('quantity, unit_cost')
+        .eq('seller_id', sid)
         .gte('created_at', fromIso)
         .lte('created_at', toIso),
     ]);

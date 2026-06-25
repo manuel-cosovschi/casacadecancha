@@ -46,6 +46,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Gate por rol: un vendedor solo accede a su propio workspace.
+  const sellerAllowed =
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/encargos') ||
+    pathname.startsWith('/admin/rentabilidad') ||
+    pathname.startsWith('/admin/cuenta');
+  if (isAdmin && !isLogin && user && !sellerAllowed) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    const owner = profile?.role === 'owner' || profile?.role === 'admin';
+    if (!owner) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/admin/encargos';
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (isLogin && user) {
     const url = request.nextUrl.clone();
     url.pathname = '/admin';

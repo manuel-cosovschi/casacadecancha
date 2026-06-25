@@ -3,9 +3,16 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { assertWriter } from '@/lib/admin/actions-helpers';
+import { getCurrentProfile, isOwnerRole } from '@/lib/admin/auth';
 import { sendAdminPush } from '@/lib/push';
 import { syncEncargoReserved } from '@/lib/admin/encargo-stock';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+/** Solo el dueño afecta el stock web; los vendedores tienen su workspace aislado. */
+async function ownerCtx() {
+  const p = await getCurrentProfile();
+  return { sellerId: p?.id ?? null, isOwner: p ? isOwnerRole(p.role) : false };
+}
 
 async function variantIdsOfEncargo(supabase: SupabaseClient, encargoId: string): Promise<string[]> {
   const { data } = await supabase
@@ -22,10 +29,11 @@ function keyOf(product: string, size: string) {
 /** Disponible por modelo+talle = comprado al proveedor − reservado por encargos (no cancelados). */
 async function availabilityMap(
   supabase: SupabaseClient,
+  sellerId: string,
 ): Promise<Map<string, { available: number; product: string; size: string }>> {
   const [{ data: items }, { data: orders }] = await Promise.all([
-    supabase.from('encargo_items').select('product, size, quantity, encargos(status)'),
-    supabase.from('supplier_orders').select('product, size, quantity'),
+    supabase.from('encargo_items').select('product, size, quantity, encargos!inner(status, seller_id)').eq('encargos.seller_id', sellerId),
+    supabase.from('supplier_orders').select('product, size, quantity').eq('seller_id', sellerId),
   ]);
   const map = new Map<string, { available: number; product: string; size: string }>();
   const get = (product: string, size: string) => {
@@ -90,6 +98,7 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
   const g = await guard();
   if (g) return g;
   const supabase = await createClient();
+  const { sellerId, isOwner } = await ownerCtx();
 
   // payment_status manda; `paid` queda sincronizado para compatibilidad.
   const payment_status: PaymentStatus =
@@ -115,6 +124,7 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
     paid_amount,
     status: input.status || 'pendiente',
     notes: input.notes?.trim() || null,
+    seller_id: sellerId,
   };
 
   const items = (input.items || [])
@@ -124,7 +134,7 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
       size: i.size?.trim() || null,
       quantity: Math.max(1, Number(i.quantity) || 1),
       ordered_qty: Math.max(0, Number(i.ordered_qty) || 0),
-      variant_id: i.variant_id || null,
+      variant_id: isOwner ? i.variant_id || null : null,
       sale_price: Number(i.sale_price) || 0,
       unit_cost: Number(i.unit_cost) || 0,
       sort_order: idx,
@@ -132,8 +142,11 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
 
   if (items.length === 0) return { error: 'Agregá al menos un ítem (modelo/talle).' };
 
-  // Estado de stock ANTES de guardar (para detectar quiebre).
-  const before = await availabilityMap(supabase);
+  // Estado de stock ANTES de guardar (para detectar quiebre). Solo el dueño afecta stock web.
+  const before =
+    isOwner && sellerId
+      ? await availabilityMap(supabase, sellerId)
+      : new Map<string, { available: number; product: string; size: string }>();
 
   let encargoId = input.id;
   const oldVariantIds = encargoId ? await variantIdsOfEncargo(supabase, encargoId) : [];
@@ -152,12 +165,13 @@ export async function saveEncargo(input: EncargoInput): Promise<Result> {
     .insert(items.map((i) => ({ ...i, encargo_id: encargoId })));
   if (itErr) return { error: itErr.message };
 
-  // Sincronizar la reserva por encargos en el stock web (variantes afectadas).
-  await syncEncargoReserved([...oldVariantIds, ...items.map((i) => i.variant_id)]);
+  // Sincronizar la reserva por encargos en el stock web (variantes afectadas). Solo el dueño.
+  if (isOwner) await syncEncargoReserved([...oldVariantIds, ...items.map((i) => i.variant_id)]);
 
   // Estado DESPUÉS: si algún modelo+talle pasó de tener stock a quedarse sin, avisar.
   try {
-    const after = await availabilityMap(supabase);
+    if (!isOwner || !sellerId) throw new Error('skip');
+    const after = await availabilityMap(supabase, sellerId);
     const affected = new Set(items.map((i) => keyOf(i.product, i.size || '')));
     for (const k of affected) {
       const a = after.get(k);

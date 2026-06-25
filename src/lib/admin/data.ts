@@ -4,6 +4,15 @@ async function db() {
   return createClient();
 }
 
+/** id del vendedor logueado: aísla los datos del workspace (encargos, pedidos, etc.). */
+async function sellerId(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? '00000000-0000-0000-0000-000000000000';
+}
+
 export async function getAdminProducts() {
   const supabase = await db();
   const { data } = await supabase
@@ -152,6 +161,7 @@ export async function getEncargos() {
   const { data } = await supabase
     .from('encargos')
     .select('*, items:encargo_items(*), exchanges:encargo_exchanges(*)')
+    .eq('seller_id', await sellerId())
     .order('created_at', { ascending: false });
   return (data ?? []).map((e: any) => ({
     ...e,
@@ -181,7 +191,7 @@ export async function getCatalogVariants(): Promise<CatalogVariant[]> {
       .select('id, product_id, size, sort_order, active, products(name, active)')
       .eq('active', true)
       .order('sort_order'),
-    supabase.from('supplier_orders').select('variant_id, quantity, unit_cost, shipping_cost'),
+    supabase.from('supplier_orders').select('variant_id, quantity, unit_cost, shipping_cost').eq('seller_id', await sellerId()),
   ]);
 
   // Costo unitario efectivo por variante = (Σ costo*cant + Σ envío) / Σ cant
@@ -227,6 +237,7 @@ export async function getEncargoFinancials(fromIso: string, toIso: string): Prom
   const { data } = await supabase
     .from('encargos')
     .select('paid, payment_status, paid_amount, status, created_at, items:encargo_items(quantity, sale_price, unit_cost)')
+    .eq('seller_id', await sellerId())
     .gte('created_at', fromIso)
     .lte('created_at', toIso);
 
@@ -293,6 +304,7 @@ export async function getSupplierBatches(): Promise<SupplierBatch[]> {
   const { data } = await supabase
     .from('supplier_orders')
     .select('id, batch_id, supplier, product, size, quantity, unit_cost, shipping_cost, status, variant_id, created_at')
+    .eq('seller_id', await sellerId())
     .order('created_at', { ascending: false })
     .limit(500);
 
@@ -345,11 +357,12 @@ export interface StockMatrixRow {
 /** Stock por modelo+talle: comprado al proveedor + ajustes vs reservado por encargos y regalos. */
 export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   const supabase = await db();
+  const sid = await sellerId();
   const [{ data: items }, { data: orders }, { data: adjustments }, { data: gifts }] = await Promise.all([
-    supabase.from('encargo_items').select('product, size, quantity, encargos(status)'),
-    supabase.from('supplier_orders').select('product, size, quantity'),
-    supabase.from('stock_adjustments').select('product, size, delta'),
-    supabase.from('gifts').select('product, size, quantity'),
+    supabase.from('encargo_items').select('product, size, quantity, encargos!inner(status, seller_id)').eq('encargos.seller_id', sid),
+    supabase.from('supplier_orders').select('product, size, quantity').eq('seller_id', sid),
+    supabase.from('stock_adjustments').select('product, size, delta').eq('seller_id', sid),
+    supabase.from('gifts').select('product, size, quantity').eq('seller_id', sid),
   ]);
 
   const map = new Map<string, StockMatrixRow>();
@@ -392,6 +405,7 @@ export async function getStockAdjustments() {
   const { data } = await supabase
     .from('stock_adjustments')
     .select('*')
+    .eq('seller_id', await sellerId())
     .order('created_at', { ascending: false })
     .limit(100);
   return data ?? [];
@@ -402,6 +416,7 @@ export async function getGifts() {
   const { data } = await supabase
     .from('gifts')
     .select('*')
+    .eq('seller_id', await sellerId())
     .order('created_at', { ascending: false })
     .limit(100);
   return data ?? [];

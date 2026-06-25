@@ -11,7 +11,7 @@ export default async function PanelLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-cream lg:flex-row">
-      <Sidebar />
+      <Sidebar role={profile.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader profile={profile} />
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
