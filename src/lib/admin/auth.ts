@@ -6,6 +6,7 @@ export interface AdminProfile {
   id: string;
   name: string | null;
   email: string | null;
+  username: string | null;
   role: UserRole;
   active: boolean;
 }
@@ -20,7 +21,7 @@ export async function getCurrentProfile(): Promise<AdminProfile | null> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, name, email, role, active')
+    .select('id, name, email, username, role, active')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -31,9 +32,24 @@ export async function getCurrentProfile(): Promise<AdminProfile | null> {
     id: user.id,
     name: user.email?.split('@')[0] ?? null,
     email: user.email ?? null,
+    username: null,
     role: 'viewer',
     active: true,
   };
+}
+
+/** Roles con acceso total (dueño). El resto son vendedores con su propio workspace. */
+export function isOwnerRole(role: UserRole): boolean {
+  return role === 'owner' || role === 'admin';
+}
+
+/** id del usuario logueado (define su workspace de datos), o null. */
+export async function currentUserId(): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
 }
 
 /** Exige sesión de admin; redirige a login si no hay. */

@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { assertWriter } from '@/lib/admin/actions-helpers';
+import { getCurrentProfile, isOwnerRole } from '@/lib/admin/auth';
 import { adjustPhysicalStock } from '@/lib/admin/encargo-stock';
 
 type Result = { ok?: boolean; error?: string };
@@ -15,6 +16,11 @@ async function guard(): Promise<Result | null> {
   } catch (e) {
     return { error: (e as Error).message };
   }
+}
+
+async function ownerCtx() {
+  const p = await getCurrentProfile();
+  return { sellerId: p?.id ?? null, isOwner: p ? isOwnerRole(p.role) : false };
 }
 
 export interface SupplierItemInput {
@@ -34,14 +40,14 @@ export interface SupplierBatchInput {
 }
 
 /** Convierte el input en filas listas para insertar, prorrateando el envío por cantidad. */
-function buildRows(input: SupplierBatchInput, batchId: string) {
+function buildRows(input: SupplierBatchInput, batchId: string, sellerId: string | null, isOwner: boolean) {
   const items = (input.items || [])
     .map((i) => ({
       product: (i.product || '').trim() || '—',
       size: (i.size || '').toString().trim() || null,
       quantity: Math.max(1, Math.round(Number(i.quantity) || 1)),
       unit_cost: Math.max(0, Number(i.unit_cost) || 0),
-      variant_id: i.variant_id || null,
+      variant_id: isOwner ? i.variant_id || null : null,
     }))
     .filter((i) => (i.product || '').trim() !== '');
 
@@ -66,6 +72,7 @@ function buildRows(input: SupplierBatchInput, batchId: string) {
       status: input.status || 'pedido',
       variant_id: i.variant_id,
       notes: input.notes?.trim() || null,
+      seller_id: sellerId,
     };
   });
 }
@@ -74,14 +81,15 @@ export async function createSupplierBatch(input: SupplierBatchInput): Promise<Re
   const g = await guard();
   if (g) return g;
   const supabase = await createClient();
+  const { sellerId, isOwner } = await ownerCtx();
   const batchId = randomUUID();
-  const rows = buildRows(input, batchId);
+  const rows = buildRows(input, batchId, sellerId, isOwner);
   if (rows.length === 0) return { error: 'Agregá al menos un producto al pedido.' };
 
   const { error } = await supabase.from('supplier_orders').insert(rows);
   if (error) return { error: error.message };
 
-  if ((input.status || 'pedido') === 'recibido') {
+  if (isOwner && (input.status || 'pedido') === 'recibido') {
     for (const r of rows) if (r.variant_id) await adjustPhysicalStock(r.variant_id, r.quantity);
   }
   revalidatePath('/admin/encargos');
@@ -92,6 +100,7 @@ export async function updateSupplierBatch(batchId: string, input: SupplierBatchI
   const g = await guard();
   if (g) return g;
   const supabase = await createClient();
+  const { sellerId, isOwner } = await ownerCtx();
 
   // Filas viejas (para revertir stock si estaban recibidas).
   const { data: oldRows } = await supabase
@@ -99,7 +108,7 @@ export async function updateSupplierBatch(batchId: string, input: SupplierBatchI
     .select('quantity, variant_id, status')
     .eq('batch_id', batchId);
   const wasReceived = (oldRows ?? []).some((r: any) => r.status === 'recibido');
-  if (wasReceived) {
+  if (isOwner && wasReceived) {
     for (const r of (oldRows ?? []) as any[]) {
       if (r.variant_id) await adjustPhysicalStock(r.variant_id, -(r.quantity || 0));
     }
@@ -107,12 +116,12 @@ export async function updateSupplierBatch(batchId: string, input: SupplierBatchI
 
   await supabase.from('supplier_orders').delete().eq('batch_id', batchId);
 
-  const rows = buildRows(input, batchId);
+  const rows = buildRows(input, batchId, sellerId, isOwner);
   if (rows.length === 0) return { error: 'Agregá al menos un producto al pedido.' };
   const { error } = await supabase.from('supplier_orders').insert(rows);
   if (error) return { error: error.message };
 
-  if ((input.status || 'pedido') === 'recibido') {
+  if (isOwner && (input.status || 'pedido') === 'recibido') {
     for (const r of rows) if (r.variant_id) await adjustPhysicalStock(r.variant_id, r.quantity);
   }
   revalidatePath('/admin/encargos');

@@ -57,9 +57,19 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
   },
 ];
 
-export function Sidebar() {
+// Rutas que ve un vendedor (workspace propio). El dueño ve todo.
+const SELLER_HREFS = new Set(['/admin', '/admin/encargos', '/admin/rentabilidad', '/admin/cuenta']);
+
+export function Sidebar({ role }: { role?: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const isOwner = role === 'owner' || role === 'admin';
+
+  const sections = isOwner
+    ? SECTIONS
+    : SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => SELLER_HREFS.has(i.href)) })).filter(
+        (s) => s.items.length > 0,
+      );
 
   return (
     <>
@@ -83,7 +93,7 @@ export function Sidebar() {
           <Logo theme="dark" variant="stacked" />
         </div>
         <nav className="px-3 pb-10">
-          {SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.title} className="mb-4">
               <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-celeste/70">
                 {section.title}

@@ -8,7 +8,7 @@ export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const redirectTo = params.get('redirect') || '/admin';
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,9 +18,22 @@ export function LoginForm() {
     setLoading(true);
     setError(null);
     const supabase = createClient();
+
+    // Si escribe un email lo usamos directo; si no, resolvemos el usuario a su email.
+    let email = username.trim();
+    if (!email.includes('@')) {
+      const { data } = await supabase.rpc('auth_email_for_username', { p_username: email });
+      if (!data) {
+        setError('Usuario o contraseña incorrectos.');
+        setLoading(false);
+        return;
+      }
+      email = data as string;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setError('Email o contraseña incorrectos.');
+      setError('Usuario o contraseña incorrectos.');
       setLoading(false);
       return;
     }
@@ -31,14 +44,16 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <label className="block">
-        <span className="label">Email</span>
+        <span className="label">Usuario</span>
         <input
-          type="email"
+          type="text"
           className="input"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           required
-          autoComplete="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          placeholder="tu usuario"
         />
       </label>
       <label className="block">
