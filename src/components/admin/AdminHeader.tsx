@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { AdminProfile } from '@/lib/admin/auth';
@@ -13,13 +12,11 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export function AdminHeader({ profile }: { profile: AdminProfile }) {
-  const router = useRouter();
-
   async function logout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.refresh();
-    router.push('/admin/login');
+    // Recarga completa para limpiar la caché de navegación (evita ver el usuario anterior).
+    window.location.href = '/admin/login';
   }
 
   return (

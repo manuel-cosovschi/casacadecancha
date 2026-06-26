@@ -5,8 +5,9 @@ import { EncargosList } from './EncargosList';
 import { SupplierOrders } from './SupplierOrders';
 import { StockAdjustments } from './StockAdjustments';
 import { Gifts } from './Gifts';
+import { InternalOrders } from './InternalOrders';
 import { PorPedirStat } from './PorPedirStat';
-import { getEncargos, getStockMatrix, getSupplierBatches, getCatalogVariants, getStockAdjustments, getGifts } from '@/lib/admin/data';
+import { getEncargos, getStockMatrix, getSupplierBatches, getCatalogVariants, getStockAdjustments, getGifts, getOtherSellers, getOutgoingInternalOrders, getIncomingInternalOrders } from '@/lib/admin/data';
 import { formatPrice } from '@/lib/utils';
 
 function totals(e: any) {
@@ -17,13 +18,16 @@ function totals(e: any) {
 }
 
 export default async function EncargosPage() {
-  const [encargos, matrix, supplierBatches, catalog, adjustments, gifts] = await Promise.all([
+  const [encargos, matrix, supplierBatches, catalog, adjustments, gifts, sellers, outgoing, incoming] = await Promise.all([
     getEncargos(),
     getStockMatrix(),
     getSupplierBatches(),
     getCatalogVariants(),
     getStockAdjustments(),
     getGifts(),
+    getOtherSellers(),
+    getOutgoingInternalOrders(),
+    getIncomingInternalOrders(),
   ]);
   // Vigentes = no cancelados (para plata). Activos = vigentes que todavía no se entregaron.
   const vigentes = encargos.filter((e: any) => e.status !== 'cancelado');
@@ -100,6 +104,11 @@ export default async function EncargosPage() {
       {/* Pedidos al proveedor */}
       <div className="mb-5">
         <SupplierOrders batches={supplierBatches} catalog={catalog} />
+      </div>
+
+      {/* Pedidos entre vendedores */}
+      <div className="mb-5">
+        <InternalOrders sellers={sellers} outgoing={outgoing} incoming={incoming} catalog={catalog} />
       </div>
 
       {/* Stock por modelo y talle */}
