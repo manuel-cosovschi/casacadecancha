@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const redirectTo = params.get('redirect') || '/admin';
   const [username, setUsername] = useState('');
@@ -37,8 +36,8 @@ export function LoginForm() {
       setLoading(false);
       return;
     }
-    router.refresh();
-    router.push(redirectTo);
+    // Recarga completa para que el panel cargue con el usuario correcto (sin caché previa).
+    window.location.href = redirectTo;
   }
 
   return (

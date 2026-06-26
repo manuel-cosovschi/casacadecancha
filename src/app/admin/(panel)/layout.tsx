@@ -2,6 +2,9 @@ import { requireAdmin } from '@/lib/admin/auth';
 import { Sidebar } from '@/components/admin/Sidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 
+// Siempre dinámico y por-usuario (nunca cachear el header/perfil entre cuentas).
+export const dynamic = 'force-dynamic';
+
 export default async function PanelLayout({
   children,
 }: {

@@ -358,11 +358,12 @@ export interface StockMatrixRow {
 export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   const supabase = await db();
   const sid = await sellerId();
-  const [{ data: items }, { data: orders }, { data: adjustments }, { data: gifts }] = await Promise.all([
+  const [{ data: items }, { data: orders }, { data: adjustments }, { data: gifts }, { data: internal }] = await Promise.all([
     supabase.from('encargo_items').select('product, size, quantity, encargos!inner(status, seller_id)').eq('encargos.seller_id', sid),
     supabase.from('supplier_orders').select('product, size, quantity').eq('seller_id', sid),
     supabase.from('stock_adjustments').select('product, size, delta').eq('seller_id', sid),
     supabase.from('gifts').select('product, size, quantity').eq('seller_id', sid),
+    supabase.from('internal_orders').select('product, size, quantity, requester_id, provider_id').or(`requester_id.eq.${sid},provider_id.eq.${sid}`),
   ]);
 
   const map = new Map<string, StockMatrixRow>();
@@ -392,6 +393,11 @@ export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   for (const gft of (gifts ?? []) as any[]) {
     get(gft.product, gft.size).gifted += gft.quantity || 0;
   }
+  // Pedidos internos: lo que pedí a otro me suma stock; lo que me piden lo reservo.
+  for (const io of (internal ?? []) as any[]) {
+    if (io.requester_id === sid) get(io.product, io.size).ordered += io.quantity || 0;
+    if (io.provider_id === sid) get(io.product, io.size).reserved += io.quantity || 0;
+  }
 
   const rows = Array.from(map.values()).map((r) => ({
     ...r,
@@ -420,6 +426,59 @@ export async function getGifts() {
     .order('created_at', { ascending: false })
     .limit(100);
   return data ?? [];
+}
+
+/** Otros vendedores a los que puedo pedirles camisetas (todos menos yo). */
+export async function getOtherSellers(): Promise<{ id: string; name: string }[]> {
+  const supabase = await db();
+  const me = await sellerId();
+  const { data } = await supabase.from('profiles').select('id, name, username').eq('active', true);
+  return (data ?? [])
+    .filter((p: any) => p.id !== me)
+    .map((p: any) => ({ id: p.id, name: p.name || p.username || 'Vendedor' }));
+}
+
+export interface InternalOrder {
+  id: string;
+  requester_id: string;
+  provider_id: string;
+  product: string;
+  size: string | null;
+  quantity: number;
+  unit_cost: number;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  counterpart: string; // nombre de la otra persona
+}
+
+async function nameMap(supabase: any): Promise<Map<string, string>> {
+  const { data } = await supabase.from('profiles').select('id, name, username');
+  const m = new Map<string, string>();
+  for (const p of (data ?? []) as any[]) m.set(p.id, p.name || p.username || 'Vendedor');
+  return m;
+}
+
+/** Pedidos que YO le hice a otros (para cubrir mis encargos). */
+export async function getOutgoingInternalOrders(): Promise<InternalOrder[]> {
+  const supabase = await db();
+  const me = await sellerId();
+  const [{ data }, names] = await Promise.all([
+    supabase.from('internal_orders').select('*').eq('requester_id', me).order('created_at', { ascending: false }),
+    nameMap(supabase),
+  ]);
+  return (data ?? []).map((r: any) => ({ ...r, counterpart: names.get(r.provider_id) || 'Vendedor' }));
+}
+
+/** Pedidos que me hicieron A MÍ (salen de mi stock). */
+export async function getIncomingInternalOrders(): Promise<InternalOrder[]> {
+  const supabase = await db();
+  const me = await sellerId();
+  const [{ data }, names] = await Promise.all([
+    supabase.from('internal_orders').select('*').eq('provider_id', me).order('created_at', { ascending: false }),
+    nameMap(supabase),
+  ]);
+  return (data ?? []).map((r: any) => ({ ...r, counterpart: names.get(r.requester_id) || 'Vendedor' }));
 }
 
 export interface IncomingStockRow {
