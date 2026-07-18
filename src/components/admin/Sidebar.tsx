@@ -24,6 +24,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
     items: [
       { label: 'Pedidos', href: '/admin/pedidos' },
       { label: 'Envíos', href: '/admin/envios' },
+      { label: 'Faltantes', href: '/admin/faltantes' },
       { label: 'Encargos', href: '/admin/encargos' },
       { label: 'Clientes', href: '/admin/clientes' },
       { label: 'Promociones', href: '/admin/promociones' },

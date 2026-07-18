@@ -2,38 +2,60 @@
 
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { sendAdminPush } from '@/lib/push';
 
 const schema = z.object({
   productId: z.string().uuid(),
-  variantId: z.string().uuid().nullable().optional(),
-  size: z.string().nullable().optional(),
-  email: z.string().email('Email inválido'),
-  phone: z.string().optional().nullable(),
+  productName: z.string().optional(),
+  phone: z.string().min(6, 'Ingresá tu WhatsApp'),
+  sizes: z
+    .array(
+      z.object({
+        size: z.string().nullable(),
+        variantId: z.string().uuid().nullable().optional(),
+      }),
+    )
+    .min(1, 'Elegí al menos un talle'),
 });
 
-/** El cliente pide que le avisen cuando vuelva el stock de un talle. */
-export async function subscribeStock(input: {
-  productId: string;
-  variantId?: string | null;
-  size?: string | null;
-  email: string;
-  phone?: string | null;
-}): Promise<{ ok?: boolean; error?: string }> {
+export type StockRequestInput = z.infer<typeof schema>;
+
+/**
+ * El cliente deja su WhatsApp y el/los talle(s) que busca de un producto sin stock.
+ * Se guarda en stock_notifications y se avisa al admin por push.
+ */
+export async function requestStock(
+  input: StockRequestInput,
+): Promise<{ ok?: boolean; error?: string }> {
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message || 'Datos inválidos.' };
   }
   const d = parsed.data;
+  const phone = d.phone.trim();
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from('stock_notifications').insert({
+    const rows = d.sizes.map((s) => ({
       product_id: d.productId,
-      variant_id: d.variantId || null,
-      size: d.size || null,
-      email: d.email.toLowerCase().trim(),
-      phone: d.phone || null,
-    });
+      variant_id: s.variantId || null,
+      size: s.size || null,
+      phone,
+    }));
+    const { error } = await supabase.from('stock_notifications').insert(rows);
     if (error) return { error: 'No se pudo registrar. Probá de nuevo.' };
+
+    // Aviso al admin (best-effort, no rompe la respuesta al cliente).
+    try {
+      const sizeList = d.sizes.map((s) => s.size || '-').join(', ');
+      await sendAdminPush(
+        '👀 Te buscan un producto sin stock',
+        `${d.productName || 'Un producto'} · talle ${sizeList} · WhatsApp ${phone}`,
+        '/admin/faltantes',
+        'stock-req',
+      );
+    } catch {
+      /* no-op */
+    }
     return { ok: true };
   } catch {
     return { error: 'No se pudo registrar.' };
