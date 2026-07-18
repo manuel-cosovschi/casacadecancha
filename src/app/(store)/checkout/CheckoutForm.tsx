@@ -7,21 +7,22 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCart } from '@/components/cart/CartProvider';
 import { getAttribution } from '@/components/store/UtmCapture';
-import { createOrder, applyCoupon, saveCart } from './actions';
+import { createOrder, applyCoupon, saveCart, estimateMdpShipping } from './actions';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
 import { discountAmount, formatPrice } from '@/lib/utils';
-import { quoteShipping } from '@/lib/shipping';
-import type { ShippingSettings } from '@/lib/types';
+import { computeNationalShipping, parseZones } from '@/lib/shipping';
+import type { ShippingSettings, ShippingCalcSettings } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
 
 interface Props {
   transferDiscount: number;
   transferText: string;
   shipping: ShippingSettings;
+  shippingCalc: ShippingCalcSettings;
 }
 
-export function CheckoutForm({ transferDiscount, transferText, shipping }: Props) {
+export function CheckoutForm({ transferDiscount, transferText, shipping, shippingCalc }: Props) {
   const router = useRouter();
   const { items, subtotal, clear } = useCart();
   const [submitting, setSubmitting] = useState(false);
@@ -46,9 +47,18 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
     },
   });
 
+  // Estado del cálculo de envío en Mar del Plata.
+  const [mdpCost, setMdpCost] = useState<number | null>(shippingCalc?.mdp_charge ? null : 0);
+  const [mdpInfo, setMdpInfo] = useState<string | null>(null);
+  const [mdpNeedsZone, setMdpNeedsZone] = useState(false);
+  const [mdpZone, setMdpZone] = useState('');
+  const [mdpEstimating, setMdpEstimating] = useState(false);
+  const zones = parseZones(shippingCalc?.zones);
+
   const paymentMethod = watch('payment_method');
   const shippingMethod = (watch('shipping_method') || 'mdp') as 'mdp' | 'nacional';
   const isNacional = shippingMethod === 'nacional';
+  const province = watch('province');
   // El descuento por transferencia solo aplica a los productos elegibles.
   const eligibleSubtotal = items.reduce(
     (a, i) => a + (i.transferEligible !== false ? i.price * i.quantity : 0),
@@ -57,8 +67,43 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
   const showTransfer = paymentMethod === 'transfer' && transferDiscount > 0;
   const transferDisc = showTransfer ? discountAmount(eligibleSubtotal, transferDiscount) : 0;
   const discount = transferDisc + couponDiscount;
-  const shippingQuote = quoteShipping(shippingMethod, shipping);
-  const total = Math.max(0, subtotal - discount + shippingQuote.cost);
+
+  // Costo de envío efectivo.
+  const nationalCost = province ? computeNationalShipping(province, shippingCalc) : null;
+  const shippingCost = isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
+  const shippingKnown = isNacional ? nationalCost !== null : mdpCost !== null;
+  const total = Math.max(0, subtotal - discount + shippingCost);
+
+  async function calcMdp() {
+    const addr = [watch('address'), watch('address_number')].filter(Boolean).join(' ').trim();
+    if (addr.length < 3) {
+      setMdpInfo('Completá tu dirección y altura para calcular.');
+      return;
+    }
+    setMdpEstimating(true);
+    setMdpInfo(null);
+    const res = await estimateMdpShipping(addr);
+    setMdpEstimating(false);
+    if (res.needsZone) {
+      setMdpNeedsZone(true);
+      setMdpCost(null);
+      setMdpInfo('No pudimos ubicar tu dirección. Elegí tu zona para calcular el envío.');
+    } else {
+      setMdpNeedsZone(false);
+      setMdpCost(res.cost);
+      setMdpInfo(
+        res.cost > 0
+          ? `Envío a tu domicilio${res.km ? ` (~${res.km} km)` : ''}: ${formatPrice(res.cost)}`
+          : 'Entrega sin cargo.',
+      );
+    }
+  }
+
+  function pickZone(name: string) {
+    setMdpZone(name);
+    const z = zones.find((x) => x.name === name);
+    setMdpCost(z ? z.cost : null);
+  }
 
   async function handleApplyCoupon() {
     if (!couponCode.trim()) return;
@@ -76,6 +121,10 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
       setServerError('Tu carrito está vacío.');
       return;
     }
+    if (!isNacional && shippingCalc?.mdp_charge && mdpCost === null) {
+      setServerError('Calculá el costo de envío en Mar del Plata antes de confirmar.');
+      return;
+    }
     setSubmitting(true);
     setServerError(null);
     trackEvent('InitiateCheckout', { value: total, currency: 'ARS' });
@@ -83,6 +132,8 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
     const payload: CheckoutInput = {
       ...values,
       coupon_code: couponOk ? couponCode.trim() : undefined,
+      mdp_zone: mdpNeedsZone ? mdpZone : undefined,
+      shipping_cost: shippingCost,
       items: items.map((i) => ({
         productId: i.productId,
         variantId: i.variantId,
@@ -176,27 +227,25 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-navy/15 p-3 text-sm">
               <input type="radio" value="mdp" {...register('shipping_method')} className="mt-1" />
               <div>
-                <p className="font-semibold">Mar del Plata — Entrega gratis</p>
-                <p className="text-navy/60">Coordinamos la entrega por WhatsApp, sin cargo.</p>
+                <p className="font-semibold">Soy de Mar del Plata</p>
+                <p className="text-navy/60">
+                  {shippingCalc?.mdp_charge
+                    ? 'Entrega a domicilio. Calculamos el envío según tu zona.'
+                    : 'Coordinamos la entrega por WhatsApp, sin cargo.'}
+                </p>
               </div>
             </label>
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-navy/15 p-3 text-sm">
               <input type="radio" value="nacional" {...register('shipping_method')} className="mt-1" />
               <div>
-                <p className="font-semibold">Envío al resto del país</p>
-                <p className="text-navy/60">
-                  Completá tus datos de envío. El costo del envío se abona al recibir el producto.
-                </p>
+                <p className="font-semibold">Soy del resto del país</p>
+                <p className="text-navy/60">Envío por Correo Argentino a todo el país.</p>
               </div>
             </label>
           </div>
 
           {isNacional ? (
             <>
-              <div className="mt-4 rounded-lg bg-celeste/15 p-3 text-sm text-navy">
-                📦 El costo del envío se abona <strong>al recibir el producto</strong> (pago contra entrega).
-                Completá tus datos para coordinar el despacho.
-              </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Field label="Provincia" error={errors.province?.message}>
                   <select className="input" {...register('province')}>
@@ -227,6 +276,58 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
                   <textarea className="input min-h-20" {...register('references')} />
                 </Field>
               </div>
+              <div className="mt-4 rounded-lg bg-celeste/15 p-3 text-sm text-navy">
+                📦 Enviamos por <strong>Correo Argentino</strong>.{' '}
+                {nationalCost !== null
+                  ? <>Costo estimado del envío: <strong>{formatPrice(nationalCost)}</strong>.</>
+                  : 'Elegí tu provincia para calcular el costo del envío.'}
+              </div>
+            </>
+          ) : shippingCalc?.mdp_charge ? (
+            <>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Dirección" error={errors.address?.message}>
+                  <input className="input" {...register('address')} placeholder="Ej: Av. Colón" />
+                </Field>
+                <Field label="Altura" error={errors.address_number?.message}>
+                  <input className="input" {...register('address_number')} placeholder="Ej: 1168" />
+                </Field>
+                <Field label="Piso / Depto (opcional)" error={errors.floor?.message}>
+                  <input className="input" {...register('floor')} />
+                </Field>
+                <Field label="Referencias (opcional)">
+                  <input className="input" {...register('references')} placeholder="Entre calles, timbre…" />
+                </Field>
+              </div>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={calcMdp}
+                  disabled={mdpEstimating}
+                  className="btn border-2 border-navy text-navy hover:bg-navy hover:text-cream !py-2"
+                >
+                  {mdpEstimating ? 'Calculando…' : 'Calcular costo de envío'}
+                </button>
+              </div>
+              {mdpNeedsZone && (
+                <div className="mt-3">
+                  <Field label="Elegí tu zona">
+                    <select className="input" value={mdpZone} onChange={(e) => pickZone(e.target.value)}>
+                      <option value="">Elegí tu zona…</option>
+                      {zones.map((z) => (
+                        <option key={z.name} value={z.name}>
+                          {z.name} — {formatPrice(z.cost)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              )}
+              {mdpInfo && (
+                <div className="mt-3 rounded-lg bg-celeste/15 p-3 text-sm font-medium text-navy">
+                  🛵 {mdpInfo}
+                </div>
+              )}
             </>
           ) : (
             <div className="mt-4 rounded-lg bg-celeste/15 p-3 text-sm text-navy">
@@ -316,8 +417,14 @@ export function CheckoutForm({ transferDiscount, transferText, shipping }: Props
           )}
           <Row
             label="Envío"
-            value={shippingQuote.free ? 'Gratis' : 'A abonar al recibir'}
-            muted={shippingQuote.payOnDelivery}
+            value={
+              !shippingKnown
+                ? 'A calcular'
+                : shippingCost === 0
+                  ? 'Gratis'
+                  : formatPrice(shippingCost)
+            }
+            muted={!shippingKnown}
           />
         </div>
         <div className="flex justify-between border-t border-navy/10 pt-3 text-lg font-bold">

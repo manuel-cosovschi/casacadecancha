@@ -50,6 +50,31 @@ export default async function ConfigPage() {
       />
 
       <SettingsForm
+        settingKey="shipping_calc"
+        title="Calculador de envío"
+        initial={s.shipping_calc}
+        fields={[
+          { key: 'mdp_charge', label: 'Cobrar envío en Mar del Plata (si no, es gratis)', type: 'boolean' },
+          { key: 'origin_label', label: 'Tu dirección (referencia)', full: true, hint: 'Solo informativo.' },
+          { key: 'origin_lat', label: 'Latitud de tu casa', type: 'number', hint: 'Punto desde donde repartís (Google Maps).' },
+          { key: 'origin_lng', label: 'Longitud de tu casa', type: 'number' },
+          { key: 'fuel_price', label: 'Precio nafta ($/litro)', type: 'number' },
+          { key: 'fuel_consumption', label: 'Consumo del auto (L/100km)', type: 'number' },
+          { key: 'round_trip', label: 'Cobrar ida y vuelta (x2)', type: 'boolean' },
+          { key: 'road_factor', label: 'Factor calle (recto→real, ej 1.3)', type: 'number' },
+          { key: 'mdp_min', label: 'Costo mínimo MdP ($)', type: 'number' },
+          { key: 'mdp_round', label: 'Redondeo MdP ($)', type: 'number', hint: 'Ej 500 = redondea de a $500.' },
+          { key: 'mdp_fallback', label: 'Costo si no se ubica la dirección ($)', type: 'number' },
+          { key: 'zones', label: 'Zonas de respaldo (una por línea: Nombre|costo)', type: 'textarea', full: true, hint: 'Se usan cuando no se puede ubicar la dirección.' },
+          { key: 'national_base', label: 'Envío nacional base — Correo ($)', type: 'number' },
+          { key: 'extra_ba', label: 'Extra Buenos Aires ($)', type: 'number' },
+          { key: 'extra_centro', label: 'Extra Centro (Cba, SF, ER, LP) ($)', type: 'number' },
+          { key: 'extra_cuyo_noa_nea', label: 'Extra Cuyo/NOA/NEA ($)', type: 'number' },
+          { key: 'extra_patagonia', label: 'Extra Patagonia ($)', type: 'number' },
+        ]}
+      />
+
+      <SettingsForm
         settingKey="whatsapp"
         title="WhatsApp"
         initial={s.whatsapp}

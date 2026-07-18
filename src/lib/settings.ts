@@ -4,6 +4,7 @@ import type {
   HeroSettings,
   MercadoPagoSettings,
   ShippingSettings,
+  ShippingCalcSettings,
   TransferSettings,
   WhatsAppSettings,
 } from '@/lib/types';
@@ -88,6 +89,25 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     mdp_text: 'Coordinamos la entrega en Mar del Plata por WhatsApp, sin cargo.',
     nacional_note: 'El costo del envío se abona al recibir el producto.',
   } satisfies ShippingSettings,
+  shipping_calc: {
+    mdp_charge: true,
+    origin_lat: -38.001,
+    origin_lng: -57.559,
+    origin_label: 'Méndez de Andés 1168, Mar del Plata',
+    fuel_price: 1500,
+    fuel_consumption: 9,
+    round_trip: true,
+    road_factor: 1.3,
+    mdp_min: 1500,
+    mdp_round: 500,
+    mdp_fallback: 3000,
+    zones: 'Centro|1500\nLa Perla|1500\nPuerto|2500\nZona Sur|3000\nZona Norte|3000\nSierra de los Padres|6000',
+    national_base: 13000,
+    extra_ba: 0,
+    extra_centro: 3000,
+    extra_cuyo_noa_nea: 6000,
+    extra_patagonia: 9000,
+  } satisfies ShippingCalcSettings,
   footer: {
     instagram:
       process.env.NEXT_PUBLIC_INSTAGRAM_URL ||

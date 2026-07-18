@@ -5,7 +5,14 @@ import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount } from '@/lib/utils';
 import { getAllSettings } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
-import { quoteShipping } from '@/lib/shipping';
+import {
+  quoteShipping,
+  computeNationalShipping,
+  mdpCostFromKm,
+  haversineKm,
+} from '@/lib/shipping';
+import { geocodeMdp } from '@/lib/geocode';
+import type { ShippingCalcSettings } from '@/lib/types';
 import { sendOrderPush } from '@/lib/push';
 import { sendEmail } from '@/lib/email';
 
@@ -13,6 +20,55 @@ interface ActionResult {
   ok: boolean;
   orderNumber?: string;
   error?: string;
+}
+
+export interface ShippingEstimate {
+  cost: number;
+  geocoded: boolean; // true si se pudo ubicar la dirección
+  km?: number;
+  needsZone: boolean; // true si hay que caer a elegir zona manual
+}
+
+/** Calcula el costo de envío del lado del servidor (fuente de verdad). */
+async function resolveShippingCost(
+  data: CheckoutInput,
+  calc: ShippingCalcSettings,
+): Promise<number> {
+  if (data.shipping_method === 'nacional') {
+    return computeNationalShipping(data.province, calc);
+  }
+  // Mar del Plata
+  if (!calc.mdp_charge) return 0;
+  const fullAddress = [data.address, data.address_number].filter(Boolean).join(' ');
+  if (fullAddress.trim().length >= 3) {
+    const coords = await geocodeMdp(fullAddress);
+    if (coords) {
+      const km = haversineKm({ lat: calc.origin_lat, lng: calc.origin_lng }, coords);
+      return mdpCostFromKm(km, calc);
+    }
+  }
+  // Sin geolocalización: usar la zona elegida (validada contra settings) o el fallback.
+  if (data.mdp_zone) {
+    const zone = (calc.zones || '')
+      .split('\n')
+      .map((l) => l.split('|'))
+      .find((p) => (p[0] || '').trim() === data.mdp_zone);
+    if (zone) return Math.max(0, Number((zone[1] || '').trim()) || 0);
+  }
+  return calc.mdp_fallback || 0;
+}
+
+/** Estima el envío en MdP a partir de una dirección (para mostrarlo antes de confirmar). */
+export async function estimateMdpShipping(address: string): Promise<ShippingEstimate> {
+  const settings = await getAllSettings();
+  const calc = settings.shipping_calc as ShippingCalcSettings;
+  if (!calc?.mdp_charge) return { cost: 0, geocoded: true, needsZone: false };
+  const coords = address.trim().length >= 3 ? await geocodeMdp(address) : null;
+  if (!coords) {
+    return { cost: calc.mdp_fallback || 0, geocoded: false, needsZone: true };
+  }
+  const km = haversineKm({ lat: calc.origin_lat, lng: calc.origin_lng }, coords);
+  return { cost: mdpCostFromKm(km, calc), geocoded: true, km: Math.round(km * 10) / 10, needsZone: false };
 }
 
 /** Guarda el carrito (para recordatorio si no se completa la compra). */
@@ -157,15 +213,21 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const discount = transferDiscount + couponDiscount;
 
   const shippingQuote = quoteShipping(data.shipping_method, settings.shipping);
-  const shippingCost = shippingQuote.cost;
+  const calc = settings.shipping_calc as ShippingCalcSettings;
+  const shippingCost = await resolveShippingCost(data, calc);
   const total = Math.max(0, subtotal - discount + shippingCost);
 
   // 5. Crear pedido vía RPC SECURITY DEFINER (intake seguro sin service role)
-  const shippingLabel = shippingQuote.payOnDelivery
-    ? `${shippingQuote.label} (envío a abonar al recibir)`
-    : `${shippingQuote.label} (gratis)`;
+  const shippingLabel =
+    shippingCost > 0
+      ? `${shippingQuote.label} ($${shippingCost.toLocaleString('es-AR')})`
+      : `${shippingQuote.label} (sin cargo)`;
   const shippingNote = shippingQuote.note;
   const combinedNotes = [data.notes, shippingNote].filter(Boolean).join(' · ');
+
+  // En MdP la provincia/ciudad se autocompletan.
+  const effProvince = data.shipping_method === 'mdp' ? 'Buenos Aires' : data.province;
+  const effCity = data.shipping_method === 'mdp' ? 'Mar del Plata' : data.city;
 
   const payload = {
     coupon_code: couponResult?.valid ? couponResult.code : null,
@@ -175,8 +237,8 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       phone: data.phone,
       email: data.email,
       dni: data.dni || null,
-      province: data.province,
-      city: data.city,
+      province: effProvince,
+      city: effCity,
       postal_code: data.postal_code || null,
       address: [data.address, data.address_number, data.floor].filter(Boolean).join(' ') || null,
       utm_source: data.attribution?.utm_source || null,
@@ -196,8 +258,8 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       customer_name: `${data.first_name} ${data.last_name}`,
       customer_phone: data.phone,
       customer_email: data.email,
-      province: data.province,
-      city: data.city,
+      province: effProvince,
+      city: effCity,
       address:
         [data.address, data.address_number, data.floor, data.references]
           .filter(Boolean)
