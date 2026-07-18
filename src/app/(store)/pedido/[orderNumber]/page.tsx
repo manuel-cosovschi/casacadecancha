@@ -8,6 +8,7 @@ import { getOrderByNumber } from '@/lib/orders';
 import { getAllSettings } from '@/lib/settings';
 import { isMercadoPagoProEnabled } from '@/lib/mercadopago';
 import { formatPrice, whatsappLink } from '@/lib/utils';
+import { DELIVERY_STEPS, deliveryStepIndex, isMdpDelivery } from '@/lib/delivery';
 
 export const metadata: Metadata = {
   title: 'Pedido registrado',
@@ -75,9 +76,51 @@ export default async function OrderPage({
             </p>
           ) : (
             <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
-              🛵 Coordinamos la entrega en Mar del Plata por WhatsApp, <strong>sin costo</strong>.
+              🛵 Entrega en Mar del Plata. Podés seguir el estado de tu envío en esta misma página.
             </p>
           )}
+        </div>
+      )}
+
+      {/* Seguimiento de envío (Mar del Plata) */}
+      {isMdpDelivery(order.shipping_method) && (
+        <div className="card mt-6 p-5">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-navy/60">
+            Seguimiento de tu envío
+          </h2>
+          {(() => {
+            const current = Math.max(0, deliveryStepIndex(order.delivery_status));
+            return (
+              <ol className="mt-4 space-y-4">
+                {DELIVERY_STEPS.map((step, i) => {
+                  const done = i < current;
+                  const active = i === current;
+                  return (
+                    <li key={step.key} className="flex items-start gap-3">
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${
+                          active
+                            ? 'bg-celeste text-navy ring-4 ring-celeste/25'
+                            : done
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-navy/10 text-navy/40'
+                        }`}
+                      >
+                        {done ? '✓' : step.emoji}
+                      </div>
+                      <div className={active || done ? '' : 'opacity-50'}>
+                        <p className="text-sm font-semibold text-navy">{step.label}</p>
+                        {active && <p className="text-sm text-navy/60">{step.desc}</p>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            );
+          })()}
+          <p className="mt-4 text-xs text-navy/50">
+            Guardá este link para seguir el estado. Lo actualizamos a medida que avanza tu envío.
+          </p>
         </div>
       )}
 

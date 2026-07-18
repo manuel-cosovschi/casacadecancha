@@ -23,6 +23,7 @@ export default async function CheckoutPage() {
         transferDiscount={transferDiscount}
         transferText={transferText}
         shipping={settings.shipping}
+        shippingCalc={settings.shipping_calc}
       />
     </div>
   );

@@ -38,6 +38,8 @@ export const checkoutSchema = z
     payment_method: z.enum(['transfer', 'mercadopago']),
     coupon_code: z.string().optional(),
     notes: z.string().optional(),
+    mdp_zone: z.string().optional(),
+    shipping_cost: z.number().optional(),
     items: z.array(checkoutItemSchema).min(1, 'El carrito está vacío'),
     attribution: attributionSchema.optional(),
   })
@@ -50,6 +52,13 @@ export const checkoutSchema = z
         ctx.addIssue({ code: 'custom', path: ['city'], message: 'Ingresá tu ciudad' });
       if (!data.postal_code || data.postal_code.length < 3)
         ctx.addIssue({ code: 'custom', path: ['postal_code'], message: 'Ingresá tu código postal' });
+      if (!data.address || data.address.length < 3)
+        ctx.addIssue({ code: 'custom', path: ['address'], message: 'Ingresá tu dirección' });
+      if (!data.address_number || data.address_number.length < 1)
+        ctx.addIssue({ code: 'custom', path: ['address_number'], message: 'Ingresá la altura' });
+    }
+    // En Mar del Plata pedimos la dirección para calcular el envío por distancia.
+    if (data.shipping_method === 'mdp') {
       if (!data.address || data.address.length < 3)
         ctx.addIssue({ code: 'custom', path: ['address'], message: 'Ingresá tu dirección' });
       if (!data.address_number || data.address_number.length < 1)
