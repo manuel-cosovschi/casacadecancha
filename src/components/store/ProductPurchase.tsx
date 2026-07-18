@@ -12,7 +12,7 @@ import {
   whatsappLink,
 } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
-import { subscribeStock } from '@/app/(store)/producto/[slug]/actions';
+import { requestStock } from '@/app/(store)/producto/[slug]/actions';
 
 interface Props {
   product: Product;
@@ -34,7 +34,8 @@ export function ProductPurchase({
   const [variantId, setVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifyPhone, setNotifyPhone] = useState('');
+  const [notifySizes, setNotifySizes] = useState<string[]>([]);
   const [notifyDone, setNotifyDone] = useState(false);
   const [notifyBusy, setNotifyBusy] = useState(false);
   const [notifyErr, setNotifyErr] = useState<string | null>(null);
@@ -47,6 +48,42 @@ export function ProductPurchase({
   const canBackorder = product.allow_backorder;
   const hasCompare = product.compare_at_price && product.compare_at_price > product.price;
   const hasOutOfStock = variants.some((v) => availableStock(v) <= 0);
+  const oosVariants = variants.filter((v) => availableStock(v) <= 0);
+
+  function toggleNotifySize(size: string) {
+    setNotifyErr(null);
+    setNotifySizes((prev) =>
+      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size],
+    );
+  }
+
+  async function submitNotify() {
+    const phone = notifyPhone.replace(/[^\d]/g, '');
+    if (phone.length < 6) {
+      setNotifyErr('Ingresá un WhatsApp válido (con característica).');
+      return;
+    }
+    let chosen = oosVariants.filter((v) => notifySizes.includes(v.size || ''));
+    if (chosen.length === 0 && oosVariants.length === 1) chosen = oosVariants;
+    if (chosen.length === 0) {
+      setNotifyErr('Elegí el/los talle(s) que buscás.');
+      return;
+    }
+    setNotifyBusy(true);
+    setNotifyErr(null);
+    const res = await requestStock({
+      productId: product.id,
+      productName: product.name,
+      phone: notifyPhone.trim(),
+      sizes: chosen.map((v) => ({ size: v.size, variantId: v.id })),
+    });
+    setNotifyBusy(false);
+    if (res.error) setNotifyErr(res.error);
+    else {
+      setNotifyDone(true);
+      trackEvent('StockRequest', { product: product.slug });
+    }
+  }
 
   const stockMessage = `Hola! Quería consultar stock de: ${product.name}. ${siteUrl}/producto/${product.slug}`;
 
@@ -176,41 +213,48 @@ export function ProductPurchase({
         {hasOutOfStock &&
           (notifyDone ? (
             <p className="mt-2 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">
-              ¡Listo! Te avisamos por email cuando vuelva el stock{selected ? ` del talle ${selected.size}` : ''}.
+              ¡Listo! Anotamos tu WhatsApp y te avisamos apenas entre stock. 🙌
             </p>
           ) : (
             <div className="mt-2 rounded-xl border border-navy/10 p-3">
-              <p className="text-sm font-semibold text-navy">Avisame cuando vuelva</p>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <p className="text-sm font-semibold text-navy">
+                ¿No está tu talle? Dejanos tu WhatsApp y te avisamos apenas entre.
+              </p>
+              <p className="mt-2 text-xs font-medium text-navy/55">Elegí el/los talle(s) que buscás:</p>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {oosVariants.map((v) => {
+                  const size = v.size || '-';
+                  const on = notifySizes.includes(v.size || '');
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => toggleNotifySize(v.size || '')}
+                      className={cn(
+                        'min-w-[2.75rem] rounded-lg border-2 px-3 py-1.5 text-sm font-bold transition',
+                        on ? 'border-navy bg-navy text-cream' : 'border-navy/15 bg-white text-navy hover:border-navy',
+                      )}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
                 <input
-                  type="email"
-                  value={notifyEmail}
+                  type="tel"
+                  inputMode="numeric"
+                  value={notifyPhone}
                   onChange={(e) => {
-                    setNotifyEmail(e.target.value);
+                    setNotifyPhone(e.target.value);
                     setNotifyErr(null);
                   }}
-                  placeholder="Tu email"
+                  placeholder="Tu WhatsApp (ej: 2235555555)"
                   className="input !py-2 flex-1"
                 />
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!notifyEmail.includes('@')) {
-                      setNotifyErr('Ingresá un email válido.');
-                      return;
-                    }
-                    setNotifyBusy(true);
-                    setNotifyErr(null);
-                    const res = await subscribeStock({
-                      productId: product.id,
-                      variantId: selected?.id ?? null,
-                      size: selected?.size ?? null,
-                      email: notifyEmail,
-                    });
-                    setNotifyBusy(false);
-                    if (res.error) setNotifyErr(res.error);
-                    else setNotifyDone(true);
-                  }}
+                  onClick={submitNotify}
                   disabled={notifyBusy}
                   className="btn-primary !py-2"
                 >
@@ -218,9 +262,6 @@ export function ProductPurchase({
                 </button>
               </div>
               {notifyErr && <p className="mt-1 text-xs text-red-600">{notifyErr}</p>}
-              <p className="mt-1 text-xs text-navy/50">
-                {selected ? `Te avisamos cuando haya stock del talle ${selected.size}.` : 'Elegí un talle para un aviso más preciso (o te avisamos del modelo).'}
-              </p>
             </div>
           ))}
       </div>

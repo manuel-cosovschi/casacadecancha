@@ -7,7 +7,8 @@ type EventName =
   | 'InitiateCheckout'
   | 'Purchase'
   | 'Contact'
-  | 'WhatsAppClick';
+  | 'WhatsAppClick'
+  | 'StockRequest';
 
 declare global {
   interface Window {
