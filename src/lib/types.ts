@@ -133,6 +133,8 @@ export interface Order {
   shipping_method: string | null;
   tracking_code: string | null;
   carrier: string | null;
+  delivery_status: string | null; // seguimiento MdP: preparando | en_camino | entregado
+  delivery_updated_at: string | null;
   channel: SalesChannel;
   customer_name: string | null;
   customer_phone: string | null;
@@ -226,6 +228,7 @@ export interface ShippingCalcSettings {
   fuel_consumption: number; // litros por 100 km
   round_trip: boolean; // cobrar ida y vuelta (x2)
   road_factor: number; // factor calle vs línea recta (ej 1.3)
+  mdp_free_km: number; // dentro de este radio (km, línea recta) el envío es gratis
   mdp_min: number; // costo mínimo en MdP
   mdp_round: number; // redondeo (ej 500)
   mdp_fallback: number; // costo si no se puede geolocalizar ni elige zona

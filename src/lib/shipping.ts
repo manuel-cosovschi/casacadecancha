@@ -70,6 +70,8 @@ export function haversineKm(
 
 /** Costo del envío en MdP a partir de la distancia (línea recta) hasta la casa. */
 export function mdpCostFromKm(straightKm: number, s: ShippingCalcSettings): number {
+  // Zona cercana (Constitución / hasta Av. Libertad, ~7-8 min): envío gratis.
+  if (s.mdp_free_km && straightKm <= s.mdp_free_km) return 0;
   const roadKm = straightKm * (s.road_factor || 1.3);
   const tripKm = roadKm * (s.round_trip ? 2 : 1);
   const litres = (tripKm * (s.fuel_consumption || 9)) / 100;

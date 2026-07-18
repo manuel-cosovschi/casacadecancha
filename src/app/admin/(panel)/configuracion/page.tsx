@@ -62,6 +62,7 @@ export default async function ConfigPage() {
           { key: 'fuel_consumption', label: 'Consumo del auto (L/100km)', type: 'number' },
           { key: 'round_trip', label: 'Cobrar ida y vuelta (x2)', type: 'boolean' },
           { key: 'road_factor', label: 'Factor calle (recto→real, ej 1.3)', type: 'number' },
+          { key: 'mdp_free_km', label: 'Radio gratis (km)', type: 'number', hint: 'Dentro de este radio el envío es gratis (Constitución / hasta Av. Libertad ≈ 3.5).' },
           { key: 'mdp_min', label: 'Costo mínimo MdP ($)', type: 'number' },
           { key: 'mdp_round', label: 'Redondeo MdP ($)', type: 'number', hint: 'Ej 500 = redondea de a $500.' },
           { key: 'mdp_fallback', label: 'Costo si no se ubica la dirección ($)', type: 'number' },

@@ -23,6 +23,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
     title: 'Ventas',
     items: [
       { label: 'Pedidos', href: '/admin/pedidos' },
+      { label: 'Envíos', href: '/admin/envios' },
       { label: 'Encargos', href: '/admin/encargos' },
       { label: 'Clientes', href: '/admin/clientes' },
       { label: 'Promociones', href: '/admin/promociones' },
