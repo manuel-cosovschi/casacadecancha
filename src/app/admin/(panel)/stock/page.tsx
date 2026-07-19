@@ -30,7 +30,7 @@ export default async function StockPage() {
               talle: v.size,
               sku: v.sku,
               fisico: v.stock_physical,
-              reservado: v.stock_reserved,
+              comprometido: (v.stock_reserved || 0) + (v.encargo_reserved || 0),
               disponible: availableStock(v),
               minimo: v.stock_minimum,
             }))}
@@ -40,6 +40,12 @@ export default async function StockPage() {
       />
 
       <StockBot rows={botRows} incoming={incoming} />
+
+      <p className="mb-3 mt-4 rounded-lg bg-celeste/10 p-3 text-xs text-navy/70">
+        <strong>Cómo leer la tabla:</strong> <b>Físico</b> = todo lo que recibiste (incluye lo ya vendido/entregado).
+        {' '}<b>Comprometido</b> = lo que ya está vendido o reservado en encargos.
+        {' '}<b>Disponible</b> = lo que te queda para vender ahora (Físico − Comprometido).
+      </p>
 
       {variants.length === 0 ? (
         <EmptyState message="No hay variantes cargadas. Creá productos con talles." cta={{ label: 'Ir a productos', href: '/admin/productos' }} />
@@ -51,7 +57,7 @@ export default async function StockPage() {
                 <th className="p-3">Producto</th>
                 <th className="p-3">Talle</th>
                 <th className="p-3">Físico</th>
-                <th className="p-3">Reservado</th>
+                <th className="p-3">Comprometido</th>
                 <th className="p-3">Disponible</th>
                 <th className="p-3">Mín.</th>
                 <th className="p-3">Ajustar</th>
@@ -65,10 +71,12 @@ export default async function StockPage() {
                   <tr key={v.id} className={`border-b border-navy/5 ${low ? 'bg-amber-50' : ''}`}>
                     <td className="p-3 font-medium">{v.products?.name}</td>
                     <td className="p-3">{v.size}</td>
-                    <td className="p-3">{v.stock_physical}</td>
-                    <td className="p-3 text-navy/60">{v.stock_reserved}</td>
+                    <td className="p-3 text-navy/60">{v.stock_physical}</td>
+                    <td className="p-3 text-navy/60">
+                      {(v.stock_reserved || 0) + (v.encargo_reserved || 0)}
+                    </td>
                     <td className="p-3">
-                      <span className={low ? 'font-semibold text-amber-700' : ''}>{avail}</span>
+                      <span className={`font-bold ${low ? 'text-amber-700' : 'text-navy'}`}>{avail}</span>
                       {avail <= 0 && <span className="badge ml-1 bg-red-100 text-red-700">Sin stock</span>}
                     </td>
                     <td className="p-3 text-navy/50">{v.stock_minimum}</td>
