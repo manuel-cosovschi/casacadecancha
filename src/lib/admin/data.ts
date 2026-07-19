@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentProfile, isOwnerRole } from '@/lib/admin/auth';
 
 async function db() {
   return createClient();
@@ -354,55 +355,91 @@ export interface StockMatrixRow {
   available: number; // ordered + adjusted - gifted - reserved
 }
 
-/** Stock por modelo+talle: comprado al proveedor + ajustes vs reservado por encargos y regalos. */
+/** Stock por modelo+talle: lo que tenés en mano + lo que viene, vs. los encargos PENDIENTES.
+ *  - "reserved": solo encargos NO entregados (los entregados ya salieron, no hay que pedirlos).
+ *  - "ordered": lo que tenés en mano (stock físico del catálogo, ya descontado lo entregado) + lo que viene del proveedor.
+ *  Así, "faltan pedir" = reservado pendiente − (en mano + en camino), sin falsos positivos. */
 export async function getStockMatrix(): Promise<StockMatrixRow[]> {
   const supabase = await db();
   const sid = await sellerId();
-  const [{ data: items }, { data: orders }, { data: adjustments }, { data: gifts }, { data: internal }] = await Promise.all([
-    supabase.from('encargo_items').select('product, size, quantity, encargos!inner(status, seller_id)').eq('encargos.seller_id', sid),
-    supabase.from('supplier_orders').select('product, size, quantity').eq('seller_id', sid),
-    supabase.from('stock_adjustments').select('product, size, delta').eq('seller_id', sid),
-    supabase.from('gifts').select('product, size, quantity').eq('seller_id', sid),
-    supabase.from('internal_orders').select('product, size, quantity, requester_id, provider_id').or(`requester_id.eq.${sid},provider_id.eq.${sid}`),
-  ]);
+  const profile = await getCurrentProfile();
+  const owner = profile ? isOwnerRole(profile.role) : false;
 
-  const map = new Map<string, StockMatrixRow>();
-  const get = (product: string, size: string) => {
+  const [{ data: items }, { data: orders }, { data: adjustments }, { data: gifts }, { data: internal }, variantsRes] =
+    await Promise.all([
+      supabase.from('encargo_items').select('product, size, quantity, encargos!inner(status, seller_id)').eq('encargos.seller_id', sid),
+      supabase.from('supplier_orders').select('product, size, quantity, status').eq('seller_id', sid),
+      supabase.from('stock_adjustments').select('product, size, delta').eq('seller_id', sid),
+      supabase.from('gifts').select('product, size, quantity').eq('seller_id', sid),
+      supabase.from('internal_orders').select('product, size, quantity, requester_id, provider_id').or(`requester_id.eq.${sid},provider_id.eq.${sid}`),
+      owner
+        ? supabase.from('product_variants').select('size, stock_physical, products(name)')
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+  interface Agg {
+    key: string; product: string; size: string;
+    pendingEnc: number; deliveredEnc: number;
+    supplierReceived: number; supplierIncoming: number;
+    adjusted: number; gifted: number; catalogStock: number; isCatalog: boolean;
+  }
+  const map = new Map<string, Agg>();
+  const get = (product: string, size: string): Agg => {
     const p = (product || '—').trim();
     const s = (size || '').trim();
     const key = `${p.toLowerCase()}|${s.toLowerCase()}`;
     let row = map.get(key);
     if (!row) {
-      row = { key, product: p, size: s, reserved: 0, ordered: 0, adjusted: 0, gifted: 0, available: 0 };
+      row = { key, product: p, size: s, pendingEnc: 0, deliveredEnc: 0, supplierReceived: 0, supplierIncoming: 0, adjusted: 0, gifted: 0, catalogStock: 0, isCatalog: false };
       map.set(key, row);
     }
     return row;
   };
 
+  // Stock del catálogo (solo dueño): lo que figura en la tienda.
+  for (const v of (variantsRes.data ?? []) as any[]) {
+    const name = Array.isArray(v.products) ? v.products[0]?.name : v.products?.name;
+    if (!name) continue;
+    const row = get(name, v.size);
+    row.catalogStock += v.stock_physical || 0;
+    row.isCatalog = true;
+  }
+  // Encargos: separar entregados (ya salieron) de pendientes.
   for (const it of (items ?? []) as any[]) {
     const status = Array.isArray(it.encargos) ? it.encargos[0]?.status : it.encargos?.status;
     if (status === 'cancelado') continue;
-    get(it.product, it.size).reserved += it.quantity || 0;
+    const row = get(it.product, it.size);
+    if (status === 'entregado') row.deliveredEnc += it.quantity || 0;
+    else row.pendingEnc += it.quantity || 0;
   }
+  // Pedidos al proveedor: recibido = en mano, pedido = en camino.
   for (const o of (orders ?? []) as any[]) {
-    get(o.product, o.size).ordered += o.quantity || 0;
+    const row = get(o.product, o.size);
+    if (o.status === 'recibido') row.supplierReceived += o.quantity || 0;
+    else row.supplierIncoming += o.quantity || 0;
   }
-  for (const a of (adjustments ?? []) as any[]) {
-    get(a.product, a.size).adjusted += a.delta || 0;
-  }
-  for (const gft of (gifts ?? []) as any[]) {
-    get(gft.product, gft.size).gifted += gft.quantity || 0;
-  }
-  // Pedidos internos: lo que pedí a otro me suma stock; lo que me piden lo reservo.
+  for (const a of (adjustments ?? []) as any[]) get(a.product, a.size).adjusted += a.delta || 0;
+  for (const gft of (gifts ?? []) as any[]) get(gft.product, gft.size).gifted += gft.quantity || 0;
+  // Pedidos internos: lo que pedí a otro me suma; lo que me piden lo reservo.
   for (const io of (internal ?? []) as any[]) {
-    if (io.requester_id === sid) get(io.product, io.size).ordered += io.quantity || 0;
-    if (io.provider_id === sid) get(io.product, io.size).reserved += io.quantity || 0;
+    if (io.requester_id === sid) get(io.product, io.size).supplierIncoming += io.quantity || 0;
+    if (io.provider_id === sid) get(io.product, io.size).pendingEnc += io.quantity || 0;
   }
 
-  const rows = Array.from(map.values()).map((r) => ({
-    ...r,
-    available: r.ordered + r.adjusted - r.gifted - r.reserved,
-  }));
+  const rows: StockMatrixRow[] = Array.from(map.values()).map((r) => {
+    if (r.isCatalog) {
+      // En mano real = stock del catálogo − lo ya entregado por encargos.
+      const onHand = Math.max(0, r.catalogStock - r.deliveredEnc);
+      const ordered = onHand + r.supplierIncoming;
+      const reserved = r.pendingEnc;
+      return { key: r.key, product: r.product, size: r.size, reserved, ordered, adjusted: 0, gifted: 0, available: ordered - reserved };
+    }
+    // No es catálogo (compra genérica al proveedor): cuenta todo, como antes.
+    const ordered = r.supplierReceived + r.supplierIncoming;
+    const reserved = r.pendingEnc + r.deliveredEnc;
+    const available = ordered + r.adjusted - r.gifted - reserved;
+    return { key: r.key, product: r.product, size: r.size, reserved, ordered, adjusted: r.adjusted, gifted: r.gifted, available };
+  });
   return rows.sort((a, b) => a.product.localeCompare(b.product) || a.size.localeCompare(b.size));
 }
 
