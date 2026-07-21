@@ -57,7 +57,7 @@ export function Hero({
 
           {/* Trust chips */}
           <div className={cn('mt-9 flex flex-wrap gap-2.5', alignCenter && 'justify-center')}>
-            {['Envíos a todo el país', 'Gratis en Mar del Plata', '10% OFF por transferencia'].map(
+            {['Envíos a todo el país', 'Gratis en Mar del Plata', 'Atención por WhatsApp'].map(
               (t) => (
                 <span key={t} className="chip border-white/10 bg-white/5 text-cream/80">
                   {t}

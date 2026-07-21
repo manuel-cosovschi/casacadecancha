@@ -64,7 +64,7 @@ export default function CartPage() {
               <span className="font-semibold">{formatPrice(subtotal)}</span>
             </div>
             <p className="mt-3 text-xs text-navy/60">
-              El costo de envío y el descuento por transferencia se calculan en el checkout.
+              El costo de envío se calcula en el checkout.
             </p>
             <Link href="/checkout" className="btn-primary mt-4 w-full">
               Finalizar compra
