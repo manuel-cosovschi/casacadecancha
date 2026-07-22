@@ -8,7 +8,7 @@ import { getOrderByNumber } from '@/lib/orders';
 import { getAllSettings } from '@/lib/settings';
 import { isMercadoPagoProEnabled } from '@/lib/mercadopago';
 import { formatPrice, whatsappLink } from '@/lib/utils';
-import { DELIVERY_STEPS, deliveryStepIndex, isMdpDelivery } from '@/lib/delivery';
+import { DeliveryTracker } from '@/components/store/DeliveryTracker';
 
 export const metadata: Metadata = {
   title: 'Pedido registrado',
@@ -82,44 +82,52 @@ export default async function OrderPage({
         </div>
       )}
 
-      {/* Seguimiento de envío (Mar del Plata) */}
-      {isMdpDelivery(order.shipping_method) && (
+      {/* Seguimiento de envío: disponible una vez confirmado el pago (tiene código) */}
+      {order.tracking_ref ? (
+        <div className="card mt-6 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-navy/10 pb-4">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-navy/60">
+                Seguimiento de tu envío
+              </h2>
+              <p className="mt-1 text-xs text-navy/50">
+                Código:{' '}
+                <span className="font-mono text-sm font-bold text-navy">{order.tracking_ref}</span>
+              </p>
+            </div>
+            <Link
+              href={`/seguimiento?code=${order.tracking_ref}`}
+              className="rounded-lg border border-navy/20 px-3 py-1.5 text-xs font-semibold text-navy hover:bg-navy hover:text-cream"
+            >
+              Ver seguimiento →
+            </Link>
+          </div>
+          <DeliveryTracker
+            shippingMethod={order.shipping_method}
+            deliveryStatus={order.delivery_status}
+            carrier={order.carrier}
+            trackingCode={order.tracking_code}
+          />
+          <p className="mt-4 text-xs text-navy/50">
+            Guardá tu código para seguir el estado desde{' '}
+            <Link href="/seguimiento" className="font-semibold underline-offset-2 hover:underline">
+              casacadecancha.shop/seguimiento
+            </Link>
+            . Lo actualizamos a medida que avanza tu envío.
+          </p>
+        </div>
+      ) : (
         <div className="card mt-6 p-5">
           <h2 className="text-sm font-bold uppercase tracking-wide text-navy/60">
             Seguimiento de tu envío
           </h2>
-          {(() => {
-            const current = Math.max(0, deliveryStepIndex(order.delivery_status));
-            return (
-              <ol className="mt-4 space-y-4">
-                {DELIVERY_STEPS.map((step, i) => {
-                  const done = i < current;
-                  const active = i === current;
-                  return (
-                    <li key={step.key} className="flex items-start gap-3">
-                      <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${
-                          active
-                            ? 'bg-celeste text-navy ring-4 ring-celeste/25'
-                            : done
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-navy/10 text-navy/40'
-                        }`}
-                      >
-                        {done ? '✓' : step.emoji}
-                      </div>
-                      <div className={active || done ? '' : 'opacity-50'}>
-                        <p className="text-sm font-semibold text-navy">{step.label}</p>
-                        {active && <p className="text-sm text-navy/60">{step.desc}</p>}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            );
-          })()}
-          <p className="mt-4 text-xs text-navy/50">
-            Guardá este link para seguir el estado. Lo actualizamos a medida que avanza tu envío.
+          <p className="mt-2 text-sm text-navy/60">
+            Apenas confirmemos tu pago vas a recibir un <strong>código de seguimiento</strong> para
+            ver el estado de tu envío en esta página y en{' '}
+            <Link href="/seguimiento" className="font-semibold underline-offset-2 hover:underline">
+              nuestra página de seguimiento
+            </Link>
+            .
           </p>
         </div>
       )}
