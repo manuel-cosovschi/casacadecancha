@@ -47,7 +47,7 @@ export default async function OrderPage({
     .map((i) => `• ${i.quantity}x ${i.product_name}${i.size ? ` (${i.size})` : ''}`)
     .join('\n');
   const retiroMsg =
-    `Hola! Hice el pedido #${order.order_number} para RETIRAR en el punto de retiro.\n\n` +
+    `Hola! Hice el pedido #${order.order_number} para RETIRAR en la zona de Av. Constitución.\n\n` +
     (retiroLines ? `${retiroLines}\n\n` : '') +
     `Total: ${formatPrice(order.total)}\n\nQuiero coordinar la seña y el retiro. 🤝`;
 
@@ -84,8 +84,9 @@ export default async function OrderPage({
           <p className="mt-1 text-sm text-navy/80">{order.shipping_method}</p>
           {isRetiro ? (
             <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
-              🤝 Coordinamos el <strong>punto de retiro y la seña por WhatsApp</strong>. El resto lo
-              pagás cuando lo retirás.
+              🤝 El retiro es en la <strong>zona de Av. Constitución (Mar del Plata)</strong>.
+              Coordinamos el punto exacto y la <strong>seña</strong> por WhatsApp. El resto lo pagás
+              cuando lo retirás.
             </p>
           ) : /(resto del país|abonar)/i.test(order.shipping_method) ? (
             <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
@@ -154,8 +155,9 @@ export default async function OrderPage({
         <div className="card mt-6 p-6 text-center">
           <h2 className="text-lg font-bold">Coordiná tu retiro por WhatsApp</h2>
           <p className="mt-1 text-sm text-navy/70">
-            Escribinos por WhatsApp con tu pedido para coordinar el <strong>punto de retiro</strong>{' '}
-            y la <strong>seña</strong>. El resto lo pagás cuando lo retirás.
+            El retiro es en la <strong>zona de Av. Constitución (Mar del Plata)</strong>. Escribinos
+            por WhatsApp con tu pedido para coordinar el punto exacto y la <strong>seña</strong>. El
+            resto lo pagás cuando lo retirás.
           </p>
           <a
             href={whatsappLink(whatsappNumber, retiroMsg)}
