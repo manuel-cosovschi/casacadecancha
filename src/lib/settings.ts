@@ -90,9 +90,9 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   } satisfies ShippingSettings,
   shipping_calc: {
     mdp_charge: true,
-    origin_lat: -38.001,
-    origin_lng: -57.559,
-    origin_label: 'Méndez de Andés 1168, Mar del Plata',
+    origin_lat: -37.9530255,
+    origin_lng: -57.5745997,
+    origin_label: 'Méndez Funes de Millán 1168, Mar del Plata',
     fuel_price: 1500,
     fuel_consumption: 9,
     round_trip: true,
