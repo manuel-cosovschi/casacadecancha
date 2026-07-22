@@ -247,7 +247,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 <p className="font-semibold">Soy de Mar del Plata</p>
                 <p className="text-navy/60">
                   {shippingCalc?.mdp_charge
-                    ? 'Entrega a domicilio. Calculamos el envío según tu zona.'
+                    ? 'Entrega a domicilio. El costo depende de la distancia — si estás cerca, el envío es gratis.'
                     : 'Coordinamos la entrega por WhatsApp, sin cargo.'}
                 </p>
               </div>
@@ -338,6 +338,10 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 >
                   {mdpEstimating ? 'Calculando…' : 'Calcular costo de envío'}
                 </button>
+                <p className="mt-2 text-xs text-navy/50">
+                  El envío se calcula según la distancia hasta tu domicilio. Si estás cerca del local,
+                  es <strong>gratis</strong>.
+                </p>
               </div>
               {mdpNeedsZone && (
                 <div className="mt-3">
