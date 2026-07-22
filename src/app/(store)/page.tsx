@@ -2,31 +2,25 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Hero } from '@/components/store/Hero';
 import { ProductCard } from '@/components/store/ProductCard';
-import { ProductPurchase } from '@/components/store/ProductPurchase';
 import { FaqAccordion } from '@/components/store/FaqAccordion';
 import { getAllSettings } from '@/lib/settings';
 import {
   getActiveCollections,
-  getActiveProducts,
+  getInStockProducts,
   getFAQs,
-  getFeaturedProduct,
 } from '@/lib/queries';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
 export default async function HomePage() {
-  const [settings, products, collections, featured, faqs] = await Promise.all([
+  const [settings, products, collections, faqs] = await Promise.all([
     getAllSettings(),
-    getActiveProducts(8),
+    getInStockProducts(),
     getActiveCollections(),
-    getFeaturedProduct(),
     getFAQs(),
   ]);
 
   const transferDiscount = settings.payments_transfer?.active
     ? settings.payments_transfer.discount_percent || 0
     : 0;
-  const whatsappNumber = settings.whatsapp?.number || '';
 
   // Visibilidad de secciones (editable desde Admin → Contenido)
   const hs = settings.home_sections || {};
@@ -53,51 +47,6 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
-      )}
-
-      {/* Producto estrella */}
-      {featured && show('featured') && (
-        <section className="py-16 sm:py-20">
-          <div className="container-page grid items-center gap-10 lg:grid-cols-2">
-            <div className="relative">
-              <div className="absolute -inset-4 rounded-[2.5rem] bg-celeste/15 blur-2xl" />
-              <div className="relative aspect-square overflow-hidden rounded-[2rem] border border-navy/5 bg-cream-soft shadow-lift">
-                {featured.images?.[0] ? (
-                  <Image
-                    src={featured.images[0].url}
-                    alt={featured.images[0].alt_text || featured.name}
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    className="object-cover"
-                  />
-                ) : null}
-                {featured.badge && (
-                  <span className="badge absolute left-4 top-4 bg-gold text-navy shadow">
-                    {featured.badge}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col justify-center">
-              <span className="kicker">Producto destacado</span>
-              <h2 className="mt-2 text-3xl font-black uppercase leading-[0.95] sm:text-5xl">
-                {featured.name}
-              </h2>
-              {featured.short_description && (
-                <p className="mt-3 text-navy/65">{featured.short_description}</p>
-              )}
-              <div className="mt-7 rounded-2xl border border-navy/5 bg-white p-5 shadow-card sm:p-6">
-                <ProductPurchase
-                  product={featured}
-                  transferDiscount={transferDiscount}
-                  whatsappNumber={whatsappNumber}
-                  siteUrl={SITE_URL}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
       )}
 
       {/* Colecciones */}

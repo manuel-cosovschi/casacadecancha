@@ -1,4 +1,5 @@
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
+import { availableStock } from '@/lib/utils';
 import type { Collection, FAQ, Product, SizeGuide } from '@/lib/types';
 
 const PRODUCT_SELECT =
@@ -21,6 +22,23 @@ export async function getActiveProducts(limit = 24): Promise<Product[]> {
     .order('created_at', { ascending: false })
     .limit(limit);
   return (data ?? []).map(sortProduct) as Product[];
+}
+
+/** Productos activos que tienen al menos un talle con stock disponible. Devuelve todos. */
+export async function getInStockProducts(limit = 100): Promise<Product[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('active', true)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  const products = (data ?? []).map(sortProduct) as Product[];
+  return products.filter((p) =>
+    (p.variants ?? []).some((v) => availableStock(v) > 0),
+  );
 }
 
 export async function getFeaturedProduct(): Promise<Product | null> {

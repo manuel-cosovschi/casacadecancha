@@ -43,7 +43,6 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     items: [
       { title: 'Envíos a todo el país', icon: 'truck' },
       { title: 'Atención por WhatsApp', icon: 'whatsapp' },
-      { title: 'Descuento por transferencia', icon: 'discount' },
       { title: 'Cambios según política vigente', icon: 'refresh' },
     ],
   },
@@ -61,13 +60,13 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   } satisfies WhatsAppSettings,
   payments_transfer: {
     active: true,
-    discount_percent: 10,
+    discount_percent: 0,
     alias: 'casaca.cancha.mp',
     cbu: '0000000000000000000000',
     holder: '[RAZÓN SOCIAL]',
     bank: 'Mercado Pago',
     cuit: '[CUIT]',
-    text: 'Pagando por transferencia obtenés un 10% de descuento.',
+    text: 'Pagá por transferencia bancaria y envianos el comprobante por WhatsApp.',
     instructions:
       'Una vez realizada la transferencia, envianos el comprobante por WhatsApp indicando tu número de pedido.',
   } satisfies TransferSettings,
