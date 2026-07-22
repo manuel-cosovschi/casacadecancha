@@ -34,6 +34,7 @@ async function resolveShippingCost(
   data: CheckoutInput,
   calc: ShippingCalcSettings,
 ): Promise<number> {
+  if (data.shipping_method === 'retiro') return 0;
   if (data.shipping_method === 'nacional') {
     return computeNationalShipping(data.province, calc);
   }
@@ -225,9 +226,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const shippingNote = shippingQuote.note;
   const combinedNotes = [data.notes, shippingNote].filter(Boolean).join(' · ');
 
-  // En MdP la provincia/ciudad se autocompletan.
-  const effProvince = data.shipping_method === 'mdp' ? 'Buenos Aires' : data.province;
-  const effCity = data.shipping_method === 'mdp' ? 'Mar del Plata' : data.city;
+  // En MdP y retiro la provincia/ciudad se autocompletan (son locales).
+  const isLocal = data.shipping_method !== 'nacional';
+  const effProvince = isLocal ? 'Buenos Aires' : data.province;
+  const effCity = isLocal ? 'Mar del Plata' : data.city;
 
   const payload = {
     coupon_code: couponResult?.valid ? couponResult.code : null,

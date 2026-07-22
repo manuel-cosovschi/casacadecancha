@@ -93,7 +93,13 @@ export function parseZones(zones?: string): { name: string; cost: number }[] {
     .filter((z) => z.name);
 }
 
-export type ShippingMethod = 'mdp' | 'nacional';
+export type ShippingMethod = 'mdp' | 'nacional' | 'retiro';
+
+/** True si el método es retiro en punto de retiro (se coordina por WhatsApp). */
+export function isPickup(shippingMethod: string | null | undefined): boolean {
+  if (!shippingMethod) return false;
+  return /retiro/i.test(shippingMethod);
+}
 
 export interface ShippingQuote {
   cost: number;
@@ -108,6 +114,7 @@ export interface ShippingQuote {
 export const SHIPPING_LABELS: Record<ShippingMethod, string> = {
   mdp: 'Entrega en Mar del Plata',
   nacional: 'Envío al resto del país',
+  retiro: 'Retiro en punto de retiro',
 };
 
 /**
@@ -119,6 +126,15 @@ export function quoteShipping(
   method: ShippingMethod,
   settings: ShippingSettings,
 ): ShippingQuote {
+  if (method === 'retiro') {
+    return {
+      cost: 0,
+      payOnDelivery: false,
+      free: true,
+      label: SHIPPING_LABELS.retiro,
+      note: 'Coordinamos el punto de retiro y la seña por WhatsApp.',
+    };
+  }
   if (method === 'mdp') {
     return {
       cost: 0,
