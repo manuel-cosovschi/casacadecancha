@@ -66,6 +66,7 @@ export function Footer({ data }: { data: FooterData }) {
         ]} />
 
         <FooterCol title="Información" links={[
+          ['Seguí tu pedido', '/seguimiento'],
           ['Envíos', '/legales/envios'],
           ['Cambios y devoluciones', '/legales/cambios'],
           ['Privacidad', '/legales/privacidad'],

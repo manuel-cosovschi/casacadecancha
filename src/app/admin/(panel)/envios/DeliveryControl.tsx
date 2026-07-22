@@ -3,18 +3,21 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { setDeliveryStatus } from './actions';
-import { DELIVERY_STEPS, normalizeDeliveryStatus, type DeliveryStatus } from '@/lib/delivery';
+import { DELIVERY_STEPS, deliverySteps, normalizeDeliveryStatus, type DeliveryStatus } from '@/lib/delivery';
 
 export function DeliveryControl({
   orderId,
   current,
+  nacional,
 }: {
   orderId: string;
   current: string | null;
+  nacional?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [value, setValue] = useState<DeliveryStatus>(normalizeDeliveryStatus(current));
+  const steps = nacional ? deliverySteps('nacional') : DELIVERY_STEPS;
 
   function update(status: DeliveryStatus) {
     setValue(status);
@@ -26,7 +29,7 @@ export function DeliveryControl({
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {DELIVERY_STEPS.map((step) => {
+      {steps.map((step) => {
         const active = value === step.key;
         return (
           <button

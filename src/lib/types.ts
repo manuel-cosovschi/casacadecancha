@@ -131,9 +131,10 @@ export interface Order {
   payment_status: PaymentStatus;
   order_status: OrderStatus;
   shipping_method: string | null;
-  tracking_code: string | null;
+  tracking_code: string | null; // código del correo (Correo Argentino, etc.)
   carrier: string | null;
-  delivery_status: string | null; // seguimiento MdP: preparando | en_camino | entregado
+  tracking_ref: string | null; // código de seguimiento público (alfanumérico aleatorio)
+  delivery_status: string | null; // seguimiento: preparando | en_camino | entregado
   delivery_updated_at: string | null;
   channel: SalesChannel;
   customer_name: string | null;

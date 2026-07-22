@@ -27,3 +27,28 @@ export async function setDeliveryStatus(orderId: string, status: DeliveryStatus)
   revalidatePath('/admin/envios');
   return { ok: true };
 }
+
+/** Carga/actualiza el correo y el código de seguimiento (envíos nacionales). */
+export async function setCarrierInfo(
+  orderId: string,
+  carrier: string,
+  trackingCode: string,
+): Promise<Result> {
+  try {
+    await assertWriter();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      carrier: carrier.trim() || null,
+      tracking_code: trackingCode.trim() || null,
+    })
+    .eq('id', orderId);
+  if (error) return { error: error.message };
+  await logActivity('carrier_info', 'order', orderId, { carrier, trackingCode });
+  revalidatePath('/admin/envios');
+  return { ok: true };
+}
