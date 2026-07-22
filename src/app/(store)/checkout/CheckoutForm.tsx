@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -37,6 +37,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CheckoutInput>({
     resolver: zodResolver(checkoutSchema),
@@ -46,6 +47,15 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
       items: [],
     },
   });
+
+  // Los ítems vienen del carrito, no de inputs del form: los sincronizamos en el
+  // estado del form para que la validación (items.min(1)) no bloquee el submit.
+  useEffect(() => {
+    setValue(
+      'items',
+      items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })),
+    );
+  }, [items, setValue]);
 
   // Estado del cálculo de envío en Mar del Plata.
   const [mdpCost, setMdpCost] = useState<number | null>(shippingCalc?.mdp_charge ? null : 0);
@@ -161,6 +171,11 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     }
   }
 
+  // Si la validación del form falla, avisamos (evita que el botón quede "mudo").
+  function onInvalid() {
+    setServerError('Revisá el formulario: hay datos incompletos o con errores más arriba.');
+  }
+
   if (items.length === 0) {
     return (
       <div className="card p-10 text-center">
@@ -173,7 +188,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-3">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="grid gap-8 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
         {/* Datos del cliente */}
         <fieldset className="card p-5">
@@ -451,6 +466,11 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
         {(showTransfer || couponDiscount > 0) && (
           <p className="mt-2 rounded-lg bg-celeste/20 p-2 text-center text-xs font-semibold text-navy">
             Ahorrás {formatPrice(discount)} en esta compra
+          </p>
+        )}
+        {serverError && (
+          <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">
+            {serverError}
           </p>
         )}
         <button type="submit" disabled={submitting} className="btn-primary mt-4 w-full">
