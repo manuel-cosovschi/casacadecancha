@@ -56,22 +56,23 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const zones = parseZones(shippingCalc?.zones);
 
   const paymentMethod = watch('payment_method');
-  const shippingMethod = (watch('shipping_method') || 'mdp') as 'mdp' | 'nacional';
+  const shippingMethod = (watch('shipping_method') || 'mdp') as 'mdp' | 'nacional' | 'retiro';
   const isNacional = shippingMethod === 'nacional';
+  const isRetiro = shippingMethod === 'retiro';
   const province = watch('province');
   // El descuento por transferencia solo aplica a los productos elegibles.
   const eligibleSubtotal = items.reduce(
     (a, i) => a + (i.transferEligible !== false ? i.price * i.quantity : 0),
     0,
   );
-  const showTransfer = paymentMethod === 'transfer' && transferDiscount > 0;
+  const showTransfer = !isRetiro && paymentMethod === 'transfer' && transferDiscount > 0;
   const transferDisc = showTransfer ? discountAmount(eligibleSubtotal, transferDiscount) : 0;
   const discount = transferDisc + couponDiscount;
 
   // Costo de envío efectivo.
   const nationalCost = province ? computeNationalShipping(province, shippingCalc) : null;
-  const shippingCost = isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
-  const shippingKnown = isNacional ? nationalCost !== null : mdpCost !== null;
+  const shippingCost = isRetiro ? 0 : isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
+  const shippingKnown = isRetiro ? true : isNacional ? nationalCost !== null : mdpCost !== null;
   const total = Math.max(0, subtotal - discount + shippingCost);
 
   async function calcMdp() {
@@ -121,7 +122,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
       setServerError('Tu carrito está vacío.');
       return;
     }
-    if (!isNacional && shippingCalc?.mdp_charge && mdpCost === null) {
+    if (!isNacional && !isRetiro && shippingCalc?.mdp_charge && mdpCost === null) {
       setServerError('Calculá el costo de envío en Mar del Plata antes de confirmar.');
       return;
     }
@@ -131,6 +132,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
 
     const payload: CheckoutInput = {
       ...values,
+      payment_method: isRetiro ? 'cash' : values.payment_method,
       coupon_code: couponOk ? couponCode.trim() : undefined,
       mdp_zone: mdpNeedsZone ? mdpZone : undefined,
       shipping_cost: shippingCost,
@@ -151,7 +153,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
       });
       clear();
       router.push(
-        `/pedido/${result.orderNumber}?method=${values.payment_method}`,
+        `/pedido/${result.orderNumber}?method=${isRetiro ? 'retiro' : values.payment_method}`,
       );
     } else {
       setServerError(result.error || 'Ocurrió un error.');
@@ -242,9 +244,21 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 <p className="text-navy/60">Envío por Correo Argentino a todo el país.</p>
               </div>
             </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-navy/15 p-3 text-sm">
+              <input type="radio" value="retiro" {...register('shipping_method')} className="mt-1" />
+              <div>
+                <p className="font-semibold">Retiro en punto de retiro (Mar del Plata)</p>
+                <p className="text-navy/60">Sin costo de envío. Coordinamos el punto y la seña por WhatsApp.</p>
+              </div>
+            </label>
           </div>
 
-          {isNacional ? (
+          {isRetiro ? (
+            <div className="mt-4 rounded-lg bg-celeste/15 p-3 text-sm text-navy">
+              🤝 Al confirmar te llevamos a <strong>WhatsApp</strong> con tu pedido armado para
+              coordinar el punto de retiro y la seña. El resto lo pagás cuando lo retirás.
+            </div>
+          ) : isNacional ? (
             <>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Field label="Provincia" error={errors.province?.message}>
@@ -338,6 +352,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
         </fieldset>
 
         {/* Pago */}
+        {!isRetiro && (
         <fieldset className="card p-5">
           <legend className="px-2 text-sm font-bold uppercase tracking-wide text-navy/60">
             Medio de pago
@@ -361,6 +376,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
             </label>
           </div>
         </fieldset>
+        )}
 
         {serverError && (
           <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -437,10 +453,12 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
           </p>
         )}
         <button type="submit" disabled={submitting} className="btn-primary mt-4 w-full">
-          {submitting ? 'Procesando…' : 'Confirmar pedido'}
+          {submitting ? 'Procesando…' : isRetiro ? 'Coordinar por WhatsApp' : 'Confirmar pedido'}
         </button>
         <p className="mt-2 text-center text-xs text-navy/50">
-          Al confirmar registramos tu pedido y coordinamos el pago.
+          {isRetiro
+            ? 'Al confirmar te derivamos a WhatsApp para coordinar la seña y el retiro.'
+            : 'Al confirmar registramos tu pedido y coordinamos el pago.'}
         </p>
       </aside>
     </form>

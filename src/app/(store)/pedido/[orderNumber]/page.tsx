@@ -9,6 +9,7 @@ import { getAllSettings } from '@/lib/settings';
 import { isMercadoPagoProEnabled } from '@/lib/mercadopago';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 import { DeliveryTracker } from '@/components/store/DeliveryTracker';
+import { isPickup } from '@/lib/shipping';
 
 export const metadata: Metadata = {
   title: 'Pedido registrado',
@@ -34,10 +35,21 @@ export default async function OrderPage({
   const transfer = settings.payments_transfer;
   const mp = settings.payments_mercadopago;
   const whatsappNumber = transfer?.whatsapp || settings.whatsapp?.number || '';
+  const isRetiro = method === 'retiro' || isPickup(order.shipping_method);
 
   const comprobanteMsg = `Hola, realicé el pedido #${order.order_number}.\nElegí pagar por ${
     payMethod === 'transfer' ? 'transferencia' : 'Mercado Pago'
   }.\nAdjunto comprobante.`;
+
+  // Mensaje de WhatsApp para retiro: pedido armado con el detalle para coordinar la seña.
+  const retiroItems: any[] = (order as any).order_items ?? [];
+  const retiroLines = retiroItems
+    .map((i) => `• ${i.quantity}x ${i.product_name}${i.size ? ` (${i.size})` : ''}`)
+    .join('\n');
+  const retiroMsg =
+    `Hola! Hice el pedido #${order.order_number} para RETIRAR en el punto de retiro.\n\n` +
+    (retiroLines ? `${retiroLines}\n\n` : '') +
+    `Total: ${formatPrice(order.total)}\n\nQuiero coordinar la seña y el retiro. 🤝`;
 
   return (
     <div className="container-page max-w-2xl py-12">
@@ -70,7 +82,12 @@ export default async function OrderPage({
         <div className="card mt-6 p-5">
           <h2 className="text-sm font-bold uppercase tracking-wide text-navy/60">Entrega</h2>
           <p className="mt-1 text-sm text-navy/80">{order.shipping_method}</p>
-          {/(resto del país|abonar)/i.test(order.shipping_method) ? (
+          {isRetiro ? (
+            <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
+              🤝 Coordinamos el <strong>punto de retiro y la seña por WhatsApp</strong>. El resto lo
+              pagás cuando lo retirás.
+            </p>
+          ) : /(resto del país|abonar)/i.test(order.shipping_method) ? (
             <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
               📦 El costo del envío se abona <strong>al recibir el producto</strong> (pago contra entrega).
             </p>
@@ -83,7 +100,7 @@ export default async function OrderPage({
       )}
 
       {/* Seguimiento de envío: disponible una vez confirmado el pago (tiene código) */}
-      {order.tracking_ref ? (
+      {!isRetiro && (order.tracking_ref ? (
         <div className="card mt-6 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-navy/10 pb-4">
             <div>
@@ -130,10 +147,29 @@ export default async function OrderPage({
             .
           </p>
         </div>
-      )}
+      ))}
 
       {/* Instrucciones según método */}
-      {payMethod === 'transfer' ? (
+      {isRetiro ? (
+        <div className="card mt-6 p-6 text-center">
+          <h2 className="text-lg font-bold">Coordiná tu retiro por WhatsApp</h2>
+          <p className="mt-1 text-sm text-navy/70">
+            Escribinos por WhatsApp con tu pedido para coordinar el <strong>punto de retiro</strong>{' '}
+            y la <strong>seña</strong>. El resto lo pagás cuando lo retirás.
+          </p>
+          <a
+            href={whatsappLink(whatsappNumber, retiroMsg)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-wsp mt-4 w-full"
+          >
+            Coordinar retiro por WhatsApp
+          </a>
+          <Link href="/" className="mt-3 inline-block text-sm text-navy/60 hover:text-navy">
+            Volver al inicio
+          </Link>
+        </div>
+      ) : payMethod === 'transfer' ? (
         <div className="card mt-6 p-6">
           <h2 className="text-lg font-bold">Pagá por transferencia</h2>
           <p className="mt-1 text-sm text-navy/70">
@@ -168,22 +204,24 @@ export default async function OrderPage({
       )}
 
       {/* Enviar comprobante */}
-      <div className="card mt-6 p-6 text-center">
-        <p className="text-sm text-navy/70">
-          Cuando tengas el comprobante, enviánoslo por WhatsApp para confirmar tu pedido.
-        </p>
-        <a
-          href={whatsappLink(whatsappNumber, comprobanteMsg)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-wsp mt-3 w-full"
-        >
-          Enviar comprobante por WhatsApp
-        </a>
-        <Link href="/" className="mt-3 inline-block text-sm text-navy/60 hover:text-navy">
-          Volver al inicio
-        </Link>
-      </div>
+      {!isRetiro && (
+        <div className="card mt-6 p-6 text-center">
+          <p className="text-sm text-navy/70">
+            Cuando tengas el comprobante, enviánoslo por WhatsApp para confirmar tu pedido.
+          </p>
+          <a
+            href={whatsappLink(whatsappNumber, comprobanteMsg)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-wsp mt-3 w-full"
+          >
+            Enviar comprobante por WhatsApp
+          </a>
+          <Link href="/" className="mt-3 inline-block text-sm text-navy/60 hover:text-navy">
+            Volver al inicio
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

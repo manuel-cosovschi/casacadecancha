@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAdmin } from '@/lib/admin/auth';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 import { normalizeDeliveryStatus, deliverySteps, isMdpDelivery } from '@/lib/delivery';
+import { isPickup } from '@/lib/shipping';
 import { DeliveryControl } from './DeliveryControl';
 import { CarrierForm } from './CarrierForm';
 
@@ -21,7 +22,8 @@ export default async function EnviosPage() {
     .order('created_at', { ascending: false })
     .limit(200);
 
-  const list = (orders ?? []) as any[];
+  // Los retiros en punto de retiro se coordinan por WhatsApp, no son envíos.
+  const list = ((orders ?? []) as any[]).filter((o) => !isPickup(o.shipping_method));
   const mdp = list.filter((o) => isMdpDelivery(o.shipping_method));
   const nacional = list.filter((o) => !isMdpDelivery(o.shipping_method));
 
