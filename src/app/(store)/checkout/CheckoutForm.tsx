@@ -247,16 +247,17 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-navy/15 p-3 text-sm">
               <input type="radio" value="retiro" {...register('shipping_method')} className="mt-1" />
               <div>
-                <p className="font-semibold">Retiro en punto de retiro (Mar del Plata)</p>
-                <p className="text-navy/60">Sin costo de envío. Coordinamos el punto y la seña por WhatsApp.</p>
+                <p className="font-semibold">Retiro en punto de retiro (zona Av. Constitución, Mar del Plata)</p>
+                <p className="text-navy/60">Sin costo de envío. Coordinamos el retiro y la seña por WhatsApp.</p>
               </div>
             </label>
           </div>
 
           {isRetiro ? (
             <div className="mt-4 rounded-lg bg-celeste/15 p-3 text-sm text-navy">
-              🤝 Al confirmar te llevamos a <strong>WhatsApp</strong> con tu pedido armado para
-              coordinar el punto de retiro y la seña. El resto lo pagás cuando lo retirás.
+              🤝 El retiro es en la <strong>zona de Av. Constitución (Mar del Plata)</strong>. Al
+              confirmar te llevamos a <strong>WhatsApp</strong> con tu pedido armado para coordinar
+              el punto exacto y la seña. El resto lo pagás cuando lo retirás.
             </div>
           ) : isNacional ? (
             <>
