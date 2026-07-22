@@ -27,10 +27,6 @@ export function Hero({
       >
         {/* Texto */}
         <div className={cn('max-w-2xl animate-fade-up', alignCenter && 'mx-auto text-center')}>
-          <span className="chip mb-5 border-celeste/30 bg-celeste/10 text-celeste">
-            <span className="h-1.5 w-1.5 rounded-full bg-celeste" />
-            Mundial 2026 · Edición limitada
-          </span>
           <h1 className="text-balance text-5xl font-black uppercase leading-[0.9] sm:text-7xl lg:text-[5.5rem]">
             {data.title}
           </h1>
