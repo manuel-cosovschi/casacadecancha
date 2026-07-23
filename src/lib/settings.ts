@@ -84,9 +84,9 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     coordinate_text: 'Envío a coordinar según localidad.',
     flat_rate: 0,
     free_from: 0,
-    text: 'En Mar del Plata la entrega es gratis y se coordina por WhatsApp. Al resto del país enviamos y el costo del envío se abona al recibir el producto.',
+    text: 'En Mar del Plata la entrega es gratis y se coordina por WhatsApp. Al resto del país enviamos por Correo Argentino; el costo del envío se calcula en el checkout y va incluido en el total.',
     mdp_text: 'Coordinamos la entrega en Mar del Plata por WhatsApp, sin cargo.',
-    nacional_note: 'El costo del envío se abona al recibir el producto.',
+    nacional_note: 'Enviamos por Correo Argentino. El costo del envío se calcula en el checkout y va incluido en el total.',
   } satisfies ShippingSettings,
   shipping_calc: {
     mdp_charge: true,

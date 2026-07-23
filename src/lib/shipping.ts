@@ -165,11 +165,11 @@ export function quoteShipping(
   // nacional
   return {
     cost: 0,
-    payOnDelivery: true,
+    payOnDelivery: false,
     free: false,
     label: SHIPPING_LABELS.nacional,
     note:
       settings?.nacional_note ||
-      'El costo del envío se abona al recibir el producto.',
+      'Enviamos por Correo Argentino. El costo del envío se calcula en el checkout y va incluido en el total.',
   };
 }

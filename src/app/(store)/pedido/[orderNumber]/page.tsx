@@ -88,9 +88,10 @@ export default async function OrderPage({
               Coordinamos el punto exacto y la <strong>seña</strong> por WhatsApp. El resto lo pagás
               cuando lo retirás.
             </p>
-          ) : /(resto del país|abonar)/i.test(order.shipping_method) ? (
+          ) : /(resto del país|correo|nacional)/i.test(order.shipping_method) ? (
             <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
-              📦 El costo del envío se abona <strong>al recibir el producto</strong> (pago contra entrega).
+              📦 Enviamos por <strong>Correo Argentino</strong> a todo el país. El envío ya está
+              incluido en el total.
             </p>
           ) : (
             <p className="mt-2 rounded-lg bg-celeste/15 p-2 text-sm text-navy">
