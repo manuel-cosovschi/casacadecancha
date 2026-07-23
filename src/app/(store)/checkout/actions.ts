@@ -10,6 +10,7 @@ import {
   computeNationalShipping,
   mdpCostFromKm,
   haversineKm,
+  withNationalMarkup,
 } from '@/lib/shipping';
 import { geocodeMdp } from '@/lib/geocode';
 import type { ShippingCalcSettings } from '@/lib/types';
@@ -171,7 +172,9 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       };
     }
 
-    const price = v.variant_price ?? product?.price ?? 0;
+    const basePrice = v.variant_price ?? product?.price ?? 0;
+    // Ventas nacionales: recargo por despacho (metido en el precio, no lo ve el cliente como aparte).
+    const price = data.shipping_method === 'nacional' ? withNationalMarkup(basePrice) : basePrice;
     const cost = (v.variant_cost ?? product?.unit_cost ?? 0) + (product?.packaging_cost ?? 0);
     const lineSubtotal = price * item.quantity;
     subtotal += lineSubtotal;

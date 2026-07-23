@@ -11,7 +11,7 @@ import { createOrder, applyCoupon, saveCart, estimateMdpShipping } from './actio
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
 import { discountAmount, formatPrice } from '@/lib/utils';
-import { computeNationalShipping, parseZones } from '@/lib/shipping';
+import { computeNationalShipping, parseZones, withNationalMarkup } from '@/lib/shipping';
 import type { ShippingSettings, ShippingCalcSettings } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
 
@@ -79,11 +79,17 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const transferDisc = showTransfer ? discountAmount(eligibleSubtotal, transferDiscount) : 0;
   const discount = transferDisc + couponDiscount;
 
+  // Precio a mostrar por ítem: en ventas nacionales, con el recargo metido en el precio.
+  const linePrice = (i: { price: number }) => (isNacional ? withNationalMarkup(i.price) : i.price);
+  const displaySubtotal = isNacional
+    ? items.reduce((a, i) => a + withNationalMarkup(i.price) * i.quantity, 0)
+    : subtotal;
+
   // Costo de envío efectivo.
   const nationalCost = province ? computeNationalShipping(province, shippingCalc) : null;
   const shippingCost = isRetiro ? 0 : isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
   const shippingKnown = isRetiro ? true : isNacional ? nationalCost !== null : mdpCost !== null;
-  const total = Math.max(0, subtotal - discount + shippingCost);
+  const total = Math.max(0, displaySubtotal - discount + shippingCost);
 
   async function calcMdp() {
     const addr = [watch('address'), watch('address_number')].filter(Boolean).join(' ').trim();
@@ -414,7 +420,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
               <span className="text-navy/70">
                 {i.quantity}× {i.name} <span className="text-navy/40">({i.size})</span>
               </span>
-              <span className="font-medium">{formatPrice(i.price * i.quantity)}</span>
+              <span className="font-medium">{formatPrice(linePrice(i) * i.quantity)}</span>
             </li>
           ))}
         </ul>
@@ -444,7 +450,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
         </div>
 
         <div className="space-y-1.5 py-3 text-sm">
-          <Row label="Subtotal" value={formatPrice(subtotal)} />
+          <Row label="Subtotal" value={formatPrice(displaySubtotal)} />
           {showTransfer && (
             <Row label={`Descuento transferencia (${transferDiscount}%)`} value={`- ${formatPrice(transferDisc)}`} accent />
           )}

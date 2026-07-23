@@ -5,6 +5,7 @@ import { OrderControls } from './OrderControls';
 import { getAdminOrder } from '@/lib/admin/data';
 import { createClient } from '@/lib/supabase/server';
 import { formatPrice, whatsappLink } from '@/lib/utils';
+import { isPickup, nationalMarkupPart } from '@/lib/shipping';
 
 export default async function OrderDetailPage({
   params,
@@ -76,6 +77,16 @@ export default async function OrderDetailPage({
             </div>
             <div className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm">
               <Row label="Subtotal" value={formatPrice(order.subtotal)} />
+              {order.shipping_method &&
+                !isPickup(order.shipping_method) &&
+                /resto del pa[ií]s|correo|nacional/i.test(order.shipping_method) &&
+                nationalMarkupPart(order.subtotal) > 0 && (
+                  <Row
+                    label="↳ Recargo venta nacional (5%)"
+                    value={`incluido · ${formatPrice(nationalMarkupPart(order.subtotal))}`}
+                    muted
+                  />
+                )}
               {order.discount > 0 && <Row label="Descuento" value={`- ${formatPrice(order.discount)}`} />}
               {order.coupon_code && <Row label={`Cupón (${order.coupon_code})`} value={`- ${formatPrice(order.coupon_discount || 0)}`} muted />}
               <Row label="Envío" value={order.shipping_cost > 0 ? formatPrice(order.shipping_cost) : 'A coordinar'} />
