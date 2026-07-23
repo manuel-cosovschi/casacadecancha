@@ -44,7 +44,7 @@ export default async function ConfigPage() {
         initial={s.shipping}
         fields={[
           { key: 'mdp_text', label: 'Texto entrega Mar del Plata (gratis)', full: true },
-          { key: 'nacional_note', label: 'Aviso envío nacional (costo al recibir)', full: true },
+          { key: 'nacional_note', label: 'Aviso envío nacional (incluido en el total)', full: true },
           { key: 'text', label: 'Texto general de envíos', type: 'textarea', full: true },
         ]}
       />
