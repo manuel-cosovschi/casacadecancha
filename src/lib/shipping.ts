@@ -101,6 +101,22 @@ export function isPickup(shippingMethod: string | null | undefined): boolean {
   return /retiro/i.test(shippingMethod);
 }
 
+/**
+ * Recargo en ventas nacionales (trabajo de despacho por Correo).
+ * Va metido en el precio: el cliente no ve un renglón aparte. En el admin se muestra diferenciado.
+ */
+export const NATIONAL_MARKUP_PCT = 5;
+
+/** Precio de un producto con el recargo nacional aplicado (redondeado al peso). */
+export function withNationalMarkup(base: number): number {
+  return Math.round(base * (1 + NATIONAL_MARKUP_PCT / 100));
+}
+
+/** Monto del recargo nacional contenido en un subtotal ya recargado. */
+export function nationalMarkupPart(markedSubtotal: number): number {
+  return Math.max(0, Math.round(markedSubtotal - markedSubtotal / (1 + NATIONAL_MARKUP_PCT / 100)));
+}
+
 export interface ShippingQuote {
   cost: number;
   /** El costo del envío se abona al recibir el producto. */
