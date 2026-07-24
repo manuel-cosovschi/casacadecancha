@@ -10,7 +10,7 @@ import { getAttribution } from '@/components/store/UtmCapture';
 import { createOrder, applyCoupon, saveCart, estimateMdpShipping } from './actions';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
-import { discountAmount, formatPrice } from '@/lib/utils';
+import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT } from '@/lib/utils';
 import { computeNationalShipping, parseZones, withNationalMarkup } from '@/lib/shipping';
 import type { ShippingSettings, ShippingCalcSettings } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
@@ -89,7 +89,10 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const nationalCost = province ? computeNationalShipping(province, shippingCalc) : null;
   const shippingCost = isRetiro ? 0 : isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
   const shippingKnown = isRetiro ? true : isNacional ? nationalCost !== null : mdpCost !== null;
-  const total = Math.max(0, displaySubtotal - discount + shippingCost);
+  const baseTotal = Math.max(0, displaySubtotal - discount + shippingCost);
+  // Recargo por pagar con Mercado Pago (impuestos), como renglón aparte.
+  const mpFee = !isRetiro && paymentMethod === 'mercadopago' ? mpSurcharge(baseTotal) : 0;
+  const total = baseTotal + mpFee;
 
   async function calcMdp() {
     const addr = [watch('address'), watch('address_number')].filter(Boolean).join(' ').trim();
@@ -468,6 +471,9 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
             }
             muted={!shippingKnown}
           />
+          {mpFee > 0 && (
+            <Row label={`Recargo Mercado Pago (${MP_SURCHARGE_PCT}%)`} value={`+ ${formatPrice(mpFee)}`} />
+          )}
         </div>
         <div className="flex justify-between border-t border-navy/10 pt-3 text-lg font-bold">
           <span>Total</span>
