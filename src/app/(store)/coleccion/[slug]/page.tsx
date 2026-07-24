@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { ProductGrid } from '@/components/store/ProductGrid';
 import { getProductsByCollectionSlug } from '@/lib/queries';
 import { getTransferDiscount } from '@/lib/store-helpers';
@@ -28,7 +28,8 @@ export default async function CollectionPage({
     getProductsByCollectionSlug(slug),
     getTransferDiscount(),
   ]);
-  if (!collection) notFound();
+  // Link viejo de una colección despublicada/inexistente: en vez de 404, al catálogo.
+  if (!collection) redirect('/camisetas');
   return (
     <ProductGrid
       title={collection.name}
