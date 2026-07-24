@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ProductGallery } from '@/components/store/ProductGallery';
 import { ProductPurchase } from '@/components/store/ProductPurchase';
@@ -45,7 +45,8 @@ export default async function ProductPage({
     getProductBySlug(slug),
     getAllSettings(),
   ]);
-  if (!product) notFound();
+  // Link viejo de un producto despublicado/inexistente: en vez de 404, al catálogo.
+  if (!product) redirect('/camisetas');
 
   const related = await getRelatedProducts(product.id, product.category_id, 4);
   const transferDiscount = settings.payments_transfer?.active
