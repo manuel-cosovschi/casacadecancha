@@ -29,7 +29,17 @@ export default async function OrderDetailPage({
     proofUrl = signed?.signedUrl ?? null;
   }
 
-  const profit = (Number(order.total) || 0) - (Number(order.estimated_cost) || 0);
+  // Recargo de Mercado Pago = total − (subtotal − descuento + envío). Es pass-through (impuesto MP).
+  const mpFee =
+    order.payment_method === 'mercadopago'
+      ? Math.max(
+          0,
+          (Number(order.total) || 0) -
+            ((Number(order.subtotal) || 0) - (Number(order.discount) || 0) + (Number(order.shipping_cost) || 0)),
+        )
+      : 0;
+  // La ganancia no cuenta el recargo de MP (no es tuyo, lo retiene Mercado Pago).
+  const profit = (Number(order.total) || 0) - (Number(order.estimated_cost) || 0) - mpFee;
   const wspMsg = `Hola ${order.customer_name?.split(' ')[0] || ''}, te escribimos de Casaca de Cancha por tu pedido #${order.order_number}.`;
 
   return (
@@ -90,6 +100,7 @@ export default async function OrderDetailPage({
               {order.discount > 0 && <Row label="Descuento" value={`- ${formatPrice(order.discount)}`} />}
               {order.coupon_code && <Row label={`Cupón (${order.coupon_code})`} value={`- ${formatPrice(order.coupon_discount || 0)}`} muted />}
               <Row label="Envío" value={order.shipping_cost > 0 ? formatPrice(order.shipping_cost) : 'A coordinar'} />
+              {mpFee > 0 && <Row label="Recargo Mercado Pago (7%)" value={`+ ${formatPrice(mpFee)}`} />}
               <Row label="Total" value={formatPrice(order.total)} bold />
               <Row label="Costo estimado" value={formatPrice(order.estimated_cost)} muted />
               <Row label="Ganancia estimada" value={formatPrice(profit)} accent />

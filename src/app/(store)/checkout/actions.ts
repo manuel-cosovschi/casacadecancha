@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
-import { applyDiscount } from '@/lib/utils';
+import { applyDiscount, mpSurcharge } from '@/lib/utils';
 import { getAllSettings } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
@@ -219,7 +219,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const shippingQuote = quoteShipping(data.shipping_method, settings.shipping);
   const calc = settings.shipping_calc as ShippingCalcSettings;
   const shippingCost = await resolveShippingCost(data, calc);
-  const total = Math.max(0, subtotal - discount + shippingCost);
+  const baseTotal = Math.max(0, subtotal - discount + shippingCost);
+  // Recargo por pagar con Mercado Pago (impuestos).
+  const mpFee = data.payment_method === 'mercadopago' ? mpSurcharge(baseTotal) : 0;
+  const total = baseTotal + mpFee;
 
   // 5. Crear pedido vía RPC SECURITY DEFINER (intake seguro sin service role)
   const shippingLabel =

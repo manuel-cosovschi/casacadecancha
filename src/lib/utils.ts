@@ -17,6 +17,14 @@ export function formatPrice(value: number | null | undefined): string {
   return ARS.format(Math.round(value));
 }
 
+/** Recargo por pagar con Mercado Pago (impuestos). Se muestra como renglón aparte. */
+export const MP_SURCHARGE_PCT = 7;
+
+/** Monto del recargo de Mercado Pago sobre una base (total antes del recargo). */
+export function mpSurcharge(base: number): number {
+  return Math.max(0, Math.round((base * MP_SURCHARGE_PCT) / 100));
+}
+
 /** Aplica un porcentaje de descuento a un monto. */
 export function applyDiscount(amount: number, percent: number): number {
   const pct = Math.max(0, Math.min(100, percent || 0));
