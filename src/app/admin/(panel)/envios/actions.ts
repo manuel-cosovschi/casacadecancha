@@ -14,7 +14,7 @@ export async function setDeliveryStatus(orderId: string, status: DeliveryStatus)
   } catch (e) {
     return { error: (e as Error).message };
   }
-  if (!['preparando', 'en_camino', 'entregado'].includes(status)) {
+  if (!['preparando', 'hoy_llega', 'en_camino', 'entregado'].includes(status)) {
     return { error: 'Estado inválido.' };
   }
   const supabase = await createClient();

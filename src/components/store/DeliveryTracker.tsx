@@ -14,7 +14,7 @@ export function DeliveryTracker({
   trackingCode: string | null;
 }) {
   const steps = deliverySteps(shippingMethod);
-  const current = Math.max(0, deliveryStepIndex(deliveryStatus));
+  const current = Math.max(0, deliveryStepIndex(deliveryStatus, shippingMethod));
   const nacional = !isMdpDelivery(shippingMethod);
   const dispatched = current >= 1; // en_camino (despachado) o entregado
   const url = carrierTrackingUrl(carrier);
