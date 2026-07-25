@@ -1,19 +1,26 @@
 /** Estados del seguimiento de envío en Mar del Plata. */
-export type DeliveryStatus = 'preparando' | 'en_camino' | 'entregado';
+export type DeliveryStatus = 'preparando' | 'hoy_llega' | 'en_camino' | 'entregado';
 
 export const DELIVERY_STEPS: { key: DeliveryStatus; label: string; desc: string; emoji: string }[] = [
   { key: 'preparando', label: 'Preparando', desc: 'Estamos preparando tu pedido.', emoji: '📦' },
+  { key: 'hoy_llega', label: 'Hoy te llega', desc: '¡Hoy te llega! Estate atento al timbre.', emoji: '🔔' },
   { key: 'en_camino', label: 'En camino', desc: 'Tu pedido salió y va camino a tu domicilio.', emoji: '🛵' },
   { key: 'entregado', label: 'Entregado', desc: '¡Pedido entregado! Gracias por tu compra.', emoji: '✅' },
 ];
 
 export function normalizeDeliveryStatus(s: string | null | undefined): DeliveryStatus {
-  if (s === 'en_camino' || s === 'entregado') return s;
+  if (s === 'hoy_llega' || s === 'en_camino' || s === 'entregado') return s;
   return 'preparando';
 }
 
-export function deliveryStepIndex(s: string | null | undefined): number {
-  return DELIVERY_STEPS.findIndex((d) => d.key === normalizeDeliveryStatus(s));
+/** Índice del estado actual dentro de los pasos del tipo de envío (MdP tiene un paso más). */
+export function deliveryStepIndex(
+  s: string | null | undefined,
+  shippingMethod?: string | null,
+): number {
+  const norm = normalizeDeliveryStatus(s);
+  const idx = deliverySteps(shippingMethod).findIndex((d) => d.key === norm);
+  return idx;
 }
 
 /** True si el pedido es una entrega en Mar del Plata (según la etiqueta de envío). */
