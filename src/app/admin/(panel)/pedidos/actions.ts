@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { assertWriter, logActivity } from '@/lib/admin/actions-helpers';
+import { sendOrderConfirmation } from '@/lib/notify-order';
 import type { OrderStatus, PaymentStatus } from '@/lib/types';
 
 type Result = { ok?: boolean; error?: string };
@@ -102,9 +103,10 @@ export async function setPaymentStatus(
     .update({ status, payment_reference: reference || null })
     .eq('order_id', orderId);
 
-  // Al marcar como pagado por primera vez, descontar stock.
+  // Al marcar como pagado por primera vez, descontar stock y avisar al cliente.
   if (status === 'paid' && prev?.payment_status !== 'paid') {
     await commitStock(orderId);
+    await sendOrderConfirmation(orderNumber);
   }
   // Si se cancela/rechaza un pedido aún no pagado, liberar reservas.
   if (
