@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
+import { useForm, type UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCart } from '@/components/cart/CartProvider';
 import { getAttribution } from '@/components/store/UtmCapture';
@@ -44,9 +44,28 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     defaultValues: {
       shipping_method: 'mdp',
       payment_method: 'transfer',
+      housing_type: 'casa',
       items: [],
     },
   });
+
+  // Disponibilidad horaria (próximas 48 hs) para coordinar la entrega en MdP.
+  const [availDays, setAvailDays] = useState<{ label: string; from: string; to: string }[]>([]);
+  useEffect(() => {
+    const fmt = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'numeric' });
+    const rows = [0, 1].map((off) => {
+      const d = new Date();
+      d.setDate(d.getDate() + off);
+      return { label: off === 0 ? `Hoy (${fmt.format(d)})` : `Mañana (${fmt.format(d)})`, from: '', to: '' };
+    });
+    setAvailDays(rows);
+  }, []);
+  const setAvail = (i: number, key: 'from' | 'to', v: string) =>
+    setAvailDays((prev) => prev.map((r, idx) => (idx === i ? { ...r, [key]: v } : r)));
+  const availabilityStr = availDays
+    .filter((a) => a.from || a.to)
+    .map((a) => `${a.label}: ${a.from || '—'} a ${a.to || '—'}`)
+    .join(' · ');
 
   // Los ítems vienen del carrito, no de inputs del form: los sincronizamos en el
   // estado del form para que la validación (items.min(1)) no bloquee el submit.
@@ -69,6 +88,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const shippingMethod = (watch('shipping_method') || 'mdp') as 'mdp' | 'nacional' | 'retiro';
   const isNacional = shippingMethod === 'nacional';
   const isRetiro = shippingMethod === 'retiro';
+  const isDepto = watch('housing_type') === 'departamento';
   const province = watch('province');
   // El descuento por transferencia solo aplica a los productos elegibles.
   const eligibleSubtotal = items.reduce(
@@ -152,6 +172,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     const payload: CheckoutInput = {
       ...values,
       payment_method: isRetiro ? 'cash' : values.payment_method,
+      availability: !isNacional && !isRetiro ? availabilityStr || undefined : undefined,
       coupon_code: couponOk ? couponCode.trim() : undefined,
       mdp_zone: mdpNeedsZone ? mdpZone : undefined,
       shipping_cost: shippingCost,
@@ -306,9 +327,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 <Field label="Altura" error={errors.address_number?.message}>
                   <input className="input" {...register('address_number')} />
                 </Field>
-                <Field label="Piso / Depto (opcional)" error={errors.floor?.message}>
-                  <input className="input" {...register('floor')} />
-                </Field>
+                <HousingTypeFields register={register} isDepto={isDepto} error={errors.floor?.message} />
               </div>
               <div className="mt-4">
                 <Field label="Referencias / Notas (opcional)">
@@ -331,9 +350,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 <Field label="Altura" error={errors.address_number?.message}>
                   <input className="input" {...register('address_number')} placeholder="Ej: 1168" />
                 </Field>
-                <Field label="Piso / Depto (opcional)" error={errors.floor?.message}>
-                  <input className="input" {...register('floor')} />
-                </Field>
+                <HousingTypeFields register={register} isDepto={isDepto} error={errors.floor?.message} />
                 <Field label="Referencias (opcional)">
                   <input className="input" {...register('references')} placeholder="Entre calles, timbre…" />
                 </Field>
@@ -376,6 +393,38 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
             <div className="mt-4 rounded-lg bg-celeste/15 p-3 text-sm text-navy">
               🛵 Coordinamos la entrega en Mar del Plata por WhatsApp, <strong>sin costo de envío</strong>.
               Dejanos tus datos de contacto arriba y te escribimos.
+            </div>
+          )}
+
+          {!isNacional && !isRetiro && availDays.length > 0 && (
+            <div className="mt-5 border-t border-navy/10 pt-4">
+              <p className="text-sm font-semibold text-navy">
+                ¿En qué horarios vas a estar?{' '}
+                <span className="font-normal text-navy/50">(próximas 48 hs)</span>
+              </p>
+              <p className="mb-3 text-xs text-navy/50">
+                Nos ayuda a coordinar la entrega. Poné el rango de cada día; dejá vacío el que no estés.
+              </p>
+              <div className="space-y-2">
+                {availDays.map((d, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="min-w-32 capitalize text-navy/70">{d.label}</span>
+                    <input
+                      type="time"
+                      value={d.from}
+                      onChange={(e) => setAvail(i, 'from', e.target.value)}
+                      className="input !w-auto !py-1.5"
+                    />
+                    <span className="text-navy/40">a</span>
+                    <input
+                      type="time"
+                      value={d.to}
+                      onChange={(e) => setAvail(i, 'to', e.target.value)}
+                      className="input !w-auto !py-1.5"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </fieldset>
@@ -499,6 +548,38 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
         </p>
       </aside>
     </form>
+  );
+}
+
+/** Selector Casa/Departamento + piso (obligatorio solo si es departamento). */
+function HousingTypeFields({
+  register,
+  isDepto,
+  error,
+}: {
+  register: UseFormRegister<CheckoutInput>;
+  isDepto: boolean;
+  error?: string;
+}) {
+  return (
+    <>
+      <div className="sm:col-span-2">
+        <span className="label">Tipo de vivienda</span>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-navy/15 p-2.5 text-sm has-[:checked]:border-navy has-[:checked]:bg-navy/5">
+            <input type="radio" value="casa" {...register('housing_type')} /> 🏠 Casa
+          </label>
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-navy/15 p-2.5 text-sm has-[:checked]:border-navy has-[:checked]:bg-navy/5">
+            <input type="radio" value="departamento" {...register('housing_type')} /> 🏢 Departamento
+          </label>
+        </div>
+      </div>
+      {isDepto && (
+        <Field label="Piso y depto" error={error}>
+          <input className="input" {...register('floor')} placeholder="Ej: 3° B" />
+        </Field>
+      )}
+    </>
   );
 }
 

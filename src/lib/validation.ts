@@ -35,6 +35,8 @@ export const checkoutSchema = z
     floor: z.string().optional(),
     references: z.string().optional(),
     shipping_method: z.enum(['mdp', 'nacional', 'retiro']),
+    housing_type: z.enum(['casa', 'departamento']).optional(),
+    availability: z.string().optional(),
     payment_method: z.enum(['transfer', 'mercadopago', 'cash']),
     coupon_code: z.string().optional(),
     notes: z.string().optional(),
@@ -63,6 +65,14 @@ export const checkoutSchema = z
         ctx.addIssue({ code: 'custom', path: ['address'], message: 'Ingresá tu dirección' });
       if (!data.address_number || data.address_number.length < 1)
         ctx.addIssue({ code: 'custom', path: ['address_number'], message: 'Ingresá la altura' });
+    }
+    // Departamento: el piso es obligatorio (cuando hay entrega a domicilio).
+    if (
+      data.shipping_method !== 'retiro' &&
+      data.housing_type === 'departamento' &&
+      (!data.floor || data.floor.trim().length < 1)
+    ) {
+      ctx.addIssue({ code: 'custom', path: ['floor'], message: 'Ingresá el piso y depto' });
     }
   });
 
