@@ -10,13 +10,15 @@ import { CarrierForm } from './CarrierForm';
 
 export const dynamic = 'force-dynamic';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://casacadecancha.shop';
+
 export default async function EnviosPage() {
   await requireAdmin();
   const supabase = await createClient();
 
   const { data: orders } = await supabase
     .from('orders')
-    .select('id, order_number, customer_name, customer_phone, address, city, province, total, delivery_status, delivery_updated_at, created_at, shipping_method, order_status, carrier, tracking_code, tracking_ref')
+    .select('id, order_number, customer_name, customer_phone, address, city, province, total, delivery_status, delivery_updated_at, created_at, shipping_method, order_status, carrier, tracking_code, tracking_ref, order_items(product_name, size, quantity)')
     .eq('payment_status', 'paid')
     .neq('order_status', 'cancelled')
     .order('created_at', { ascending: false })
@@ -68,12 +70,19 @@ function Section({
           const status = normalizeDeliveryStatus(o.delivery_status);
           const step = deliverySteps(o.shipping_method).find((d) => d.key === status);
           const delivered = status === 'entregado';
-          const wsp = o.customer_phone
-            ? whatsappLink(
-                o.customer_phone,
-                `Hola${o.customer_name ? ' ' + o.customer_name.split(' ')[0] : ''}, te escribo por tu pedido #${o.order_number} de Casaca de Cancha 🛵`,
-              )
-            : null;
+          const firstName = o.customer_name ? o.customer_name.split(' ')[0] : '';
+          const itemLines = (o.order_items ?? [])
+            .map((i: any) => `• ${i.quantity}x ${i.product_name}${i.size ? ` (${i.size})` : ''}`)
+            .join('\n');
+          const wspMsg =
+            `Hola${firstName ? ' ' + firstName : ''}! 👋 Gracias por tu compra en Casaca de Cancha ⚽\n\n` +
+            `Tu pedido *#${o.order_number}*:\n` +
+            (itemLines ? `${itemLines}\n` : '') +
+            (o.total ? `Total: ${formatPrice(o.total)}\n` : '') +
+            (o.tracking_ref
+              ? `\n📦 Seguí el estado de tu envío acá:\n${SITE_URL}/seguimiento?code=${o.tracking_ref}\nCódigo de seguimiento: *${o.tracking_ref}*`
+              : '');
+          const wsp = o.customer_phone ? whatsappLink(o.customer_phone, wspMsg) : null;
           return (
             <div key={o.id} className={`card p-4 ${delivered ? 'opacity-70' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
