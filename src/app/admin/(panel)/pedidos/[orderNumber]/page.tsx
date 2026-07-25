@@ -150,6 +150,7 @@ export default async function OrderDetailPage({
               <Info label="Dirección" value={order.address} />
               <Info label="CP" value={order.postal_code} />
               <Info label="Envío" value={order.shipping_method} />
+              <Info label="Notas / entrega" value={order.notes} />
               <Info label="Canal" value={order.channel} />
             </dl>
             {order.customer_phone && (

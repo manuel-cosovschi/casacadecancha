@@ -230,7 +230,19 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       ? `${shippingQuote.label} ($${shippingCost.toLocaleString('es-AR')})`
       : `${shippingQuote.label} (sin cargo)`;
   const shippingNote = shippingQuote.note;
-  const combinedNotes = [data.notes, shippingNote].filter(Boolean).join(' · ');
+  // Info de entrega para el admin: tipo de vivienda y horarios de disponibilidad (MdP).
+  const deliveryInfo =
+    data.shipping_method !== 'retiro'
+      ? [
+          data.housing_type
+            ? `Vivienda: ${data.housing_type === 'departamento' ? 'Departamento' : 'Casa'}`
+            : null,
+          data.availability ? `Disponible: ${data.availability}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : '';
+  const combinedNotes = [data.notes, deliveryInfo, shippingNote].filter(Boolean).join(' · ');
 
   // En MdP y retiro la provincia/ciudad se autocompletan (son locales).
   const isLocal = data.shipping_method !== 'nacional';
