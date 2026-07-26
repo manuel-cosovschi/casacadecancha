@@ -105,13 +105,13 @@ export function SueldoPanel({
         <div className="card p-5">
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-navy/60">Contexto del negocio</h2>
           <ul className="space-y-1.5 text-sm">
-            <Row label="Plata invertida en stock (a costo)" value={formatPrice(inventoryCost)} muted />
-            <Row label="Unidades en stock" value={`${inventoryUnits} u.`} muted />
+            <Row label="Plata en stock sin vender (a costo)" value={formatPrice(inventoryCost)} muted />
+            <Row label="Unidades disponibles (sin vender)" value={`${inventoryUnits} u.`} muted />
             <Row label="Por cobrar (encargos con seña/pendientes)" value={formatPrice(pendingCollect)} muted />
           </ul>
           <p className="mt-3 text-xs text-navy/50">
-            Esa plata en stock ya es del negocio (está en productos, no es líquida). Tu sueldo sale de la
-            plata líquida, después de dejar para reponer y para marketing.
+            Es el stock que todavía no vendiste (no cuenta lo ya reservado para encargos). Esa plata ya es
+            del negocio (está en productos, no es líquida). Tu sueldo sale de la plata líquida.
           </p>
         </div>
       </div>
