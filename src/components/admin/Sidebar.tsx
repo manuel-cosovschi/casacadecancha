@@ -25,6 +25,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
       { label: 'Pedidos', href: '/admin/pedidos' },
       { label: 'Envíos', href: '/admin/envios' },
       { label: 'Faltantes', href: '/admin/faltantes' },
+      { label: 'Qué comprar', href: '/admin/comprar' },
       { label: 'Encargos', href: '/admin/encargos' },
       { label: 'Clientes', href: '/admin/clientes' },
       { label: 'Promociones', href: '/admin/promociones' },
@@ -34,6 +35,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
   {
     title: 'Finanzas',
     items: [
+      { label: 'Mi Sueldo', href: '/admin/sueldo' },
       { label: 'Rentabilidad', href: '/admin/rentabilidad' },
       { label: 'Gastos', href: '/admin/gastos' },
       { label: 'Meta Ads', href: '/admin/ads' },
