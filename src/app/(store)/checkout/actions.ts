@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
-import { applyDiscount, mpSurcharge } from '@/lib/utils';
+import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { getAllSettings } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
@@ -133,7 +133,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const variantIds = data.items.map((i) => i.variantId);
   const { data: variants, error: vErr } = await supabase
     .from('product_variants')
-    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_cost, variant_price, active, products(name, price, unit_cost, packaging_cost, allow_backorder, transfer_discount)')
+    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_cost, variant_price, active, products(name, price, unit_cost, packaging_cost, allow_backorder, transfer_discount, preorder)')
     .in('id', variantIds);
 
   if (vErr || !variants) {
@@ -143,6 +143,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // 2. Construir items validados
   let subtotal = 0;
   let eligibleSubtotal = 0; // base para el descuento por transferencia
+  let preorderBalance = 0; // saldo de preventa que se paga al recibir (no se cobra ahora)
   let estimatedCost = 0;
   const orderItems: {
     product_id: string;
@@ -179,6 +180,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     const lineSubtotal = price * item.quantity;
     subtotal += lineSubtotal;
     if (product?.transfer_discount !== false) eligibleSubtotal += lineSubtotal;
+    // Preventa: solo se cobra ahora la seña (50%); el resto queda como saldo a pagar al recibir.
+    if (product?.preorder) {
+      preorderBalance += (price - preorderDeposit(price)) * item.quantity;
+    }
     estimatedCost += cost * item.quantity;
 
     orderItems.push({
@@ -219,7 +224,8 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const shippingQuote = quoteShipping(data.shipping_method, settings.shipping);
   const calc = settings.shipping_calc as ShippingCalcSettings;
   const shippingCost = await resolveShippingCost(data, calc);
-  const baseTotal = Math.max(0, subtotal - discount + shippingCost);
+  // En preventa se cobra ahora la seña: se descuenta del total el saldo que se paga al recibir.
+  const baseTotal = Math.max(0, subtotal - discount - preorderBalance + shippingCost);
   // Recargo por pagar con Mercado Pago (impuestos).
   const mpFee = data.payment_method === 'mercadopago' ? mpSurcharge(baseTotal) : 0;
   const total = baseTotal + mpFee;
@@ -242,7 +248,13 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
           .filter(Boolean)
           .join(' · ')
       : '';
-  const combinedNotes = [data.notes, deliveryInfo, shippingNote].filter(Boolean).join(' · ');
+  const preorderNote =
+    preorderBalance > 0
+      ? `PREVENTA: seña cobrada ahora. Saldo a pagar al recibir: $${Math.round(preorderBalance).toLocaleString('es-AR')}`
+      : '';
+  const combinedNotes = [data.notes, deliveryInfo, preorderNote, shippingNote]
+    .filter(Boolean)
+    .join(' · ');
 
   // En MdP y retiro la provincia/ciudad se autocompletan (son locales).
   const isLocal = data.shipping_method !== 'nacional';

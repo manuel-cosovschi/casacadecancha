@@ -9,6 +9,7 @@ import {
   availableStock,
   cn,
   formatPrice,
+  preorderDeposit,
   whatsappLink,
 } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
@@ -109,6 +110,7 @@ export function ProductPurchase({
       quantity: qty,
       maxStock: canBackorder ? 99 : stock,
       transferEligible,
+      preorder: product.preorder || false,
     });
   }
 
@@ -124,6 +126,20 @@ export function ProductPurchase({
 
   return (
     <div className="space-y-5">
+      {product.preorder && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3.5">
+          <p className="flex items-center gap-2 text-sm font-bold text-red-700">
+            🔴 PREVENTA
+          </p>
+          <p className="mt-1.5 text-sm text-navy/75">
+            Este producto está <strong>en camino</strong>. Lo reservás pagando ahora una{' '}
+            <strong>seña del 50% ({formatPrice(preorderDeposit(product.price))})</strong> por la web
+            (transferencia o Mercado Pago). El <strong>50% restante</strong> lo pagás cuando te llega.
+            Te avisamos apenas esté disponible.
+          </p>
+        </div>
+      )}
+
       {/* Precio */}
       <div>
         <div className="flex flex-wrap items-baseline gap-3">
