@@ -47,6 +47,9 @@ export function ProductCard({
 
         {/* Badges */}
         <div className="absolute left-3 top-3 flex flex-col gap-1.5">
+          {product.preorder && (
+            <span className="badge bg-red-600 text-white shadow-sm">PREVENTA</span>
+          )}
           {product.badge && (
             <span className={cn('badge shadow-sm', classForBadge(product.badge))}>
               {product.badge}
@@ -57,7 +60,7 @@ export function ProductCard({
           )}
         </div>
 
-        {soldOut && (
+        {!product.preorder && soldOut && (
           <div className="absolute inset-0 flex items-center justify-center bg-navy/40 backdrop-blur-[1px]">
             <span className="badge bg-white text-navy">Sin stock</span>
           </div>

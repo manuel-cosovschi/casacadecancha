@@ -70,6 +70,7 @@ export interface Product {
   care: string | null;
   badge: string | null;
   active: boolean;
+  preorder: boolean;
   featured: boolean;
   allow_backorder: boolean;
   hide_when_out_of_stock: boolean;
@@ -254,4 +255,6 @@ export interface CartItem {
   maxStock: number;
   /** Si el producto aplica al descuento por transferencia (default true). */
   transferEligible?: boolean;
+  /** Preventa: se paga la seña (50%) ahora, el resto al recibir. */
+  preorder?: boolean;
 }

@@ -17,6 +17,14 @@ export function formatPrice(value: number | null | undefined): string {
   return ARS.format(Math.round(value));
 }
 
+/** Preventa: seña que se paga por adelantado (el resto se paga al recibir). */
+export const PREORDER_DEPOSIT_PCT = 50;
+
+/** Monto de la seña de preventa sobre un precio. */
+export function preorderDeposit(price: number): number {
+  return Math.round((price * PREORDER_DEPOSIT_PCT) / 100);
+}
+
 /** Recargo por pagar con Mercado Pago (impuestos). Se muestra como renglón aparte. */
 export const MP_SURCHARGE_PCT = 7;
 

@@ -23,6 +23,57 @@ async function ownerCtx() {
   return { sellerId: p?.id ?? null, isOwner: p ? isOwnerRole(p.role) : false };
 }
 
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Marca en cada fila si su variante pertenece a un producto en preventa.
+ * En preventa el stock se pre-carga al publicar el producto, así que al marcar
+ * "Recibido" NO se vuelve a sumar (evita duplicar) y el producto deja de estar en preventa.
+ */
+async function annotatePreorder<T extends { variant_id: string | null }>(
+  supabase: SupabaseClient,
+  rows: T[],
+): Promise<(T & { preorder: boolean })[]> {
+  const ids = rows.map((r) => r.variant_id).filter(Boolean) as string[];
+  if (ids.length === 0) return rows.map((r) => ({ ...r, preorder: false }));
+  const { data } = await supabase
+    .from('product_variants')
+    .select('id, products(preorder)')
+    .in('id', ids);
+  const preorderIds = new Set<string>();
+  for (const v of (data ?? []) as any[]) {
+    const p = Array.isArray(v.products) ? v.products[0] : v.products;
+    if (p?.preorder) preorderIds.add(v.id);
+  }
+  return rows.map((r) => ({
+    ...r,
+    preorder: r.variant_id ? preorderIds.has(r.variant_id) : false,
+  }));
+}
+
+/** IDs de producto (únicos) a los que pertenecen las variantes dadas. */
+async function productIdsForVariants(
+  supabase: SupabaseClient,
+  variantIds: string[],
+): Promise<string[]> {
+  if (variantIds.length === 0) return [];
+  const { data } = await supabase
+    .from('product_variants')
+    .select('product_id')
+    .in('id', variantIds);
+  return [...new Set((data ?? []).map((v: any) => v.product_id).filter(Boolean))];
+}
+
+/** Prende/apaga el flag de preventa en un conjunto de productos. */
+async function setProductsPreorder(
+  supabase: SupabaseClient,
+  productIds: string[],
+  value: boolean,
+): Promise<void> {
+  if (productIds.length === 0) return;
+  await supabase.from('products').update({ preorder: value }).in('id', productIds);
+}
+
 export interface SupplierItemInput {
   product: string;
   size?: string | null;
@@ -83,14 +134,26 @@ export async function createSupplierBatch(input: SupplierBatchInput): Promise<Re
   const supabase = await createClient();
   const { sellerId, isOwner } = await ownerCtx();
   const batchId = randomUUID();
-  const rows = buildRows(input, batchId, sellerId, isOwner);
-  if (rows.length === 0) return { error: 'Agregá al menos un producto al pedido.' };
+  const built = buildRows(input, batchId, sellerId, isOwner);
+  if (built.length === 0) return { error: 'Agregá al menos un producto al pedido.' };
+  const rows = await annotatePreorder(supabase, built);
 
   const { error } = await supabase.from('supplier_orders').insert(rows);
   if (error) return { error: error.message };
 
   if (isOwner && (input.status || 'pedido') === 'recibido') {
-    for (const r of rows) if (r.variant_id) await adjustPhysicalStock(r.variant_id, r.quantity);
+    // Preventa: el stock ya está pre-cargado; solo se suma para líneas que no son preventa.
+    for (const r of rows) {
+      if (r.variant_id && !r.preorder) await adjustPhysicalStock(r.variant_id, r.quantity);
+    }
+    await setProductsPreorder(
+      supabase,
+      await productIdsForVariants(
+        supabase,
+        rows.filter((r) => r.preorder && r.variant_id).map((r) => r.variant_id as string),
+      ),
+      false,
+    );
   }
   revalidatePath('/admin/encargos');
   return { ok: true };
@@ -102,27 +165,39 @@ export async function updateSupplierBatch(batchId: string, input: SupplierBatchI
   const supabase = await createClient();
   const { sellerId, isOwner } = await ownerCtx();
 
-  // Filas viejas (para revertir stock si estaban recibidas).
+  // Filas viejas (para revertir stock si estaban recibidas). Las de preventa no sumaron
+  // stock al recibir (se pre-cargó), así que tampoco se revierten.
   const { data: oldRows } = await supabase
     .from('supplier_orders')
-    .select('quantity, variant_id, status')
+    .select('quantity, variant_id, status, preorder')
     .eq('batch_id', batchId);
   const wasReceived = (oldRows ?? []).some((r: any) => r.status === 'recibido');
   if (isOwner && wasReceived) {
     for (const r of (oldRows ?? []) as any[]) {
-      if (r.variant_id) await adjustPhysicalStock(r.variant_id, -(r.quantity || 0));
+      if (r.variant_id && !r.preorder) await adjustPhysicalStock(r.variant_id, -(r.quantity || 0));
     }
   }
 
   await supabase.from('supplier_orders').delete().eq('batch_id', batchId);
 
-  const rows = buildRows(input, batchId, sellerId, isOwner);
-  if (rows.length === 0) return { error: 'Agregá al menos un producto al pedido.' };
+  const built = buildRows(input, batchId, sellerId, isOwner);
+  if (built.length === 0) return { error: 'Agregá al menos un producto al pedido.' };
+  const rows = await annotatePreorder(supabase, built);
   const { error } = await supabase.from('supplier_orders').insert(rows);
   if (error) return { error: error.message };
 
   if (isOwner && (input.status || 'pedido') === 'recibido') {
-    for (const r of rows) if (r.variant_id) await adjustPhysicalStock(r.variant_id, r.quantity);
+    for (const r of rows) {
+      if (r.variant_id && !r.preorder) await adjustPhysicalStock(r.variant_id, r.quantity);
+    }
+    await setProductsPreorder(
+      supabase,
+      await productIdsForVariants(
+        supabase,
+        rows.filter((r) => r.preorder && r.variant_id).map((r) => r.variant_id as string),
+      ),
+      false,
+    );
   }
   revalidatePath('/admin/encargos');
   return { ok: true };
@@ -137,7 +212,7 @@ export async function setSupplierBatchStatus(
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from('supplier_orders')
-    .select('quantity, variant_id, status')
+    .select('quantity, variant_id, status, preorder')
     .eq('batch_id', batchId);
 
   const wasReceived = (rows ?? []).some((r: any) => r.status === 'recibido');
@@ -146,10 +221,26 @@ export async function setSupplierBatchStatus(
   const { error } = await supabase.from('supplier_orders').update({ status }).eq('batch_id', batchId);
   if (error) return { error: error.message };
 
+  const all = (rows ?? []) as any[];
+  const preorderVariantIds = all
+    .filter((r) => r.preorder && r.variant_id)
+    .map((r) => r.variant_id as string);
+  const preorderProductIds = await productIdsForVariants(supabase, preorderVariantIds);
+
   if (!wasReceived && nowReceived) {
-    for (const r of (rows ?? []) as any[]) if (r.variant_id) await adjustPhysicalStock(r.variant_id, r.quantity || 0);
+    // El pedido llegó. Las líneas normales suman stock; las de preventa ya tenían el stock
+    // pre-cargado, así que no se suman de nuevo y su producto deja de estar en preventa.
+    for (const r of all) {
+      if (r.variant_id && !r.preorder) await adjustPhysicalStock(r.variant_id, r.quantity || 0);
+    }
+    await setProductsPreorder(supabase, preorderProductIds, false);
   } else if (wasReceived && !nowReceived) {
-    for (const r of (rows ?? []) as any[]) if (r.variant_id) await adjustPhysicalStock(r.variant_id, -(r.quantity || 0));
+    // Se desmarca "Recibido": se revierte el stock sumado (no el de preventa) y el
+    // producto vuelve a quedar en preventa.
+    for (const r of all) {
+      if (r.variant_id && !r.preorder) await adjustPhysicalStock(r.variant_id, -(r.quantity || 0));
+    }
+    await setProductsPreorder(supabase, preorderProductIds, true);
   }
   revalidatePath('/admin/encargos');
   return { ok: true };
@@ -161,14 +252,17 @@ export async function deleteSupplierBatch(batchId: string): Promise<Result> {
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from('supplier_orders')
-    .select('quantity, variant_id, status')
+    .select('quantity, variant_id, status, preorder')
     .eq('batch_id', batchId);
 
   const { error } = await supabase.from('supplier_orders').delete().eq('batch_id', batchId);
   if (error) return { error: error.message };
 
   if ((rows ?? []).some((r: any) => r.status === 'recibido')) {
-    for (const r of (rows ?? []) as any[]) if (r.variant_id) await adjustPhysicalStock(r.variant_id, -(r.quantity || 0));
+    // Las líneas de preventa no sumaron stock al recibir, así que tampoco se revierten.
+    for (const r of (rows ?? []) as any[]) {
+      if (r.variant_id && !r.preorder) await adjustPhysicalStock(r.variant_id, -(r.quantity || 0));
+    }
   }
   revalidatePath('/admin/encargos');
   return { ok: true };

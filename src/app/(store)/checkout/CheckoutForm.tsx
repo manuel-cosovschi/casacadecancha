@@ -10,7 +10,7 @@ import { getAttribution } from '@/components/store/UtmCapture';
 import { createOrder, applyCoupon, saveCart, estimateMdpShipping } from './actions';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
-import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT } from '@/lib/utils';
+import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT, preorderDeposit } from '@/lib/utils';
 import { computeNationalShipping, parseZones, withNationalMarkup } from '@/lib/shipping';
 import type { ShippingSettings, ShippingCalcSettings } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
@@ -105,11 +105,18 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     ? items.reduce((a, i) => a + withNationalMarkup(i.price) * i.quantity, 0)
     : subtotal;
 
+  // Preventa: de los ítems en preventa se paga ahora la seña (50%); el resto al recibir.
+  const payNowSubtotal = items.reduce(
+    (a, i) => a + (i.preorder ? preorderDeposit(linePrice(i)) : linePrice(i)) * i.quantity,
+    0,
+  );
+  const balanceDue = Math.max(0, displaySubtotal - payNowSubtotal);
+
   // Costo de envío efectivo.
   const nationalCost = province ? computeNationalShipping(province, shippingCalc) : null;
   const shippingCost = isRetiro ? 0 : isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
   const shippingKnown = isRetiro ? true : isNacional ? nationalCost !== null : mdpCost !== null;
-  const baseTotal = Math.max(0, displaySubtotal - discount + shippingCost);
+  const baseTotal = Math.max(0, payNowSubtotal - discount + shippingCost);
   // Recargo por pagar con Mercado Pago (impuestos), como renglón aparte.
   const mpFee = !isRetiro && paymentMethod === 'mercadopago' ? mpSurcharge(baseTotal) : 0;
   const total = baseTotal + mpFee;
@@ -523,11 +530,19 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
           {mpFee > 0 && (
             <Row label={`Recargo Mercado Pago (${MP_SURCHARGE_PCT}%)`} value={`+ ${formatPrice(mpFee)}`} />
           )}
+          {balanceDue > 0 && (
+            <Row label="Seña preventa (50%) · saldo al recibir" value={`- ${formatPrice(balanceDue)}`} accent />
+          )}
         </div>
         <div className="flex justify-between border-t border-navy/10 pt-3 text-lg font-bold">
-          <span>Total</span>
+          <span>{balanceDue > 0 ? 'Pagás ahora' : 'Total'}</span>
           <span>{formatPrice(total)}</span>
         </div>
+        {balanceDue > 0 && (
+          <p className="mt-2 rounded-lg bg-red-50 p-2 text-center text-xs font-semibold text-red-700">
+            🔴 Preventa: pagás la seña ahora. El saldo de {formatPrice(balanceDue)} lo pagás cuando te llega.
+          </p>
+        )}
         {(showTransfer || couponDiscount > 0) && (
           <p className="mt-2 rounded-lg bg-celeste/20 p-2 text-center text-xs font-semibold text-navy">
             Ahorrás {formatPrice(discount)} en esta compra
