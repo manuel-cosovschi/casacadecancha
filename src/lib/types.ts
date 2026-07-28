@@ -166,6 +166,39 @@ export interface OrderItem {
   subtotal: number;
 }
 
+// Encargo a pedido que arma el cliente desde la web (para cotizar y evaluar).
+export interface EncargoRequestItem {
+  product: string;
+  size: string | null;
+  quantity: number;
+}
+
+export type EncargoRequestStatus = 'pendiente' | 'aprobado' | 'rechazado';
+
+export interface EncargoRequest {
+  id: string;
+  request_number: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  dni: string | null;
+  delivery_method: 'envio' | 'retiro';
+  province: string | null;
+  city: string | null;
+  address: string | null;
+  postal_code: string | null;
+  items: EncargoRequestItem[];
+  total_qty: number;
+  notes: string | null;
+  status: EncargoRequestStatus;
+  quote_amount: number | null;
+  deposit_amount: number | null;
+  estimated_days: number;
+  reject_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // --- Configuración del sitio (store_settings) ---
 export interface AnnouncementBarSettings {
   active: boolean;

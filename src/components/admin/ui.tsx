@@ -95,6 +95,10 @@ const STATUS_STYLE: Record<string, string> = {
   delivered: 'bg-green-100 text-green-800',
   returned: 'bg-orange-100 text-orange-800',
   exchanged: 'bg-purple-100 text-purple-800',
+  // encargos web (a pedido)
+  pendiente: 'bg-amber-100 text-amber-800',
+  aprobado: 'bg-green-100 text-green-800',
+  rechazado: 'bg-red-100 text-red-800',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -111,6 +115,9 @@ const STATUS_LABEL: Record<string, string> = {
   delivered: 'Entregado',
   returned: 'Devuelto',
   exchanged: 'Cambiado',
+  pendiente: 'Pendiente',
+  aprobado: 'Aprobado',
+  rechazado: 'Rechazado',
 };
 
 export function StatusBadge({ status }: { status: string }) {

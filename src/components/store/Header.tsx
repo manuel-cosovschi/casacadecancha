@@ -11,6 +11,7 @@ const NAV = [
   { label: 'Camisetas', href: '/camisetas' },
   { label: 'Niños', href: '/ninos' },
   { label: 'Buzos', href: '/buzos' },
+  { label: 'Encargá tu camiseta', href: '/encargos' },
   { label: 'Guía de talles', href: '/guia-de-talles' },
   { label: 'FAQ', href: '/preguntas-frecuentes' },
 ];
