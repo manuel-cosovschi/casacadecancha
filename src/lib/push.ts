@@ -96,3 +96,30 @@ export async function sendOrderPush(
     /* no-op: el push no debe afectar el pedido */
   }
 }
+
+/** Aviso push de un nuevo encargo a cotizar (armado por el cliente en la web). */
+export async function sendEncargoPush(
+  requestNumber: string,
+  totalQty: number,
+): Promise<void> {
+  if (!ensureVapid()) return;
+  const secret = process.env.PUSH_SECRET;
+  if (!secret) return;
+
+  try {
+    const supabase = await createClient();
+    const { data: subs } = await supabase.rpc('get_push_subscriptions', { p_secret: secret });
+    if (!subs || subs.length === 0) return;
+
+    const payload = JSON.stringify({
+      title: `🧵 Nuevo encargo #${requestNumber}`,
+      body: `${totalQty} prenda(s) para cotizar — tocá para verlo`,
+      url: `/admin/encargos-web`,
+      tag: `encargo-${requestNumber}`,
+    });
+
+    await sendToSubscriptions(subs as PushSub[], payload);
+  } catch {
+    /* no-op: el push no debe afectar el encargo */
+  }
+}

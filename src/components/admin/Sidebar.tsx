@@ -28,6 +28,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
       { label: 'Qué comprar', href: '/admin/comprar' },
       { label: 'Proveedores', href: '/admin/proveedores' },
       { label: 'Encargos', href: '/admin/encargos' },
+      { label: 'Encargos web', href: '/admin/encargos-web' },
       { label: 'Clientes', href: '/admin/clientes' },
       { label: 'Promociones', href: '/admin/promociones' },
       { label: 'Marketing', href: '/admin/marketing' },
@@ -107,7 +108,7 @@ export function Sidebar({ role }: { role?: string }) {
                 const active =
                   item.href === '/admin'
                     ? pathname === '/admin'
-                    : pathname.startsWith(item.href);
+                    : pathname === item.href || pathname.startsWith(item.href + '/');
                 return (
                   <Link
                     key={item.href}

@@ -77,3 +77,49 @@ export const checkoutSchema = z
   });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+// --- Encargo a pedido (intake público para cotizar) ---
+export const encargoRequestItemSchema = z.object({
+  product: z.string().min(2, 'Escribí qué camiseta querés'),
+  size: z.string().min(1, 'Elegí el talle'),
+  quantity: z.number().int().min(1).max(50),
+});
+
+export const encargoRequestSchema = z
+  .object({
+    customer_name: z.string().min(2, 'Ingresá tu nombre y apellido'),
+    customer_phone: z.string().min(6, 'Ingresá tu WhatsApp'),
+    customer_email: z.string().email('Email inválido').optional().or(z.literal('')),
+    dni: z.string().optional(),
+    delivery_method: z.enum(['envio', 'retiro']),
+    province: z.string().optional(),
+    city: z.string().optional(),
+    address: z.string().optional(),
+    postal_code: z.string().optional(),
+    notes: z.string().optional(),
+    items: z
+      .array(encargoRequestItemSchema)
+      .min(1, 'Agregá al menos una camiseta'),
+  })
+  .superRefine((data, ctx) => {
+    // Mínimo 2 prendas en total.
+    const totalQty = data.items.reduce((a, i) => a + (i.quantity || 0), 0);
+    if (totalQty < 2) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items'],
+        message: 'El encargo tiene que ser de al menos 2 prendas.',
+      });
+    }
+    // Si quiere envío, pedimos dónde vive para poder cotizarlo.
+    if (data.delivery_method === 'envio') {
+      if (!data.province || data.province.length < 2)
+        ctx.addIssue({ code: 'custom', path: ['province'], message: 'Ingresá tu provincia' });
+      if (!data.city || data.city.length < 2)
+        ctx.addIssue({ code: 'custom', path: ['city'], message: 'Ingresá tu ciudad/localidad' });
+      if (!data.address || data.address.length < 3)
+        ctx.addIssue({ code: 'custom', path: ['address'], message: 'Ingresá tu dirección' });
+    }
+  });
+
+export type EncargoRequestInput = z.infer<typeof encargoRequestSchema>;
