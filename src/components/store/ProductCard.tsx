@@ -60,7 +60,7 @@ export function ProductCard({
           )}
         </div>
 
-        {!product.preorder && soldOut && (
+        {!product.preorder && !product.mystery_box && soldOut && (
           <div className="absolute inset-0 flex items-center justify-center bg-navy/40 backdrop-blur-[1px]">
             <span className="badge bg-white text-navy">Sin stock</span>
           </div>
@@ -92,7 +92,7 @@ export function ProductCard({
           </p>
         )}
 
-        {sizes.length > 0 && (
+        {sizes.length > 0 && !product.mystery_box && (
           <div className="mt-3 flex flex-wrap gap-1">
             {sizes.map((v) => {
               const ok = availableStock(v) > 0;

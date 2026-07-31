@@ -103,6 +103,19 @@ export async function getProductsByCategorySlug(slug: string): Promise<Product[]
   return (data ?? []).map(sortProduct) as Product[];
 }
 
+/** Las Mystery Box activas, ordenadas por precio (menor a mayor). */
+export async function getMysteryBoxes(): Promise<Product[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('active', true)
+    .eq('mystery_box', true)
+    .order('price', { ascending: true });
+  return (data ?? []).map(sortProduct) as Product[];
+}
+
 export async function getActiveCollections(): Promise<Collection[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();

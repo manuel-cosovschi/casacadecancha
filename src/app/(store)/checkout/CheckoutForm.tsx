@@ -187,6 +187,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
         productId: i.productId,
         variantId: i.variantId,
         quantity: i.quantity,
+        note: i.note || undefined,
       })),
       attribution: getAttribution(),
     };

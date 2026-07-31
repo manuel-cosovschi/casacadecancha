@@ -156,6 +156,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     subtotal: number;
   }[] = [];
   const reservations: { variantId: string; quantity: number; current: number }[] = [];
+  const itemNotes: string[] = []; // aclaraciones del cliente por ítem (ej: Mystery Box)
 
   for (const item of data.items) {
     const v = variants.find((x) => x.id === item.variantId);
@@ -202,6 +203,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       quantity: item.quantity,
       current: v.stock_reserved || 0,
     });
+
+    if (item.note && item.note.trim()) {
+      itemNotes.push(`${product?.name ?? 'Producto'} (${v.size}) → NO: ${item.note.trim()}`);
+    }
   }
 
   // 3. Cupón (revalidado en el servidor)
@@ -252,7 +257,8 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     preorderBalance > 0
       ? `PREVENTA: seña cobrada ahora. Saldo a pagar al recibir: $${Math.round(preorderBalance).toLocaleString('es-AR')}`
       : '';
-  const combinedNotes = [data.notes, deliveryInfo, preorderNote, shippingNote]
+  const boxNote = itemNotes.length > 0 ? `Mystery Box · ${itemNotes.join(' | ')}` : '';
+  const combinedNotes = [data.notes, deliveryInfo, preorderNote, boxNote, shippingNote]
     .filter(Boolean)
     .join(' · ');
 

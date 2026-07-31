@@ -86,6 +86,9 @@ export function CartDrawer({ transferDiscount }: { transferDiscount: number }) {
                         </button>
                       </div>
                       <p className="text-xs text-navy/60">Talle {item.size}</p>
+                      {item.note && (
+                        <p className="mt-0.5 text-xs italic text-navy/50">🚫 No: {item.note}</p>
+                      )}
                       <div className="mt-auto flex items-center justify-between">
                         <div className="flex items-center rounded-full border border-navy/15">
                           <button
