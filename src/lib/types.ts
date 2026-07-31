@@ -72,6 +72,7 @@ export interface Product {
   active: boolean;
   preorder: boolean;
   mystery_box: boolean;
+  mystery_qty: number; // cantidad de camisetas que trae la Mystery Box
   featured: boolean;
   allow_backorder: boolean;
   hide_when_out_of_stock: boolean;
