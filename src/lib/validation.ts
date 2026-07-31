@@ -4,6 +4,8 @@ export const checkoutItemSchema = z.object({
   productId: z.string().uuid(),
   variantId: z.string().uuid(),
   quantity: z.number().int().min(1).max(20),
+  /** Aclaración del cliente para ese ítem (ej: preferencias de Mystery Box). */
+  note: z.string().max(600).optional(),
 });
 
 export const attributionSchema = z

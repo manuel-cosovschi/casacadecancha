@@ -32,8 +32,10 @@ export function ProductPurchase({
 }: Props) {
   const { addItem } = useCart();
   const variants = (product.variants ?? []).filter((v) => v.active);
+  const isMysteryBox = product.mystery_box === true;
   const [variantId, setVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
+  const [boxNote, setBoxNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notifyPhone, setNotifyPhone] = useState('');
   const [notifySizes, setNotifySizes] = useState<string[]>([]);
@@ -111,6 +113,7 @@ export function ProductPurchase({
       maxStock: canBackorder ? 99 : stock,
       transferEligible,
       preorder: product.preorder || false,
+      note: isMysteryBox && boxNote.trim() ? boxNote.trim() : undefined,
     });
   }
 
@@ -126,6 +129,18 @@ export function ProductPurchase({
 
   return (
     <div className="space-y-5">
+      {isMysteryBox && (
+        <div className="rounded-xl border border-gold/40 bg-gold/10 p-3.5">
+          <p className="flex items-center gap-2 text-sm font-bold text-navy">🎁 MYSTERY BOX</p>
+          <p className="mt-1.5 text-sm text-navy/75">
+            Comprás la caja y te llega{' '}
+            <strong>{product.short_description || 'camiseta(s) sorpresa'}</strong>. Puede tocarte
+            cualquier equipo, selección o liga. Elegís tu <strong>talle</strong> y, si tenés
+            preferencias, abajo aclarás qué <strong>NO</strong> querés que te toque.
+          </p>
+        </div>
+      )}
+
       {product.preorder && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3.5">
           <p className="flex items-center gap-2 text-sm font-bold text-red-700">
@@ -199,7 +214,7 @@ export function ProductPurchase({
             );
           })}
         </div>
-        {selected && (
+        {selected && !isMysteryBox && (
           <p className="mt-2 text-xs font-medium text-navy/60">
             {availableStock(selected) > 0
               ? availableStock(selected) <= (selected.stock_minimum || 0) + 2
@@ -211,7 +226,7 @@ export function ProductPurchase({
           </p>
         )}
 
-        {hasOutOfStock && (
+        {!isMysteryBox && hasOutOfStock && (
           <a
             href={whatsappLink(whatsappNumber, stockMessage)}
             target="_blank"
@@ -226,7 +241,7 @@ export function ProductPurchase({
           </a>
         )}
 
-        {hasOutOfStock &&
+        {!isMysteryBox && hasOutOfStock &&
           (notifyDone ? (
             <p className="mt-2 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">
               ¡Listo! Anotamos tu WhatsApp y te avisamos apenas entre stock. 🙌
@@ -281,6 +296,26 @@ export function ProductPurchase({
             </div>
           ))}
       </div>
+
+      {/* Preferencias Mystery Box */}
+      {isMysteryBox && (
+        <div>
+          <label htmlFor="box-note" className="mb-2 block text-sm font-bold text-navy">
+            ¿Algo que NO querés que te toque? <span className="font-medium text-navy/50">(opcional)</span>
+          </label>
+          <textarea
+            id="box-note"
+            value={boxNote}
+            onChange={(e) => setBoxNote(e.target.value)}
+            maxLength={600}
+            placeholder="Ej: no quiero Boca, ni la selección de Brasil, ni camisetas de la Premier League…"
+            className="input min-h-20"
+          />
+          <p className="mt-1 text-xs text-navy/50">
+            Escribí equipos, selecciones o ligas que preferís evitar y las dejamos afuera del sorteo.
+          </p>
+        </div>
+      )}
 
       {/* Cantidad */}
       <div className="flex items-center gap-3">
