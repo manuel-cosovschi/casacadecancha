@@ -33,7 +33,14 @@ export function ProductPurchase({
   const { addItem } = useCart();
   const variants = (product.variants ?? []).filter((v) => v.active);
   const isMysteryBox = product.mystery_box === true;
+  const mysteryQty = Math.max(1, product.mystery_qty || 1);
+  // Cajas de más de 1 camiseta: se elige el talle de cada una por separado.
+  const isMultiBox = isMysteryBox && mysteryQty > 1;
+  const sizeOptions = variants.map((v) => v.size || '-');
   const [variantId, setVariantId] = useState<string | null>(null);
+  const [boxSizes, setBoxSizes] = useState<string[]>(() =>
+    Array.from({ length: mysteryQty }, () => sizeOptions[0] || 'M'),
+  );
   const [qty, setQty] = useState(1);
   const [boxNote, setBoxNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +98,34 @@ export function ProductPurchase({
   const stockMessage = `Hola! Quería consultar stock de: ${product.name}. ${siteUrl}/producto/${product.slug}`;
 
   function handleAdd() {
+    // Mystery Box de varias camisetas: cada una lleva su propio talle.
+    if (isMultiBox) {
+      const carrier =
+        variants.find((v) => (v.size || '-') === boxSizes[0]) || variants[0] || null;
+      if (!carrier) {
+        setError('No se pudo agregar la caja.');
+        return;
+      }
+      setError(null);
+      const talles = `Talles: ${boxSizes.join(', ')}`;
+      const excl = boxNote.trim() ? ` · Evitar: ${boxNote.trim()}` : '';
+      addItem({
+        productId: product.id,
+        variantId: carrier.id,
+        slug: product.slug,
+        name: product.name,
+        size: boxSizes.join(' · '),
+        price: product.price,
+        image,
+        quantity: qty,
+        maxStock: 99,
+        transferEligible,
+        preorder: false,
+        note: `${talles}${excl}`,
+      });
+      return;
+    }
+
     if (!selected) {
       setError('Elegí un talle.');
       return;
@@ -113,7 +148,7 @@ export function ProductPurchase({
       maxStock: canBackorder ? 99 : stock,
       transferEligible,
       preorder: product.preorder || false,
-      note: isMysteryBox && boxNote.trim() ? boxNote.trim() : undefined,
+      note: isMysteryBox && boxNote.trim() ? `Evitar: ${boxNote.trim()}` : undefined,
     });
   }
 
@@ -135,8 +170,17 @@ export function ProductPurchase({
           <p className="mt-1.5 text-sm text-navy/75">
             Comprás la caja y te llega{' '}
             <strong>{product.short_description || 'camiseta(s) sorpresa'}</strong>. Puede tocarte
-            cualquier equipo, selección o liga. Elegís tu <strong>talle</strong> y, si tenés
-            preferencias, abajo aclarás qué <strong>NO</strong> querés que te toque.
+            cualquier equipo, selección o liga.{' '}
+            {isMultiBox ? (
+              <>
+                Elegís el <strong>talle de cada camiseta</strong> (pueden ser distintos)
+              </>
+            ) : (
+              <>
+                Elegís tu <strong>talle</strong>
+              </>
+            )}{' '}
+            y, si tenés preferencias, abajo aclarás qué <strong>NO</strong> querés que te toque.
           </p>
         </div>
       )}
@@ -178,7 +222,9 @@ export function ProductPurchase({
       {/* Talles */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-bold text-navy">Talle</span>
+          <span className="text-sm font-bold text-navy">
+            {isMultiBox ? `Elegí el talle de cada camiseta (${mysteryQty})` : 'Talle'}
+          </span>
           <Link
             href="/guia-de-talles"
             className="text-xs font-semibold text-navy/55 underline underline-offset-2 hover:text-navy"
@@ -186,6 +232,33 @@ export function ProductPurchase({
             Guía de talles
           </Link>
         </div>
+
+        {isMultiBox && (
+          <div className="space-y-2">
+            {boxSizes.map((s, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <span className="w-24 shrink-0 text-sm font-semibold text-navy/70">
+                  Camiseta {idx + 1}
+                </span>
+                <select
+                  className="input !py-2"
+                  value={s}
+                  onChange={(e) =>
+                    setBoxSizes((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))
+                  }
+                >
+                  {sizeOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!isMultiBox && (
         <div className="flex flex-wrap gap-2">
           {variants.map((v) => {
             const stock = availableStock(v);
@@ -214,6 +287,7 @@ export function ProductPurchase({
             );
           })}
         </div>
+        )}
         {selected && !isMysteryBox && (
           <p className="mt-2 text-xs font-medium text-navy/60">
             {availableStock(selected) > 0

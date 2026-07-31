@@ -205,7 +205,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     });
 
     if (item.note && item.note.trim()) {
-      itemNotes.push(`${product?.name ?? 'Producto'} (${v.size}) → NO: ${item.note.trim()}`);
+      itemNotes.push(`${product?.name ?? 'Producto'} → ${item.note.trim()}`);
     }
   }
 
