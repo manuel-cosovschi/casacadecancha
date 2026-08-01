@@ -182,6 +182,11 @@ export function ProductPurchase({
             )}{' '}
             y, si tenés preferencias, abajo aclarás qué <strong>NO</strong> querés que te toque.
           </p>
+          <p className="mt-2 border-t border-gold/30 pt-2 text-sm text-navy/75">
+            📦 <strong>Demora estimada:</strong> la caja puede incluir camisetas que encargamos, así
+            que tarda entre <strong>5 y 7 días hábiles</strong> en Mar del Plata y{' '}
+            <strong>7 a 14 días hábiles</strong> para envíos al resto del país.
+          </p>
         </div>
       )}
 
