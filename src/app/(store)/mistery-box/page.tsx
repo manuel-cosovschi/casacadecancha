@@ -36,6 +36,11 @@ export default async function MisteryBoxPage() {
             <span className="chip">🏆 CHAMP · 4 camisetas</span>
             <span className="chip">👑 LEYEND · 7 camisetas</span>
           </div>
+          <p className="mx-auto mt-4 max-w-2xl text-sm text-navy/60">
+            📦 Como la caja puede incluir camisetas que encargamos, la demora estimada es de{' '}
+            <strong>5 a 7 días hábiles</strong> en Mar del Plata y <strong>7 a 14 días hábiles</strong>{' '}
+            para envíos al resto del país.
+          </p>
         </div>
       </section>
 
