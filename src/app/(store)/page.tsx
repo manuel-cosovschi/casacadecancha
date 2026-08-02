@@ -7,16 +7,22 @@ import { getAllSettings } from '@/lib/settings';
 import {
   getActiveCollections,
   getInStockProducts,
+  getPreorderProducts,
   getFAQs,
 } from '@/lib/queries';
 
 export default async function HomePage() {
-  const [settings, products, collections, faqs] = await Promise.all([
+  const [settings, products, preorderProducts, collections, faqs] = await Promise.all([
     getAllSettings(),
     getInStockProducts(),
+    getPreorderProducts(),
     getActiveCollections(),
     getFAQs(),
   ]);
+
+  // En la grilla "Lo nuevo" no repetimos las preventas (tienen su propia fila).
+  const newProducts = products.filter((p) => !p.preorder);
+  const preorderHref = preorderProducts.length > 0 ? '#preventa' : '/camisetas';
 
   const transferDiscount = settings.payments_transfer?.active
     ? settings.payments_transfer.discount_percent || 0
@@ -47,6 +53,62 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+      )}
+
+      {/* Novedades: nuevas formas de comprar */}
+      {show('novedades') && (
+        <section className="py-12">
+          <div className="container-page">
+            <SectionTitle kicker="Todo lo nuevo" title="Novedades" />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FeatureCard
+                href={preorderHref}
+                emoji="🔴"
+                tone="red"
+                title="Preventa"
+                desc="Reservá las casacas que se vienen pagando solo la seña del 50%. El resto lo pagás cuando te llega."
+                cta="Ver preventas"
+              />
+              <FeatureCard
+                href="/mistery-box"
+                emoji="🎁"
+                tone="gold"
+                title="Mystery Box"
+                desc="Cajas de camisetas sorpresa (importadas). Elegís tu talle y qué NO querés que te toque."
+                cta="Armar mi caja"
+              />
+              <FeatureCard
+                href="/encargos"
+                emoji="🧵"
+                tone="celeste"
+                title="Encargá tu camiseta"
+                desc="¿No la encontrás? Armá tu encargo (mínimo 2) y te cotizamos por WhatsApp sin compromiso."
+                cta="Hacer un encargo"
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Preventa: casacas que se vienen */}
+      {preorderProducts.length > 0 && show('preventa') && (
+        <section id="preventa" className="scroll-mt-24 py-12">
+          <div className="container-page">
+            <SectionTitle
+              kicker="Se vienen"
+              title="En preventa"
+              cta={{ label: 'Ver camisetas', href: '/camisetas' }}
+            />
+            <p className="-mt-4 mb-6 max-w-2xl text-sm text-navy/60">
+              Están en camino. Reservalas ahora con la seña del 50% y te las guardamos.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+              {preorderProducts.map((p) => (
+                <ProductCard key={p.id} product={p} transferDiscount={transferDiscount} />
+              ))}
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Colecciones */}
@@ -88,12 +150,12 @@ export default async function HomePage() {
       )}
 
       {/* Grilla de productos */}
-      {products.length > 0 && show('products') && (
+      {newProducts.length > 0 && show('products') && (
         <section className="py-12">
           <div className="container-page">
-            <SectionTitle kicker="Lo nuevo" title="Camisetas y más" cta={{ label: 'Ver todo', href: '/camisetas' }} />
+            <SectionTitle kicker="En stock" title="Camisetas y más" cta={{ label: 'Ver todo', href: '/camisetas' }} />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-              {products.map((p) => (
+              {newProducts.map((p) => (
                 <ProductCard key={p.id} product={p} transferDiscount={transferDiscount} />
               ))}
             </div>
@@ -207,6 +269,42 @@ function SectionTitle({
         </Link>
       )}
     </div>
+  );
+}
+
+function FeatureCard({
+  href,
+  emoji,
+  title,
+  desc,
+  cta,
+  tone,
+}: {
+  href: string;
+  emoji: string;
+  title: string;
+  desc: string;
+  cta: string;
+  tone: 'red' | 'gold' | 'celeste';
+}) {
+  const toneClass =
+    tone === 'red'
+      ? 'from-red-50 border-red-200 text-red-600'
+      : tone === 'gold'
+        ? 'from-gold/15 border-gold/40 text-navy'
+        : 'from-celeste/15 border-celeste/40 text-navy';
+  return (
+    <Link
+      href={href}
+      className={`group flex flex-col rounded-2xl border bg-gradient-to-b to-white p-5 shadow-card transition hover:-translate-y-1 hover:shadow-lift ${toneClass}`}
+    >
+      <span className="text-3xl">{emoji}</span>
+      <h3 className="mt-3 text-lg font-extrabold uppercase tracking-tight text-navy">{title}</h3>
+      <p className="mt-1.5 flex-1 text-sm text-navy/70">{desc}</p>
+      <span className="mt-4 text-sm font-bold text-navy/80 transition group-hover:text-navy">
+        {cta} →
+      </span>
+    </Link>
   );
 }
 

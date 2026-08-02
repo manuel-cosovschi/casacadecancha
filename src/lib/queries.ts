@@ -103,6 +103,21 @@ export async function getProductsByCategorySlug(slug: string): Promise<Product[]
   return (data ?? []).map(sortProduct) as Product[];
 }
 
+/** Productos activos en preventa (los que están por llegar). */
+export async function getPreorderProducts(limit = 8): Promise<Product[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('active', true)
+    .eq('preorder', true)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return (data ?? []).map(sortProduct) as Product[];
+}
+
 /** Las Mystery Box activas, ordenadas por precio (menor a mayor). */
 export async function getMysteryBoxes(): Promise<Product[]> {
   if (!isSupabaseConfigured()) return [];
