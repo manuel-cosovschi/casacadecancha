@@ -1,21 +1,28 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 export interface NovedadSlide {
   href: string;
-  emoji: string;
-  title: string;
-  desc: string;
   cta: string;
-  tone: 'red' | 'gold' | 'celeste';
+  title: string;
+  tone: 'red' | 'gold' | 'celeste' | 'navy';
+  // Slide de "novedad" (forma de comprar): usa emoji + descripción.
+  emoji?: string;
+  desc?: string;
+  // Slide de producto: usa imagen + precio.
+  image?: string | null;
+  price?: string;
+  badge?: string;
 }
 
 const TONE: Record<NovedadSlide['tone'], string> = {
   red: 'from-red-100 via-red-50',
   gold: 'from-gold/25 via-gold/10',
   celeste: 'from-celeste/25 via-celeste/10',
+  navy: 'from-navy/10 via-navy/5',
 };
 
 const INTERVAL = 4500;
@@ -33,6 +40,11 @@ export function NovedadesCarousel({ slides }: { slides: NovedadSlide[] }) {
       if (timer.current) clearInterval(timer.current);
     };
   }, [count, paused]);
+
+  // Si cambia la cantidad de slides (se agregó/quitó una novedad), no quedar fuera de rango.
+  useEffect(() => {
+    if (index >= count) setIndex(0);
+  }, [count, index]);
 
   if (count === 0) return null;
 
@@ -53,18 +65,54 @@ export function NovedadesCarousel({ slides }: { slides: NovedadSlide[] }) {
             <Link
               key={s.href + s.title}
               href={s.href}
-              className={`group flex w-full shrink-0 flex-col justify-between gap-4 border border-navy/5 bg-gradient-to-br to-white p-6 shadow-card sm:min-h-[196px] sm:flex-row sm:items-center sm:p-8 ${TONE[s.tone]}`}
+              className={`group flex w-full shrink-0 items-center justify-between gap-4 border border-navy/5 bg-gradient-to-br to-white p-6 shadow-card sm:min-h-[208px] sm:p-8 ${TONE[s.tone]}`}
             >
-              <div className="flex items-start gap-4">
-                <span className="text-4xl sm:text-5xl">{s.emoji}</span>
-                <div>
-                  <h3 className="text-xl font-black uppercase tracking-tight text-navy sm:text-2xl">
-                    {s.title}
-                  </h3>
-                  <p className="mt-1.5 max-w-lg text-sm text-navy/70 sm:text-base">{s.desc}</p>
-                </div>
-              </div>
-              <span className="btn-primary shrink-0 self-start sm:self-auto">{s.cta} →</span>
+              {s.image ? (
+                // Slide de producto
+                <>
+                  <div className="min-w-0">
+                    {s.badge && (
+                      <span className="badge bg-navy text-cream">{s.badge}</span>
+                    )}
+                    <h3 className="mt-2 text-xl font-black uppercase leading-tight tracking-tight text-navy line-clamp-2 sm:text-2xl">
+                      {s.title}
+                    </h3>
+                    {s.price && (
+                      <p className="mt-1 text-lg font-extrabold text-navy sm:text-xl">{s.price}</p>
+                    )}
+                    <span className="btn-primary mt-4 inline-flex">{s.cta} →</span>
+                  </div>
+                  <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl bg-cream-soft sm:h-40 sm:w-40">
+                    <Image
+                      src={s.image}
+                      alt={s.title}
+                      fill
+                      sizes="160px"
+                      className="object-cover transition duration-500 group-hover:scale-105"
+                    />
+                  </div>
+                </>
+              ) : (
+                // Slide de novedad (forma de comprar)
+                <>
+                  <div className="flex items-start gap-4">
+                    <span className="text-4xl sm:text-5xl">{s.emoji}</span>
+                    <div>
+                      <h3 className="text-xl font-black uppercase tracking-tight text-navy sm:text-2xl">
+                        {s.title}
+                      </h3>
+                      {s.desc && (
+                        <p className="mt-1.5 max-w-lg text-sm text-navy/70 sm:text-base">
+                          {s.desc}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <span className="btn-primary hidden shrink-0 self-center sm:inline-flex">
+                    {s.cta} →
+                  </span>
+                </>
+              )}
             </Link>
           ))}
         </div>
@@ -72,7 +120,6 @@ export function NovedadesCarousel({ slides }: { slides: NovedadSlide[] }) {
 
       {count > 1 && (
         <>
-          {/* Flechas (no navegan: sólo cambian de slide) */}
           <button
             type="button"
             aria-label="Anterior"
@@ -90,8 +137,7 @@ export function NovedadesCarousel({ slides }: { slides: NovedadSlide[] }) {
             <Chevron dir="right" />
           </button>
 
-          {/* Puntitos */}
-          <div className="mt-4 flex justify-center gap-2">
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             {slides.map((s, i) => (
               <button
                 key={s.href + i}
