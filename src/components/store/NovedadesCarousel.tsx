@@ -30,16 +30,20 @@ const INTERVAL = 4500;
 export function NovedadesCarousel({ slides }: { slides: NovedadSlide[] }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [drag, setDrag] = useState(0); // desplazamiento en px mientras se arrastra
   const count = slides.length;
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startX = useRef(0);
+  const swiped = useRef(false); // true si el último gesto fue un deslizamiento (para no navegar)
 
   useEffect(() => {
-    if (count <= 1 || paused) return;
+    if (count <= 1 || paused || dragging) return;
     timer.current = setInterval(() => setIndex((i) => (i + 1) % count), INTERVAL);
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [count, paused]);
+  }, [count, paused, dragging]);
 
   // Si cambia la cantidad de slides (se agregó/quitó una novedad), no quedar fuera de rango.
   useEffect(() => {
@@ -50,6 +54,34 @@ export function NovedadesCarousel({ slides }: { slides: NovedadSlide[] }) {
 
   const go = (i: number) => setIndex(((i % count) + count) % count);
 
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (count <= 1) return;
+    startX.current = e.clientX;
+    swiped.current = false;
+    setDragging(true);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging) return;
+    setDrag(e.clientX - startX.current);
+  };
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX.current;
+    const threshold = 45;
+    if (dx <= -threshold) {
+      swiped.current = true;
+      go(index + 1);
+    } else if (dx >= threshold) {
+      swiped.current = true;
+      go(index - 1);
+    }
+    setDrag(0);
+    setDragging(false);
+    // Dejar activo "swiped" un instante para cancelar el click que sigue al soltar.
+    if (swiped.current) window.setTimeout(() => (swiped.current = false), 60);
+  };
+
   return (
     <div
       className="relative"
@@ -58,13 +90,25 @@ export function NovedadesCarousel({ slides }: { slides: NovedadSlide[] }) {
     >
       <div className="overflow-hidden rounded-2xl">
         <div
-          className="flex transition-transform duration-700 ease-out"
-          style={{ transform: `translateX(-${index * 100}%)` }}
+          className="flex touch-pan-y select-none"
+          style={{
+            transform: `translateX(calc(-${index * 100}% + ${drag}px))`,
+            transition: dragging ? 'none' : 'transform 700ms ease-out',
+          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onDragStart={(e) => e.preventDefault()}
         >
           {slides.map((s) => (
             <Link
               key={s.href + s.title}
               href={s.href}
+              draggable={false}
+              onClick={(e) => {
+                if (swiped.current) e.preventDefault();
+              }}
               className={`group flex w-full shrink-0 items-center justify-between gap-4 border border-navy/5 bg-gradient-to-br to-white p-6 shadow-card sm:min-h-[208px] sm:p-8 ${TONE[s.tone]}`}
             >
               {s.image ? (
