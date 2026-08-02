@@ -5,18 +5,24 @@ import { ProductCard } from '@/components/store/ProductCard';
 import { NovedadesCarousel } from '@/components/store/NovedadesCarousel';
 import { FaqAccordion } from '@/components/store/FaqAccordion';
 import { getAllSettings } from '@/lib/settings';
+import { formatPrice } from '@/lib/utils';
 import {
   getActiveCollections,
   getInStockProducts,
   getPreorderProducts,
+  getMysteryBoxes,
   getFAQs,
 } from '@/lib/queries';
+import type { NovedadSlide } from '@/components/store/NovedadesCarousel';
+
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [settings, products, preorderProducts, collections, faqs] = await Promise.all([
+  const [settings, products, preorderProducts, mysteryBoxes, collections, faqs] = await Promise.all([
     getAllSettings(),
     getInStockProducts(),
     getPreorderProducts(),
+    getMysteryBoxes(),
     getActiveCollections(),
     getFAQs(),
   ]);
@@ -28,6 +34,57 @@ export default async function HomePage() {
   const transferDiscount = settings.payments_transfer?.active
     ? settings.payments_transfer.discount_percent || 0
     : 0;
+
+  // Carrusel de novedades armado desde datos en vivo: se actualiza solo cuando se
+  // agregan productos, preventas o mystery box (no hay que tocar el código).
+  const latestProducts = [...products]
+    .filter((p) => !p.preorder && !p.mystery_box)
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    .slice(0, 3);
+
+  const novedadesSlides: NovedadSlide[] = [
+    ...latestProducts.map((p) => ({
+      href: `/producto/${p.slug}`,
+      title: p.name,
+      cta: 'Ver producto',
+      tone: 'navy' as const,
+      image: p.images?.[0]?.url ?? null,
+      price: formatPrice(p.price),
+      badge: 'Nuevo',
+    })),
+    ...(preorderProducts.length > 0
+      ? [
+          {
+            href: preorderHref,
+            emoji: '🔴',
+            tone: 'red' as const,
+            title: 'Preventa',
+            desc: 'Reservá las casacas que se vienen pagando solo la seña del 50%. El resto lo pagás cuando te llega.',
+            cta: 'Ver preventas',
+          },
+        ]
+      : []),
+    ...(mysteryBoxes.length > 0
+      ? [
+          {
+            href: '/mistery-box',
+            emoji: '🎁',
+            tone: 'gold' as const,
+            title: 'Mystery Box',
+            desc: 'Cajas de camisetas sorpresa (importadas). Elegís tu talle y qué NO querés que te toque.',
+            cta: 'Armar mi caja',
+          },
+        ]
+      : []),
+    {
+      href: '/encargos',
+      emoji: '🧵',
+      tone: 'celeste' as const,
+      title: 'Encargá tu camiseta',
+      desc: '¿No la encontrás? Armá tu encargo (mínimo 2) y te cotizamos por WhatsApp sin compromiso.',
+      cta: 'Hacer un encargo',
+    },
+  ];
 
   // Visibilidad de secciones (editable desde Admin → Contenido)
   const hs = settings.home_sections || {};
@@ -61,34 +118,7 @@ export default async function HomePage() {
         <section className="py-12">
           <div className="container-page">
             <SectionTitle kicker="Todo lo nuevo" title="Novedades" />
-            <NovedadesCarousel
-              slides={[
-                {
-                  href: preorderHref,
-                  emoji: '🔴',
-                  tone: 'red',
-                  title: 'Preventa',
-                  desc: 'Reservá las casacas que se vienen pagando solo la seña del 50%. El resto lo pagás cuando te llega.',
-                  cta: 'Ver preventas',
-                },
-                {
-                  href: '/mistery-box',
-                  emoji: '🎁',
-                  tone: 'gold',
-                  title: 'Mystery Box',
-                  desc: 'Cajas de camisetas sorpresa (importadas). Elegís tu talle y qué NO querés que te toque.',
-                  cta: 'Armar mi caja',
-                },
-                {
-                  href: '/encargos',
-                  emoji: '🧵',
-                  tone: 'celeste',
-                  title: 'Encargá tu camiseta',
-                  desc: '¿No la encontrás? Armá tu encargo (mínimo 2) y te cotizamos por WhatsApp sin compromiso.',
-                  cta: 'Hacer un encargo',
-                },
-              ]}
-            />
+            <NovedadesCarousel slides={novedadesSlides} />
           </div>
         </section>
       )}
