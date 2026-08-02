@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Hero } from '@/components/store/Hero';
 import { ProductCard } from '@/components/store/ProductCard';
+import { NovedadesCarousel } from '@/components/store/NovedadesCarousel';
 import { FaqAccordion } from '@/components/store/FaqAccordion';
 import { getAllSettings } from '@/lib/settings';
 import {
@@ -55,37 +56,39 @@ export default async function HomePage() {
       </section>
       )}
 
-      {/* Novedades: nuevas formas de comprar */}
+      {/* Novedades: carrusel de nuevas formas de comprar */}
       {show('novedades') && (
         <section className="py-12">
           <div className="container-page">
             <SectionTitle kicker="Todo lo nuevo" title="Novedades" />
-            <div className="grid gap-4 sm:grid-cols-3">
-              <FeatureCard
-                href={preorderHref}
-                emoji="🔴"
-                tone="red"
-                title="Preventa"
-                desc="Reservá las casacas que se vienen pagando solo la seña del 50%. El resto lo pagás cuando te llega."
-                cta="Ver preventas"
-              />
-              <FeatureCard
-                href="/mistery-box"
-                emoji="🎁"
-                tone="gold"
-                title="Mystery Box"
-                desc="Cajas de camisetas sorpresa (importadas). Elegís tu talle y qué NO querés que te toque."
-                cta="Armar mi caja"
-              />
-              <FeatureCard
-                href="/encargos"
-                emoji="🧵"
-                tone="celeste"
-                title="Encargá tu camiseta"
-                desc="¿No la encontrás? Armá tu encargo (mínimo 2) y te cotizamos por WhatsApp sin compromiso."
-                cta="Hacer un encargo"
-              />
-            </div>
+            <NovedadesCarousel
+              slides={[
+                {
+                  href: preorderHref,
+                  emoji: '🔴',
+                  tone: 'red',
+                  title: 'Preventa',
+                  desc: 'Reservá las casacas que se vienen pagando solo la seña del 50%. El resto lo pagás cuando te llega.',
+                  cta: 'Ver preventas',
+                },
+                {
+                  href: '/mistery-box',
+                  emoji: '🎁',
+                  tone: 'gold',
+                  title: 'Mystery Box',
+                  desc: 'Cajas de camisetas sorpresa (importadas). Elegís tu talle y qué NO querés que te toque.',
+                  cta: 'Armar mi caja',
+                },
+                {
+                  href: '/encargos',
+                  emoji: '🧵',
+                  tone: 'celeste',
+                  title: 'Encargá tu camiseta',
+                  desc: '¿No la encontrás? Armá tu encargo (mínimo 2) y te cotizamos por WhatsApp sin compromiso.',
+                  cta: 'Hacer un encargo',
+                },
+              ]}
+            />
           </div>
         </section>
       )}
@@ -269,42 +272,6 @@ function SectionTitle({
         </Link>
       )}
     </div>
-  );
-}
-
-function FeatureCard({
-  href,
-  emoji,
-  title,
-  desc,
-  cta,
-  tone,
-}: {
-  href: string;
-  emoji: string;
-  title: string;
-  desc: string;
-  cta: string;
-  tone: 'red' | 'gold' | 'celeste';
-}) {
-  const toneClass =
-    tone === 'red'
-      ? 'from-red-50 border-red-200 text-red-600'
-      : tone === 'gold'
-        ? 'from-gold/15 border-gold/40 text-navy'
-        : 'from-celeste/15 border-celeste/40 text-navy';
-  return (
-    <Link
-      href={href}
-      className={`group flex flex-col rounded-2xl border bg-gradient-to-b to-white p-5 shadow-card transition hover:-translate-y-1 hover:shadow-lift ${toneClass}`}
-    >
-      <span className="text-3xl">{emoji}</span>
-      <h3 className="mt-3 text-lg font-extrabold uppercase tracking-tight text-navy">{title}</h3>
-      <p className="mt-1.5 flex-1 text-sm text-navy/70">{desc}</p>
-      <span className="mt-4 text-sm font-bold text-navy/80 transition group-hover:text-navy">
-        {cta} →
-      </span>
-    </Link>
   );
 }
 
