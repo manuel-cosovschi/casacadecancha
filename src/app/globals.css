@@ -114,6 +114,88 @@
   pointer-events: none;
 }
 
+/* ---- Arte animado de las colecciones (CollectionArt) ---- */
+.cc-spin { animation: cc-spin 26s linear infinite; }
+.cc-spin-slow { animation: cc-spin 44s linear infinite; }
+.cc-orbit { animation: cc-orbit 9s ease-in-out infinite; }
+.cc-sweep { animation: cc-sweep 5.5s ease-in-out infinite; }
+.cc-fall { animation: cc-fall 7s linear infinite; }
+.cc-wave { animation: cc-wave 3.4s ease-in-out infinite; }
+.cc-scan { animation: cc-scan 1.6s linear infinite; }
+.cc-bounce { animation: cc-bounce 1.9s cubic-bezier(.4,0,.6,1) infinite; }
+.cc-shadow { animation: cc-shadow 1.9s cubic-bezier(.4,0,.6,1) infinite; }
+.cc-float { animation: float 7s ease-in-out infinite; }
+.cc-drift { animation: cc-drift 12s ease-in-out infinite; }
+.cc-swing { animation: cc-swing 4s ease-in-out infinite; }
+.cc-pop { animation: cc-pop 3.2s ease-in-out infinite; }
+.cc-roll { animation: cc-roll 11s linear infinite; }
+.cc-fade-a { animation: cc-fade-a 7s ease-in-out infinite; }
+.cc-fade-b { animation: cc-fade-b 7s ease-in-out infinite; }
+
+@keyframes cc-spin { to { transform: rotate(360deg); } }
+@keyframes cc-orbit {
+  0%, 100% { transform: rotate(-14deg) translateY(0); }
+  50% { transform: rotate(14deg) translateY(-2px); }
+}
+@keyframes cc-sweep {
+  0% { transform: translateX(-120%) skewX(-12deg); }
+  100% { transform: translateX(360%) skewX(-12deg); }
+}
+@keyframes cc-fall {
+  0% { transform: translateY(-100%); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+@keyframes cc-wave {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50% { transform: skewY(-5deg) scaleX(.94); }
+}
+@keyframes cc-scan { to { transform: translateY(5px); } }
+@keyframes cc-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-26%); }
+}
+@keyframes cc-shadow {
+  0%, 100% { transform: scaleX(1); opacity: .22; }
+  50% { transform: scaleX(.7); opacity: .1; }
+}
+@keyframes cc-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(8%, -10%); }
+}
+@keyframes cc-swing {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+@keyframes cc-pop {
+  0%, 100% { transform: scale(1); opacity: .45; }
+  50% { transform: scale(1.09); opacity: .8; }
+}
+/* En SVG los valores van en unidades del viewBox (0 0 100 100). */
+@keyframes cc-roll {
+  0% { transform: translateX(-10px) rotate(0deg); }
+  100% { transform: translateX(112px) rotate(1080deg); }
+}
+@keyframes cc-fade-a {
+  0%, 45% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+@keyframes cc-fade-b {
+  0%, 45% { opacity: 0; }
+  55%, 100% { opacity: 1; }
+}
+
+/* Accesibilidad: si el usuario pidió menos movimiento, dejamos el arte quieto. */
+@media (prefers-reduced-motion: reduce) {
+  .cc-spin, .cc-spin-slow, .cc-orbit, .cc-sweep, .cc-fall, .cc-wave, .cc-scan,
+  .cc-bounce, .cc-shadow, .cc-float, .cc-drift, .cc-swing, .cc-pop, .cc-roll,
+  .cc-fade-a, .cc-fade-b, .marquee-track {
+    animation: none !important;
+  }
+  .cc-fade-b { opacity: 0; }
+}
+
 /* Marquee de la announcement bar */
 .marquee-track {
   display: inline-flex;
