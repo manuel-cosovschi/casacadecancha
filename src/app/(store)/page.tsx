@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Hero } from '@/components/store/Hero';
 import { ProductCard } from '@/components/store/ProductCard';
 import { NovedadesCarousel } from '@/components/store/NovedadesCarousel';
+import { CollectionArt } from '@/components/store/CollectionArt';
 import { FaqAccordion } from '@/components/store/FaqAccordion';
 import { getAllSettings } from '@/lib/settings';
 import { formatPrice } from '@/lib/utils';
@@ -156,7 +157,7 @@ export default async function HomePage() {
                   href={`/coleccion/${c.slug}`}
                   className="group relative flex aspect-[4/5] items-end overflow-hidden rounded-2xl gradient-navy"
                 >
-                  {c.image_url && (
+                  {c.image_url ? (
                     <Image
                       src={c.image_url}
                       alt={c.name}
@@ -164,9 +165,11 @@ export default async function HomePage() {
                       sizes="(max-width: 640px) 50vw, 25vw"
                       className="img-zoom object-cover opacity-60 group-hover:opacity-80"
                     />
+                  ) : (
+                    <CollectionArt slug={c.slug} name={c.name} />
                   )}
                   <div className="brand-stripes absolute inset-0 opacity-40" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/30 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy/95 via-navy/25 to-transparent" />
                   <div className="relative p-4">
                     <span className="text-base font-extrabold uppercase tracking-wide text-cream">
                       {c.name}
