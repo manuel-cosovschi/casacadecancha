@@ -47,7 +47,19 @@ export default async function OrderDetailPage({
       <PageHeader
         title={`Pedido #${order.order_number}`}
         description={new Date(order.created_at).toLocaleString('es-AR')}
-        action={<Link href="/admin/pedidos" className="text-sm text-navy/60 hover:text-navy">← Volver</Link>}
+        action={
+          <div className="flex items-center gap-3">
+            {order.order_status === 'delivered' && (
+              <Link
+                href={`/admin/comprobante/pedido/${encodeURIComponent(order.order_number)}`}
+                className="btn-primary !py-2"
+              >
+                Comprobante
+              </Link>
+            )}
+            <Link href="/admin/pedidos" className="text-sm text-navy/60 hover:text-navy">← Volver</Link>
+          </div>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-3">

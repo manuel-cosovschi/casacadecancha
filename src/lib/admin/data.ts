@@ -557,3 +557,82 @@ export async function getIncomingStock(): Promise<IncomingStockRow[]> {
   }
   return rows.sort((a, b) => a.product.localeCompare(b.product) || (a.size || '').localeCompare(b.size || ''));
 }
+
+// ---- Resumen de stock para el PDF (qué tengo para vender, por modelo y talle) ----
+export interface StockSummarySize {
+  size: string;
+  qty: number;
+}
+export interface StockSummaryRow {
+  product: string;
+  preorder: boolean;
+  sizes: StockSummarySize[];
+  total: number;
+  price: number;
+}
+
+/** Modelos con stock disponible, agrupados por producto y con sus talles. */
+export async function getStockSummary(): Promise<StockSummaryRow[]> {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('product_variants')
+    .select(
+      'size, stock_physical, stock_reserved, encargo_reserved, active, products(name, price, active, preorder, mystery_box)',
+    );
+
+  const ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+  const map = new Map<string, StockSummaryRow>();
+
+  for (const v of (data ?? []) as any[]) {
+    if (v.active === false) continue;
+    const p = Array.isArray(v.products) ? v.products[0] : v.products;
+    // Fuera: productos despublicados y las Mystery Box (no son stock real).
+    if (!p || p.active === false || p.mystery_box) continue;
+    const qty = Math.max(
+      0,
+      (v.stock_physical || 0) - (v.stock_reserved || 0) - (v.encargo_reserved || 0),
+    );
+    if (qty <= 0) continue;
+    const key = p.name as string;
+    let row = map.get(key);
+    if (!row) {
+      row = { product: key, preorder: Boolean(p.preorder), sizes: [], total: 0, price: Number(p.price) || 0 };
+      map.set(key, row);
+    }
+    row.sizes.push({ size: (v.size || '—') as string, qty });
+    row.total += qty;
+  }
+
+  const rows = Array.from(map.values());
+  for (const r of rows) {
+    r.sizes.sort((a, b) => {
+      const ia = ORDER.indexOf(a.size.toUpperCase());
+      const ib = ORDER.indexOf(b.size.toUpperCase());
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.size.localeCompare(b.size);
+    });
+  }
+  // Primero lo que ya tenés en mano, después las preventas; alfabético dentro de cada grupo.
+  return rows.sort(
+    (a, b) => Number(a.preorder) - Number(b.preorder) || a.product.localeCompare(b.product),
+  );
+}
+
+/** Un encargo puntual (para el comprobante). */
+export async function getEncargoById(id: string) {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('encargos')
+    .select('*, items:encargo_items(*)')
+    .eq('id', id)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    ...data,
+    items: ((data as any).items ?? []).sort(
+      (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+    ),
+  };
+}

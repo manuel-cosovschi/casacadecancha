@@ -55,7 +55,9 @@ export function Isotipo({
   theme?: 'dark' | 'light';
   size?: number;
 }) {
-  const bg = theme === 'dark' ? '#0B1F3A' : '#F6F1E8';
+  // El isotipo siempre va sobre el azulón: las franjas son cream/celeste y sobre
+  // fondo claro quedarían invisibles. El `theme` sólo cambia el color del texto.
+  const bg = '#0B1F3A';
   return (
     <svg
       width={size}

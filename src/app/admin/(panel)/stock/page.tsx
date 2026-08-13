@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { PageHeader, EmptyState } from '@/components/admin/ui';
 import { ExportButton } from '@/components/admin/ExportButton';
 import { StockBot } from './StockBot';
@@ -24,18 +25,23 @@ export default async function StockPage() {
         title="Stock"
         description={`${variants.length} variantes · ${lowStock.length} con bajo stock · Stock valorizado: ${formatPrice(stockValue)}`}
         action={
-          <ExportButton
-            rows={variants.map((v: any) => ({
-              producto: v.products?.name,
-              talle: v.size,
-              sku: v.sku,
-              fisico: v.stock_physical,
-              comprometido: (v.stock_reserved || 0) + (v.encargo_reserved || 0),
-              disponible: availableStock(v),
-              minimo: v.stock_minimum,
-            }))}
-            filename="stock"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/admin/resumen-stock" className="btn-primary !py-2">
+              Resumen PDF
+            </Link>
+            <ExportButton
+              rows={variants.map((v: any) => ({
+                producto: v.products?.name,
+                talle: v.size,
+                sku: v.sku,
+                fisico: v.stock_physical,
+                comprometido: (v.stock_reserved || 0) + (v.encargo_reserved || 0),
+                disponible: availableStock(v),
+                minimo: v.stock_minimum,
+              }))}
+              filename="stock"
+            />
+          </div>
         }
       />
 

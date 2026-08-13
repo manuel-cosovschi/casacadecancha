@@ -114,6 +114,26 @@
   pointer-events: none;
 }
 
+/* ---- Hojas imprimibles (comprobantes y resumen de stock) ---- */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  html, body {
+    background: #fff !important;
+  }
+  /* Que se impriman los colores/bordes tal cual se ven. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* No cortar filas ni bloques a la mitad entre páginas. */
+  tr, section, footer, header {
+    break-inside: avoid;
+  }
+}
+
 /* ---- Arte animado de las colecciones (CollectionArt) ---- */
 .cc-spin { animation: cc-spin 26s linear infinite; }
 .cc-spin-slow { animation: cc-spin 44s linear infinite; }

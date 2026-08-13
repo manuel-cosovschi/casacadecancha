@@ -193,7 +193,15 @@ export function EncargoCard({ e, matrix, catalog }: { e: any; matrix: MatrixRow[
         >
           Entrega parcial
         </button>
-        <button onClick={() => { setExchanging((v) => !v); setEditingExchange(null); }} className="ml-auto text-sm font-semibold text-navy hover:underline">Cambio</button>
+        {e.status === 'entregado' && (
+          <a
+            href={`/admin/comprobante/encargo/${e.id}`}
+            className="ml-auto text-sm font-semibold text-navy hover:underline"
+          >
+            Comprobante
+          </a>
+        )}
+        <button onClick={() => { setExchanging((v) => !v); setEditingExchange(null); }} className={`text-sm font-semibold text-navy hover:underline${e.status === 'entregado' ? '' : ' ml-auto'}`}>Cambio</button>
         <button onClick={() => setEditing(true)} className="text-sm font-semibold text-navy hover:underline">Editar</button>
         <button onClick={onDelete} className="text-sm font-semibold text-red-600 hover:underline">Eliminar</button>
       </div>
