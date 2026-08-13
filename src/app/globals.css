@@ -235,3 +235,13 @@
 .group:hover .img-zoom {
   transform: scale(1.06);
 }
+
+/* Destellos de la colección "Ediciones especiales" */
+.cc-twinkle { animation: cc-twinkle 3.2s ease-in-out infinite; }
+@keyframes cc-twinkle {
+  0%, 100% { transform: scale(.5); opacity: .25; }
+  50% { transform: scale(1.25); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-twinkle { animation: none !important; }
+}

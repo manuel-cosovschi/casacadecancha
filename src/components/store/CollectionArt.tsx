@@ -7,6 +7,7 @@
 type Theme =
   | 'mundial'
   | 'titulares'
+  | 'especiales'
   | 'alternativas'
   | 'selecciones'
   | 'retro'
@@ -15,12 +16,14 @@ type Theme =
   | 'ofertas'
   | 'cancha';
 
+// El orden importa: gana la primera que matchea.
 const KEYWORDS: { theme: Theme; match: RegExp }[] = [
   { theme: 'mundial', match: /mundial|copa|world/ },
-  { theme: 'titulares', match: /titular|home|local/ },
+  { theme: 'especiales', match: /especial|edicion|edición|icon|limitad|coleccionista/ },
+  { theme: 'retro', match: /retro|clasic|clásic|vintage|historic|antigu/ },
+  { theme: 'titulares', match: /actual|titular|temporada|nueva|home|local/ },
   { theme: 'alternativas', match: /alternativ|suplente|away|visitante/ },
   { theme: 'selecciones', match: /selecc|nacional|pais|país|nation/ },
-  { theme: 'retro', match: /retro|clasic|clásic|vintage|icon|historic/ },
   { theme: 'ninos', match: /nin|niñ|kids|chico|infantil/ },
   { theme: 'buzos', match: /buzo|abrigo|hoodie|campera|invierno/ },
   { theme: 'ofertas', match: /ofert|promo|sale|descuento|liquidac/ },
@@ -44,6 +47,7 @@ export function themeFor(slug: string, name = ''): Theme {
 const GRADIENT: Record<Theme, string> = {
   mundial: 'from-[#13315f] via-[#0B1F3A] to-[#1a1230]',
   titulares: 'from-[#0e4a6b] via-[#0B2C46] to-[#071a2b]',
+  especiales: 'from-[#4a2f6b] via-[#2a1a3f] to-[#150d20]',
   alternativas: 'from-[#0f5563] via-[#0B2A38] to-[#241a2e]',
   selecciones: 'from-[#12507a] via-[#0B1F3A] to-[#0a2c2c]',
   retro: 'from-[#6b4a22] via-[#2e2113] to-[#140e08]',
@@ -59,6 +63,8 @@ const GLOW: Record<Theme, string> = {
     'radial-gradient(70% 55% at 72% 18%, rgba(199,167,107,.34), transparent 65%), radial-gradient(60% 50% at 15% 85%, rgba(140,200,232,.22), transparent 60%)',
   titulares:
     'radial-gradient(65% 55% at 25% 20%, rgba(140,200,232,.32), transparent 62%), radial-gradient(55% 45% at 85% 90%, rgba(246,241,232,.14), transparent 60%)',
+  especiales:
+    'radial-gradient(70% 55% at 68% 18%, rgba(216,190,140,.38), transparent 62%), radial-gradient(60% 50% at 15% 85%, rgba(140,200,232,.20), transparent 60%)',
   alternativas:
     'radial-gradient(65% 55% at 80% 25%, rgba(216,190,140,.26), transparent 62%), radial-gradient(60% 50% at 12% 80%, rgba(140,200,232,.26), transparent 60%)',
   selecciones:
@@ -109,6 +115,34 @@ function Art({ theme }: { theme: Theme }) {
         <>
           <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full scale-[1.35]">
             <Jersey fill="#12365f" stroke="#8CC8E8" pinstripes />
+          </svg>
+          <Sweep />
+        </>
+      );
+
+    case 'especiales':
+      return (
+        <>
+          <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full scale-[1.35]">
+            <g className="cc-float">
+              <Jersey fill="#3a2752" stroke="#D8BE8C" />
+            </g>
+            {/* Destellos que titilan alrededor de la casaca */}
+            {[
+              { x: 28, y: 30, s: 3.4, d: '0s' },
+              { x: 72, y: 38, s: 4.2, d: '.7s' },
+              { x: 34, y: 72, s: 2.8, d: '1.4s' },
+              { x: 68, y: 68, s: 3.2, d: '2.1s' },
+              { x: 50, y: 22, s: 2.6, d: '1s' },
+            ].map((k, i) => (
+              <path
+                key={i}
+                className="cc-twinkle"
+                style={{ animationDelay: k.d, transformOrigin: `${k.x}px ${k.y}px` }}
+                d={`M${k.x} ${k.y - k.s}L${k.x + k.s * 0.32} ${k.y - k.s * 0.32}L${k.x + k.s} ${k.y}L${k.x + k.s * 0.32} ${k.y + k.s * 0.32}L${k.x} ${k.y + k.s}L${k.x - k.s * 0.32} ${k.y + k.s * 0.32}L${k.x - k.s} ${k.y}L${k.x - k.s * 0.32} ${k.y - k.s * 0.32}Z`}
+                fill="#D8BE8C"
+              />
+            ))}
           </svg>
           <Sweep />
         </>
