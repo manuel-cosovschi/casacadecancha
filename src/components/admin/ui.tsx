@@ -99,6 +99,9 @@ const STATUS_STYLE: Record<string, string> = {
   pendiente: 'bg-amber-100 text-amber-800',
   aprobado: 'bg-green-100 text-green-800',
   rechazado: 'bg-red-100 text-red-800',
+  // cobros
+  cobrado: 'bg-green-100 text-green-800',
+  cancelado: 'bg-navy/10 text-navy/60',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -118,6 +121,8 @@ const STATUS_LABEL: Record<string, string> = {
   pendiente: 'Pendiente',
   aprobado: 'Aprobado',
   rechazado: 'Rechazado',
+  cobrado: 'Cobrado',
+  cancelado: 'Cancelado',
 };
 
 export function StatusBadge({ status }: { status: string }) {

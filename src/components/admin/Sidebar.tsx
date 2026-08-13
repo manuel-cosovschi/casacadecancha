@@ -23,6 +23,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
     title: 'Ventas',
     items: [
       { label: 'Pedidos', href: '/admin/pedidos' },
+      { label: 'Cobros', href: '/admin/cobros' },
       { label: 'Envíos', href: '/admin/envios' },
       { label: 'Faltantes', href: '/admin/faltantes' },
       { label: 'Qué comprar', href: '/admin/comprar' },
@@ -64,7 +65,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
 ];
 
 // Rutas que ve un vendedor (workspace propio). El dueño ve todo.
-const SELLER_HREFS = new Set(['/admin', '/admin/encargos', '/admin/rentabilidad', '/admin/cuenta']);
+const SELLER_HREFS = new Set(['/admin', '/admin/cobros', '/admin/encargos', '/admin/rentabilidad', '/admin/cuenta']);
 
 export function Sidebar({ role }: { role?: string }) {
   const pathname = usePathname();
