@@ -139,7 +139,53 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     how_to_buy: true,
     faq: true,
   },
+  /** Modo vacaciones: pausa los pedidos y muestra el cartel de El Cabra. */
+  vacation: {
+    enabled: false, // interruptor manual (si está en false, manda el rango de fechas)
+    auto: true, // usar el rango de fechas para prender/apagar solo
+    from: '', // 'YYYY-MM-DD' inclusive
+    until: '', // 'YYYY-MM-DD' inclusive: el último día cerrado
+    title: 'Casaca se fue de vacaciones',
+    subtitle: 'Volvemos el 20/08 con todo.',
+    note: 'Podés seguir mirando el catálogo. Los pedidos vuelven a estar disponibles cuando volvemos.',
+  },
 };
+
+/** Zona horaria de Argentina (para que el corte del día sea el nuestro). */
+const AR_TZ = 'America/Argentina/Buenos_Aires';
+
+/** Fecha de hoy en Argentina como 'YYYY-MM-DD'. */
+export function todayAr(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: AR_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+export interface VacationState {
+  active: boolean;
+  title: string;
+  subtitle: string;
+  note: string;
+  until: string;
+}
+
+/** ¿Está la tienda de vacaciones ahora? (interruptor manual o rango de fechas). */
+export function vacationState(settings: Record<string, any>): VacationState {
+  const v = settings?.vacation || {};
+  const hoy = todayAr();
+  const byDates =
+    v.auto !== false && v.from && v.until ? hoy >= v.from && hoy <= v.until : false;
+  return {
+    active: Boolean(v.enabled) || byDates,
+    title: v.title || 'Casaca se fue de vacaciones',
+    subtitle: v.subtitle || '',
+    note: v.note || '',
+    until: v.until || '',
+  };
+}
 
 /** Carga todas las settings y las fusiona con los defaults. */
 export async function getAllSettings(): Promise<Record<string, any>> {

@@ -21,6 +21,8 @@ interface Props {
   whatsappNumber: string;
   siteUrl: string;
   compact?: boolean;
+  /** Tienda de vacaciones: se puede mirar pero no comprar. */
+  vacation?: boolean;
 }
 
 export function ProductPurchase({
@@ -29,6 +31,7 @@ export function ProductPurchase({
   whatsappNumber,
   siteUrl,
   compact = false,
+  vacation = false,
 }: Props) {
   const { addItem } = useCart();
   const variants = (product.variants ?? []).filter((v) => v.active);
@@ -424,9 +427,19 @@ export function ProductPurchase({
 
       {/* CTAs */}
       <div className="flex flex-col gap-2.5">
-        <button type="button" onClick={handleAdd} className="btn-primary w-full text-base">
-          Agregar al carrito
-        </button>
+        {vacation ? (
+          <div className="rounded-xl border border-gold/40 bg-gold/10 p-3.5 text-center">
+            <p className="text-sm font-bold text-navy">🌴 Estamos de vacaciones</p>
+            <p className="mt-1 text-sm text-navy/70">
+              Los pedidos por la web están pausados. Escribinos y te lo reservamos para cuando
+              volvemos.
+            </p>
+          </div>
+        ) : (
+          <button type="button" onClick={handleAdd} className="btn-primary w-full text-base">
+            Agregar al carrito
+          </button>
+        )}
         <a
           href={whatsappLink(whatsappNumber, consultMessage)}
           target="_blank"

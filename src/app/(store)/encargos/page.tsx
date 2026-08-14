@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { EncargoRequestForm } from './EncargoRequestForm';
+import { VacationNotice } from '@/components/store/VacationNotice';
+import { getAllSettings, vacationState } from '@/lib/settings';
 
 export const metadata: Metadata = {
   title: 'Encargá tu camiseta',
@@ -9,7 +11,18 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default function EncargosPage() {
+export default async function EncargosPage() {
+  const settings = await getAllSettings();
+  const vac = vacationState(settings);
+  if (vac.active) {
+    return (
+      <VacationNotice
+        title={vac.title}
+        subtitle={vac.subtitle}
+        whatsapp={settings.whatsapp?.number}
+      />
+    );
+  }
   return (
     <div className="container-page py-10">
       <div className="mb-8 max-w-2xl">

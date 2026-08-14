@@ -11,6 +11,21 @@ export default async function ContentPage() {
       <PageHeader title="Contenido de la web" description="Editá los bloques del sitio sin tocar código." />
 
       <SettingsForm
+        settingKey="vacation"
+        title="🌴 Modo vacaciones (pausa los pedidos)"
+        initial={s.vacation}
+        fields={[
+          { key: 'auto', label: 'Activar solo por fechas', type: 'boolean' },
+          { key: 'enabled', label: 'Forzar ahora (sin esperar la fecha)', type: 'boolean' },
+          { key: 'from', label: 'Desde (AAAA-MM-DD)' },
+          { key: 'until', label: 'Hasta, último día cerrado (AAAA-MM-DD)' },
+          { key: 'title', label: 'Título del cartel', full: true },
+          { key: 'subtitle', label: 'Subtítulo (cuándo volvemos)', full: true },
+          { key: 'note', label: 'Texto chico', type: 'textarea', full: true },
+        ]}
+      />
+
+      <SettingsForm
         settingKey="home_sections"
         title="Secciones de la home (mostrar / ocultar)"
         initial={s.home_sections}

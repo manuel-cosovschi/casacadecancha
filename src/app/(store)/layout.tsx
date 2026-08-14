@@ -5,7 +5,9 @@ import { Header } from '@/components/store/Header';
 import { Footer } from '@/components/store/Footer';
 import { WhatsAppButton } from '@/components/store/WhatsAppButton';
 import { UtmCapture } from '@/components/store/UtmCapture';
-import { getAllSettings } from '@/lib/settings';
+import { VacationGate, VacationBar } from '@/components/store/VacationGate';
+import { getAllSettings, vacationState } from '@/lib/settings';
+import { MASCOT_URL } from '@/lib/brand';
 
 export default async function StoreLayout({
   children,
@@ -16,16 +18,30 @@ export default async function StoreLayout({
   const transferDiscount = settings.payments_transfer?.active
     ? settings.payments_transfer.discount_percent || 0
     : 0;
+  const vac = vacationState(settings);
 
   return (
     <CartProvider>
       <UtmCapture />
-      <AnnouncementBar data={settings.announcement_bar} />
+      {vac.active ? (
+        <>
+          <VacationGate
+            title={vac.title}
+            subtitle={vac.subtitle}
+            note={vac.note}
+            whatsapp={settings.whatsapp?.number || ''}
+            mascot={MASCOT_URL}
+          />
+          <VacationBar subtitle={vac.subtitle} />
+        </>
+      ) : (
+        <AnnouncementBar data={settings.announcement_bar} />
+      )}
       <Header />
       <main className="min-h-[60vh]">{children}</main>
       <Footer data={settings.footer} />
       <WhatsAppButton data={settings.whatsapp} />
-      <CartDrawer transferDiscount={transferDiscount} />
+      {!vac.active && <CartDrawer transferDiscount={transferDiscount} />}
     </CartProvider>
   );
 }

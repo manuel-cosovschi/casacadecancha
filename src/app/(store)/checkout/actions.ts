@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
-import { getAllSettings } from '@/lib/settings';
+import { getAllSettings, vacationState } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
   quoteShipping,
@@ -126,6 +126,14 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   }
 
   const settings = await getAllSettings();
+  // Vacaciones: los pedidos por la web están pausados.
+  const vac = vacationState(settings);
+  if (vac.active) {
+    return {
+      ok: false,
+      error: `Estamos de vacaciones y los pedidos están pausados. ${vac.subtitle || ''}`.trim(),
+    };
+  }
   const transferActive = Boolean(settings.payments_transfer?.active);
   const transferPct = transferActive ? settings.payments_transfer.discount_percent || 0 : 0;
 
