@@ -8,7 +8,7 @@ import {
   getProductBySlug,
   getRelatedProducts,
 } from '@/lib/queries';
-import { getAllSettings } from '@/lib/settings';
+import { getAllSettings, vacationState } from '@/lib/settings';
 import { applyDiscount, formatPrice } from '@/lib/utils';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
@@ -108,6 +108,7 @@ export default async function ProductPage({
               transferDiscount={transferDiscount}
               whatsappNumber={whatsappNumber}
               siteUrl={SITE_URL}
+              vacation={vacationState(settings).active}
             />
           </div>
         </div>

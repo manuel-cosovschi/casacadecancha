@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { encargoRequestSchema, type EncargoRequestInput } from '@/lib/validation';
+import { getAllSettings, vacationState } from '@/lib/settings';
 import { sendEncargoPush } from '@/lib/push';
 import { sendEmail } from '@/lib/email';
 
@@ -23,6 +24,15 @@ export async function createEncargoRequest(
     return { ok: false, error: parsed.error.issues[0]?.message || 'Datos inválidos' };
   }
   const data = parsed.data;
+
+  // Vacaciones: los encargos por la web también están pausados.
+  const vac = vacationState(await getAllSettings());
+  if (vac.active) {
+    return {
+      ok: false,
+      error: `Estamos de vacaciones y los encargos están pausados. ${vac.subtitle || ''}`.trim(),
+    };
+  }
 
   let supabase;
   try {

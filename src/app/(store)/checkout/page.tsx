@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { CheckoutForm } from './CheckoutForm';
-import { getAllSettings } from '@/lib/settings';
+import { VacationNotice } from '@/components/store/VacationNotice';
+import { getAllSettings, vacationState } from '@/lib/settings';
 
 export const metadata: Metadata = {
   title: 'Checkout',
@@ -9,6 +10,16 @@ export const metadata: Metadata = {
 
 export default async function CheckoutPage() {
   const settings = await getAllSettings();
+  const vac = vacationState(settings);
+  if (vac.active) {
+    return (
+      <VacationNotice
+        title={vac.title}
+        subtitle={vac.subtitle}
+        whatsapp={settings.whatsapp?.number}
+      />
+    );
+  }
   const transferDiscount = settings.payments_transfer?.active
     ? settings.payments_transfer.discount_percent || 0
     : 0;
