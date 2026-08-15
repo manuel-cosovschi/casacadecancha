@@ -9,6 +9,7 @@ const RANGES = [
   { key: 'last30', label: '30 días' },
   { key: 'this_month', label: 'Este mes' },
   { key: 'last_month', label: 'Mes anterior' },
+  { key: 'all', label: 'Desde el inicio' },
 ];
 
 export function RangeSelector({ current }: { current: string }) {

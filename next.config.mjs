@@ -24,6 +24,9 @@ const nextConfig = {
   images: {
     remotePatterns,
     formats: ['image/webp'],
+    // El optimizador de Vercel está sin cuota (402): servimos las imágenes
+    // directo desde Supabase. Por eso las subimos ya comprimidas en WebP.
+    unoptimized: true,
   },
   experimental: {
     serverActions: {
