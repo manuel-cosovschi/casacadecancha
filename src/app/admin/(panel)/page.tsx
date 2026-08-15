@@ -5,7 +5,15 @@ import { DashboardCharts } from '@/components/admin/DashboardCharts';
 import { getDashboardMetrics, type RangeKey } from '@/lib/admin/metrics';
 import { formatPrice } from '@/lib/utils';
 
-const VALID: RangeKey[] = ['today', 'yesterday', 'last7', 'last30', 'this_month', 'last_month'];
+const VALID: RangeKey[] = [
+  'today',
+  'yesterday',
+  'last7',
+  'last30',
+  'this_month',
+  'last_month',
+  'all',
+];
 
 export default async function DashboardPage({
   searchParams,

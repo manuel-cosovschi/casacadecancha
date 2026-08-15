@@ -8,7 +8,8 @@ export type RangeKey =
   | 'last7'
   | 'last30'
   | 'this_month'
-  | 'last_month';
+  | 'last_month'
+  | 'all';
 
 export function resolveRange(key: RangeKey): { from: Date; to: Date; label: string } {
   const now = new Date();
@@ -40,6 +41,9 @@ export function resolveRange(key: RangeKey): { from: Date; to: Date; label: stri
         to: endOfDay(now),
         label: 'Este mes',
       };
+    case 'all':
+      // Desde el día 1: arrancamos bien atrás para incluir todo el historial.
+      return { from: new Date(2000, 0, 1), to: endOfDay(now), label: 'Desde el inicio' };
     case 'last_month':
       return {
         from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
