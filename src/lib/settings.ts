@@ -139,6 +139,16 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     how_to_buy: true,
     faq: true,
   },
+  /** Ahorro objetivo (ver /admin/ahorro). Las entradas se guardan acá mismo. */
+  savings: {
+    active: false,
+    name: 'Mi ahorro',
+    target_amount: 0,
+    target_date: '',
+    marketing_pct: 15,
+    reinvest_pct: 15,
+    entries: [] as { date: string; amount: number; note?: string }[],
+  },
   /** Modo vacaciones: pausa los pedidos y muestra el cartel de El Cabra. */
   vacation: {
     enabled: false, // interruptor manual (si está en false, manda el rango de fechas)

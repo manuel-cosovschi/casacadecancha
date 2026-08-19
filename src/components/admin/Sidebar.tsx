@@ -38,6 +38,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
   {
     title: 'Finanzas',
     items: [
+      { label: 'Mis ahorros', href: '/admin/ahorro' },
       { label: 'Mi Sueldo', href: '/admin/sueldo' },
       { label: 'Rentabilidad', href: '/admin/rentabilidad' },
       { label: 'Gastos', href: '/admin/gastos' },
