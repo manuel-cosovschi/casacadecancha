@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/abandoned-carts",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-savings",
+      "schedule": "0 0 * * 1"
     }
   ]
 }
