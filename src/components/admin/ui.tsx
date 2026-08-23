@@ -102,6 +102,12 @@ const STATUS_STYLE: Record<string, string> = {
   // cobros
   cobrado: 'bg-green-100 text-green-800',
   cancelado: 'bg-navy/10 text-navy/60',
+  // subastas
+  borrador: 'bg-navy/10 text-navy/60',
+  activa: 'bg-red-100 text-red-700',
+  finalizada: 'bg-green-100 text-green-800',
+  aprobado_postor: 'bg-green-100 text-green-800',
+  bloqueado: 'bg-red-100 text-red-800',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -123,6 +129,10 @@ const STATUS_LABEL: Record<string, string> = {
   rechazado: 'Rechazado',
   cobrado: 'Cobrado',
   cancelado: 'Cancelado',
+  borrador: 'Borrador',
+  activa: 'En vivo',
+  finalizada: 'Finalizada',
+  bloqueado: 'Bloqueado',
 };
 
 export function StatusBadge({ status }: { status: string }) {
