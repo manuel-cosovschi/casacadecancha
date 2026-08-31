@@ -37,7 +37,8 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAdmin = pathname.startsWith('/admin');
-  const isLogin = pathname === '/admin/login';
+  // /admin/recuperar se entra SIN sesión (viene del link del email de recuperación).
+  const isLogin = pathname === '/admin/login' || pathname === '/admin/recuperar';
 
   if (isAdmin && !isLogin && !user) {
     const url = request.nextUrl.clone();

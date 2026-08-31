@@ -11,6 +11,29 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  /** Manda el mail de recuperación (lo envía Supabase, no depende de la web). */
+  async function onReset() {
+    setError(null);
+    const email = username.trim();
+    if (!email.includes('@')) {
+      setError('Escribí tu email arriba y volvé a tocar “Olvidé mi contraseña”.');
+      return;
+    }
+    setResetting(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/admin/recuperar`,
+    });
+    setResetting(false);
+    if (error) {
+      setError('No se pudo enviar el mail. Probá de nuevo en unos minutos.');
+      return;
+    }
+    setResetSent(true);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,6 +93,22 @@ export function LoginForm() {
       <button type="submit" disabled={loading} className="btn-primary w-full">
         {loading ? 'Ingresando…' : 'Ingresar'}
       </button>
+
+      {resetSent ? (
+        <p className="rounded-lg bg-green-50 p-3 text-center text-sm text-green-800">
+          ✅ Te mandamos un mail con el link para poner una contraseña nueva. Revisá también el
+          correo no deseado.
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={resetting}
+          className="w-full text-center text-sm font-semibold text-navy/55 hover:text-navy hover:underline"
+        >
+          {resetting ? 'Enviando…' : 'Olvidé mi contraseña'}
+        </button>
+      )}
     </form>
   );
 }
