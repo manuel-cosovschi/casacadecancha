@@ -57,6 +57,9 @@ const MEASUREMENTS: Record<string, ProductMeasurements> = {
     rows: [{ size: 'L', width: 51, length: 74 }],
     note: 'Consultanos por WhatsApp por las medidas de los talles S, M, XL y XXL.',
   },
+  'camiseta-racing-2000-01-titular-milito-importada': {
+    rows: [{ size: 'L', width: 50, length: 74 }],
+  },
 };
 
 /** Medidas de un producto por slug, o null si todavía no las cargamos. */
