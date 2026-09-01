@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
+import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
@@ -99,6 +100,9 @@ export async function applyCoupon(
   code: string,
   subtotal: number,
 ): Promise<CouponResult> {
+  // Los cupones no se acumulan con la promo del catálogo.
+  const blocked = couponBlockedBySale();
+  if (blocked) return { valid: false, code, discount: 0, message: blocked };
   try {
     const supabase = await createClient();
     return await validateCoupon(supabase, code, subtotal);
@@ -149,6 +153,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   }
 
   // 2. Construir items validados
+  // Promo del catálogo: se resuelve una sola vez por pedido para que todas las
+  // líneas usen el mismo porcentaje aunque la promo venza mientras se cobra.
+  const salePct = salePercentAt();
+  let saleDiscount = 0; // solo informativo: ya viene descontado en unit_price
   let subtotal = 0;
   let eligibleSubtotal = 0; // base para el descuento por transferencia
   let preorderBalance = 0; // saldo de preventa que se paga al recibir (no se cobra ahora)
@@ -182,7 +190,11 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       };
     }
 
-    const basePrice = v.variant_price ?? product?.price ?? 0;
+    const listPrice = v.variant_price ?? product?.price ?? 0;
+    // Promo vigente sobre todo el catálogo. Se aplica antes del recargo por
+    // despacho: la promo descuenta el producto, no el costo de mandarlo.
+    const basePrice = applyDiscount(listPrice, salePct);
+    saleDiscount += (listPrice - basePrice) * item.quantity;
     // Ventas nacionales: recargo por despacho (metido en el precio, no lo ve el cliente como aparte).
     const price = data.shipping_method === 'nacional' ? withNationalMarkup(basePrice) : basePrice;
     const cost = (v.variant_cost ?? product?.unit_cost ?? 0) + (product?.packaging_cost ?? 0);
@@ -218,8 +230,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   }
 
   // 3. Cupón (revalidado en el servidor)
+  // Con la promo activa el cupón se ignora, igual que en el checkout: así el
+  // total que se cobra es exactamente el que vio el cliente.
   let couponResult: CouponResult | null = null;
-  if (data.coupon_code) {
+  if (data.coupon_code && !couponBlockedBySale()) {
     couponResult = await validateCoupon(supabase, data.coupon_code, subtotal);
     if (!couponResult.valid) {
       return { ok: false, error: couponResult.message };
@@ -266,7 +280,12 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       ? `PREVENTA: seña cobrada ahora. Saldo a pagar al recibir: $${Math.round(preorderBalance).toLocaleString('es-AR')}`
       : '';
   const boxNote = itemNotes.length > 0 ? `Mystery Box · ${itemNotes.join(' | ')}` : '';
-  const combinedNotes = [data.notes, deliveryInfo, preorderNote, boxNote, shippingNote]
+  // Queda asentado en el pedido: los unit_price ya vienen con la promo aplicada.
+  const saleNote =
+    saleDiscount > 0
+      ? `PROMO ${salePct}% OFF aplicada: $${Math.round(saleDiscount).toLocaleString('es-AR')} de descuento`
+      : '';
+  const combinedNotes = [data.notes, deliveryInfo, preorderNote, boxNote, saleNote, shippingNote]
     .filter(Boolean)
     .join(' · ');
 

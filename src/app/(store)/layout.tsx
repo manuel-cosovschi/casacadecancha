@@ -6,7 +6,9 @@ import { Footer } from '@/components/store/Footer';
 import { WhatsAppButton } from '@/components/store/WhatsAppButton';
 import { UtmCapture } from '@/components/store/UtmCapture';
 import { VacationGate, VacationBar } from '@/components/store/VacationGate';
+import { SaleStrip, SalePopup } from '@/components/store/SaleBanner';
 import { getAllSettings, vacationState } from '@/lib/settings';
+import { SITE_SALE, salePercentAt } from '@/lib/sale';
 import { MASCOT_URL } from '@/lib/brand';
 
 export default async function StoreLayout({
@@ -19,6 +21,14 @@ export default async function StoreLayout({
     ? settings.payments_transfer.discount_percent || 0
     : 0;
   const vac = vacationState(settings);
+  // La promo no se anuncia si los pedidos están pausados por vacaciones.
+  const salePct = vac.active ? 0 : salePercentAt();
+  const saleUntil = new Date(SITE_SALE.ends_at).toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
 
   return (
     <CartProvider>
@@ -36,6 +46,12 @@ export default async function StoreLayout({
         </>
       ) : (
         <AnnouncementBar data={settings.announcement_bar} />
+      )}
+      {salePct > 0 && (
+        <>
+          <SaleStrip percent={salePct} endsAt={SITE_SALE.ends_at} until={saleUntil} />
+          <SalePopup percent={salePct} endsAt={SITE_SALE.ends_at} until={saleUntil} />
+        </>
       )}
       <Header />
       <main className="min-h-[60vh]">{children}</main>
