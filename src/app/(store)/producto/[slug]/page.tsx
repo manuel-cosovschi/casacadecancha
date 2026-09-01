@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { ProductGallery } from '@/components/store/ProductGallery';
 import { ProductPurchase } from '@/components/store/ProductPurchase';
 import { ProductCard } from '@/components/store/ProductCard';
+import { ProductMeasurements } from '@/components/store/ProductMeasurements';
 import {
   getProductBySlug,
   getRelatedProducts,
 } from '@/lib/queries';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { applyDiscount, formatPrice } from '@/lib/utils';
+import { getMeasurements } from '@/lib/measurements';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
@@ -53,6 +55,7 @@ export default async function ProductPage({
     ? settings.payments_transfer.discount_percent || 0
     : 0;
   const whatsappNumber = settings.whatsapp?.number || '';
+  const measurements = getMeasurements(slug);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -125,6 +128,7 @@ export default async function ProductPage({
               </p>
             </section>
           )}
+          {measurements && <ProductMeasurements data={measurements} />}
           <section className="grid gap-4 sm:grid-cols-2">
             {product.material && <Spec label="Material" value={product.material} />}
             {product.fabric && <Spec label="Tela" value={product.fabric} />}
