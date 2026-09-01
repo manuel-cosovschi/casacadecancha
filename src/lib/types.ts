@@ -112,14 +112,6 @@ export interface FAQ {
   sort_order: number;
 }
 
-export interface SizeGuide {
-  id: string;
-  name: string;
-  audience: string;
-  measurements_json: { size: string; width: number; length: number }[];
-  active: boolean;
-  sort_order: number;
-}
 
 export interface Order {
   id: string;

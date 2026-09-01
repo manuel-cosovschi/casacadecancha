@@ -51,7 +51,6 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
     title: 'Contenido',
     items: [
       { label: 'Contenido de la web', href: '/admin/contenido' },
-      { label: 'Guía de talles', href: '/admin/talles' },
       { label: 'Preguntas frecuentes', href: '/admin/faq' },
     ],
   },

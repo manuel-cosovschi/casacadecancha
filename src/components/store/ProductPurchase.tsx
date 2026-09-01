@@ -14,6 +14,7 @@ import {
 } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import { requestStock } from '@/app/(store)/producto/[slug]/actions';
+import { getMeasurements } from '@/lib/measurements';
 
 interface Props {
   product: Product;
@@ -34,6 +35,8 @@ export function ProductPurchase({
   vacation = false,
 }: Props) {
   const { addItem } = useCart();
+  // Solo ofrecemos el atajo si esta ficha tiene tabla de medidas para mostrar.
+  const hasMeasurements = getMeasurements(product.slug) !== null;
   const variants = (product.variants ?? []).filter((v) => v.active);
   const isMysteryBox = product.mystery_box === true;
   const mysteryQty = Math.max(1, product.mystery_qty || 1);
@@ -233,12 +236,14 @@ export function ProductPurchase({
           <span className="text-sm font-bold text-navy">
             {isMultiBox ? `Elegí el talle de cada camiseta (${mysteryQty})` : 'Talle'}
           </span>
-          <Link
-            href="/guia-de-talles"
-            className="text-xs font-semibold text-navy/55 underline underline-offset-2 hover:text-navy"
-          >
-            Guía de talles
-          </Link>
+          {hasMeasurements && (
+            <a
+              href="#medidas"
+              className="text-xs font-semibold text-navy/55 underline underline-offset-2 hover:text-navy"
+            >
+              Ver medidas
+            </a>
+          )}
         </div>
 
         {isMultiBox && (

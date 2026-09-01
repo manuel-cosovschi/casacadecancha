@@ -61,7 +61,6 @@ export function Footer({ data }: { data: FooterData }) {
           ['Camisetas', '/camisetas'],
           ['Niños', '/ninos'],
           ['Buzos', '/buzos'],
-          ['Guía de talles', '/guia-de-talles'],
           ['Preguntas frecuentes', '/preguntas-frecuentes'],
         ]} />
 
