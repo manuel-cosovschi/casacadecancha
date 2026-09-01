@@ -60,6 +60,15 @@ const MEASUREMENTS: Record<string, ProductMeasurements> = {
   'camiseta-racing-2000-01-titular-milito-importada': {
     rows: [{ size: 'L', width: 50, length: 74 }],
   },
+  'camiseta-barcelona-2009-roma': {
+    rows: [{ size: 'XL', width: 50, length: 74 }],
+  },
+  'camiseta-japon-2006': {
+    rows: [{ size: 'XL', width: 54, length: 75 }],
+  },
+  'camiseta-brasil-2002-ronaldo-importada': {
+    rows: [{ size: 'XL', width: 55, length: 73 }],
+  },
 };
 
 /** Medidas de un producto por slug, o null si todavía no las cargamos. */
