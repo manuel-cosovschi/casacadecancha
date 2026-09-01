@@ -53,6 +53,10 @@ const MEASUREMENTS: Record<string, ProductMeasurements> = {
   'camiseta-boca-titular-25-26-paredes-importada': {
     rows: [{ size: 'L', width: 50, length: 75 }],
   },
+  'camiseta-chelsea-importada': {
+    rows: [{ size: 'L', width: 51, length: 74 }],
+    note: 'Consultanos por WhatsApp por las medidas de los talles S, M, XL y XXL.',
+  },
 };
 
 /** Medidas de un producto por slug, o null si todavía no las cargamos. */
