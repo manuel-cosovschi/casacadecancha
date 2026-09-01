@@ -45,6 +45,19 @@ export function salePrice(price: number, now?: Date): number {
 }
 
 /**
+ * Los cupones no se acumulan con la promo del catálogo: cada uno es una
+ * promoción aparte. Mientras la promo está viva el cliente ya tiene el
+ * descuento mayor, así que el cupón no suma nada.
+ *
+ * Devuelve el motivo a mostrar, o null si no hay promo y el cupón corre normal.
+ */
+export function couponBlockedBySale(now?: Date): string | null {
+  const pct = salePercentAt(now);
+  if (pct === 0) return null;
+  return `Ya tenés ${pct}% OFF aplicado en todos los precios. Los cupones no se acumulan con esta promo.`;
+}
+
+/**
  * Devuelve el producto con los precios de promo ya aplicados y el precio
  * original como `compare_at_price`, para que se muestre tachado y con el badge
  * de porcentaje en todas las vistas del storefront sin tocar los componentes.

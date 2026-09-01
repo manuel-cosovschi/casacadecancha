@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
-import { salePercentAt } from '@/lib/sale';
+import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
@@ -100,6 +100,9 @@ export async function applyCoupon(
   code: string,
   subtotal: number,
 ): Promise<CouponResult> {
+  // Los cupones no se acumulan con la promo del catálogo.
+  const blocked = couponBlockedBySale();
+  if (blocked) return { valid: false, code, discount: 0, message: blocked };
   try {
     const supabase = await createClient();
     return await validateCoupon(supabase, code, subtotal);
@@ -227,8 +230,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   }
 
   // 3. Cupón (revalidado en el servidor)
+  // Con la promo activa el cupón se ignora, igual que en el checkout: así el
+  // total que se cobra es exactamente el que vio el cliente.
   let couponResult: CouponResult | null = null;
-  if (data.coupon_code) {
+  if (data.coupon_code && !couponBlockedBySale()) {
     couponResult = await validateCoupon(supabase, data.coupon_code, subtotal);
     if (!couponResult.valid) {
       return { ok: false, error: couponResult.message };

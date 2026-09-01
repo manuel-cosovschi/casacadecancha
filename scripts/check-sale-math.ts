@@ -7,7 +7,7 @@
  */
 import { applyDiscount, mpSurcharge, preorderDeposit } from '../src/lib/utils';
 import { withNationalMarkup } from '../src/lib/shipping';
-import { salePercentAt, withSalePricing, SITE_SALE } from '../src/lib/sale';
+import { salePercentAt, withSalePricing, couponBlockedBySale, SITE_SALE } from '../src/lib/sale';
 import type { Product } from '../src/lib/types';
 
 let failures = 0;
@@ -62,6 +62,15 @@ check('promo + 10% transferencia', applyDiscount(sub, 10), 84150);
 check('sin transferencia (0%)', applyDiscount(sub, 0), sub);
 check('seña de preventa sobre precio con promo', preorderDeposit(applyDiscount(55000, pct)), preorderDeposit(46750));
 check('recargo MP sobre total con promo', mpSurcharge(sub) > 0, true);
+
+console.log('\n--- cupones: no se acumulan con la promo ---');
+check('con promo viva, el cupón se bloquea', couponBlockedBySale(during) !== null, true);
+check('el mensaje dice el porcentaje', (couponBlockedBySale(during) || '').includes('15%'), true);
+check('vencida la promo, el cupón corre normal', couponBlockedBySale(after), null);
+// Un cupón del 5% durante la promo NO debe dar 19,25%: el cliente paga el precio con 15%.
+const conCupon = applyDiscount(55000, salePercentAt(during));
+check('Chelsea con promo y cupón 5% = solo la promo', conCupon, 46750);
+check('no llega al 19,25% (44.412)', conCupon !== 44412, true);
 
 console.log(failures === 0 ? '\nTodo OK' : `\n${failures} chequeo(s) fallaron`);
 process.exit(failures === 0 ? 0 : 1);
