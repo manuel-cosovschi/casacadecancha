@@ -14,7 +14,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/camisetas',
     '/ninos',
     '/buzos',
-    '/guia-de-talles',
     '/preguntas-frecuentes',
     '/legales/envios',
     '/legales/cambios',

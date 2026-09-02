@@ -190,22 +190,6 @@ export async function deleteAdMetric(id: string): Promise<Result> {
 }
 
 // ----------------------- SIZE GUIDES -----------------------
-export async function saveSizeGuide(
-  id: string | null,
-  name: string,
-  audience: string,
-  measurements: { size: string; width: number; length: number }[],
-): Promise<Result> {
-  const g = await guard();
-  if (g) return g;
-  const supabase = await createClient();
-  const payload = { name, audience, measurements_json: measurements, active: true };
-  if (id) await supabase.from('size_guides').update(payload).eq('id', id);
-  else await supabase.from('size_guides').insert(payload);
-  revalidatePath('/admin/talles');
-  revalidatePath('/guia-de-talles');
-  return { ok: true };
-}
 
 // ----------------------- USUARIOS (rol) -----------------------
 export async function updateUserRole(userId: string, role: string): Promise<Result> {

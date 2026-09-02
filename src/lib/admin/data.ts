@@ -98,11 +98,6 @@ export async function getAdminFaqs() {
   return data ?? [];
 }
 
-export async function getAdminSizeGuides() {
-  const supabase = await db();
-  const { data } = await supabase.from('size_guides').select('*').order('sort_order');
-  return data ?? [];
-}
 
 export async function getProfiles() {
   const supabase = await db();

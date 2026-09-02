@@ -1,7 +1,7 @@
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { availableStock } from '@/lib/utils';
 import { withSalePricing } from '@/lib/sale';
-import type { Collection, FAQ, Product, SizeGuide } from '@/lib/types';
+import type { Collection, FAQ, Product } from '@/lib/types';
 
 const PRODUCT_SELECT =
   '*, images:product_images(*), variants:product_variants(*)';
@@ -188,13 +188,3 @@ export async function getFAQs(): Promise<FAQ[]> {
   return (data ?? []) as FAQ[];
 }
 
-export async function getSizeGuides(): Promise<SizeGuide[]> {
-  if (!isSupabaseConfigured()) return [];
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('size_guides')
-    .select('*')
-    .eq('active', true)
-    .order('sort_order', { ascending: true });
-  return (data ?? []) as SizeGuide[];
-}

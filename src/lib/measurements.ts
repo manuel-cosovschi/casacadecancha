@@ -2,9 +2,8 @@
  * Medidas reales de cada prenda, tomadas a mano sobre el stock.
  *
  * Vive en el código porque son medidas físicas de prendas concretas: no
- * cambian salvo que entre un modelo nuevo. La guía general de talles
- * (`/guia-de-talles`) sigue estando para orientar; esto es lo puntual de cada
- * camiseta, que es lo que evita cambios por talle equivocado.
+ * cambian salvo que entre un modelo nuevo. Reemplaza a la guía general de
+ * talles, que prometía medidas que no coincidían con las prendas reales.
  *
  * `width` es el ancho de axila a axila con la prenda apoyada y `length` el
  * largo del hombro al ruedo, en centímetros. Mismo criterio que la guía general.
@@ -59,6 +58,15 @@ const MEASUREMENTS: Record<string, ProductMeasurements> = {
   },
   'camiseta-racing-2000-01-titular-milito-importada': {
     rows: [{ size: 'L', width: 50, length: 74 }],
+  },
+  'camiseta-barcelona-2009-roma': {
+    rows: [{ size: 'XL', width: 50, length: 74 }],
+  },
+  'camiseta-japon-2006': {
+    rows: [{ size: 'XL', width: 54, length: 75 }],
+  },
+  'camiseta-brasil-2002-ronaldo-importada': {
+    rows: [{ size: 'XL', width: 55, length: 73 }],
   },
 };
 

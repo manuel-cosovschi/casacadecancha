@@ -7,7 +7,7 @@ import type { ProductMeasurements as Data } from '@/lib/measurements';
  */
 export function ProductMeasurements({ data }: { data: Data }) {
   return (
-    <section className="mb-8">
+    <section id="medidas" className="mb-8 scroll-mt-24">
       <h2 className="mb-3 text-lg font-bold">Medidas de esta camiseta</h2>
       <div className="overflow-x-auto rounded-2xl border border-navy/5 bg-white shadow-card">
         <table className="w-full text-left text-sm">
