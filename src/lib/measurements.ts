@@ -70,7 +70,6 @@ const MEASUREMENTS: Record<string, ProductMeasurements> = {
   },
   'camiseta-juventus-icon-adidas': {
     rows: [{ size: 'XXL', width: 55, length: 76 }],
-    note: 'Consultanos por WhatsApp por las medidas de los talles M y L.',
   },
   'camiseta-barcelona-edicion-especial-25-26-importada': {
     rows: [
