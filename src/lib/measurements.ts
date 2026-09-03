@@ -68,6 +68,16 @@ const MEASUREMENTS: Record<string, ProductMeasurements> = {
   'camiseta-brasil-2002-ronaldo-importada': {
     rows: [{ size: 'XL', width: 55, length: 73 }],
   },
+  'camiseta-juventus-icon-adidas': {
+    rows: [{ size: 'XXL', width: 55, length: 76 }],
+    note: 'Consultanos por WhatsApp por las medidas de los talles M y L.',
+  },
+  'camiseta-barcelona-edicion-especial-25-26-importada': {
+    rows: [
+      { size: 'M', width: 46, length: 72 },
+      { size: 'L', width: 50, length: 75 },
+    ],
+  },
 };
 
 /** Medidas de un producto por slug, o null si todavía no las cargamos. */
