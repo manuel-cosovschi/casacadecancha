@@ -46,7 +46,8 @@ export function ProductCard({
         )}
 
         {/* Badges */}
-        <div className="absolute left-3 top-3 flex flex-col gap-1.5">
+        {/* items-start: sin esto los badges se estiran al ancho del más largo */}
+        <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
           {product.preorder && (
             <span className="badge bg-red-600 text-white shadow-sm">PREVENTA</span>
           )}
