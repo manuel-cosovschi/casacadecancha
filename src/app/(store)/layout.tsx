@@ -7,6 +7,7 @@ import { WhatsAppButton } from '@/components/store/WhatsAppButton';
 import { UtmCapture } from '@/components/store/UtmCapture';
 import { VacationGate, VacationBar } from '@/components/store/VacationGate';
 import { SaleStrip, SalePopup } from '@/components/store/SaleBanner';
+import { WelcomePopup } from '@/components/store/WelcomePopup';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { SITE_SALE, salePercentAt } from '@/lib/sale';
 import { MASCOT_URL } from '@/lib/brand';
@@ -58,6 +59,8 @@ export default async function StoreLayout({
       <Footer data={settings.footer} />
       <WhatsAppButton data={settings.whatsapp} />
       {!vac.active && <CartDrawer transferDiscount={transferDiscount} />}
+      {/* Captación: no se muestra si los pedidos están pausados. */}
+      {!vac.active && <WelcomePopup />}
     </CartProvider>
   );
 }

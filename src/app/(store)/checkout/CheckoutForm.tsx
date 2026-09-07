@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useCart } from '@/components/cart/CartProvider';
 import { getAttribution } from '@/components/store/UtmCapture';
 import { createOrder, applyCoupon, saveCart, estimateMdpShipping } from './actions';
+import { isWelcomeCode } from '@/lib/welcome';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
 import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT, preorderDeposit } from '@/lib/utils';
@@ -154,9 +155,18 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
 
   async function handleApplyCoupon() {
     if (!couponCode.trim()) return;
+    // El cupón de bienvenida se valida contra el historial de ese email, así
+    // que sin el email cargado no hay nada que verificar.
+    const email = (watch('email') || '').trim();
+    if (isWelcomeCode(couponCode) && !email.includes('@')) {
+      setCouponOk(false);
+      setCouponDiscount(0);
+      setCouponMsg('Completá tu email más arriba y volvé a aplicar el cupón.');
+      return;
+    }
     setCouponBusy(true);
     setCouponMsg(null);
-    const res = await applyCoupon(couponCode.trim(), subtotal);
+    const res = await applyCoupon(couponCode.trim(), subtotal, email);
     setCouponBusy(false);
     setCouponOk(res.valid);
     setCouponDiscount(res.valid ? res.discount : 0);
