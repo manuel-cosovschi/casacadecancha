@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
+import { isWelcomeCode, checkWelcomeEligibility, WELCOME } from '@/lib/welcome';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
@@ -95,16 +96,50 @@ export async function saveCart(input: {
   }
 }
 
+
+/**
+ * Valida el cupón de bienvenida. A diferencia del resto, no sale de la tabla
+ * `promotions`: se comprueba contra el historial de pedidos de ese email.
+ * Si no se puede comprobar, se rechaza (ver `checkWelcomeEligibility`).
+ */
+async function validateWelcomeCoupon(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  code: string,
+  subtotal: number,
+  email?: string,
+): Promise<CouponResult> {
+  if (!WELCOME.active) {
+    return { valid: false, code, discount: 0, message: 'Cupón inválido o inactivo.' };
+  }
+  const check = await checkWelcomeEligibility(supabase, email || '');
+  if (!check.eligible) {
+    return { valid: false, code: WELCOME.code, discount: 0, message: check.message };
+  }
+  const discount = Math.round(subtotal * (WELCOME.percent / 100));
+  return {
+    valid: true,
+    code: WELCOME.code,
+    discount,
+    message: `Descuento de bienvenida aplicado: ahorrás $${discount.toLocaleString('es-AR')}.`,
+  };
+}
+
 /** Valida un cupón desde el storefront (lectura pública de promociones). */
 export async function applyCoupon(
   code: string,
   subtotal: number,
+  email?: string,
 ): Promise<CouponResult> {
   // Los cupones no se acumulan con la promo del catálogo.
   const blocked = couponBlockedBySale();
   if (blocked) return { valid: false, code, discount: 0, message: blocked };
   try {
     const supabase = await createClient();
+    // El de bienvenida no vive en `promotions`: se valida contra el historial
+    // de compras de ese email.
+    if (isWelcomeCode(code)) {
+      return await validateWelcomeCoupon(supabase, code, subtotal, email);
+    }
     return await validateCoupon(supabase, code, subtotal);
   } catch {
     return { valid: false, code, discount: 0, message: 'No se pudo validar el cupón.' };
@@ -234,7 +269,9 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // total que se cobra es exactamente el que vio el cliente.
   let couponResult: CouponResult | null = null;
   if (data.coupon_code && !couponBlockedBySale()) {
-    couponResult = await validateCoupon(supabase, data.coupon_code, subtotal);
+    couponResult = isWelcomeCode(data.coupon_code)
+      ? await validateWelcomeCoupon(supabase, data.coupon_code, subtotal, data.email)
+      : await validateCoupon(supabase, data.coupon_code, subtotal);
     if (!couponResult.valid) {
       return { ok: false, error: couponResult.message };
     }
