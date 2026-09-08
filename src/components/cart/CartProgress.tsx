@@ -1,6 +1,6 @@
 'use client';
 
-import { LOYALTY, FIRST_TIER_PERCENT } from '@/lib/loyalty-tiers';
+import { LOYALTY, FIRST_TIER_PERCENT, HIGHER_TIER_PERCENTS } from '@/lib/loyalty-tiers';
 import { formatPrice } from '@/lib/utils';
 
 /**
@@ -68,7 +68,12 @@ export function CartProgress({
 
       <p className={`mt-1.5 text-[11px] leading-relaxed ${llego ? 'text-green-800/75' : 'text-navy/50'}`}>
         {llego ? (
-          <>Y comprando de nuevo subís a 15%, y después a 20%.</>
+          HIGHER_TIER_PERCENTS.length > 0 ? (
+            <>
+              Y comprando de nuevo subís a{' '}
+              {HIGHER_TIER_PERCENTS.map((p) => `${p}%`).join(', y después a ')}.
+            </>
+          ) : null
         ) : (
           <>
             <span className="tabular-nums">{formatPrice(subtotal)}</span> de{' '}
