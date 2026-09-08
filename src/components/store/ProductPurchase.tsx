@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Product } from '@/lib/types';
 import { useCart } from '@/components/cart/CartProvider';
@@ -34,7 +34,7 @@ export function ProductPurchase({
   compact = false,
   vacation = false,
 }: Props) {
-  const { addItem } = useCart();
+  const { addItem, items: cartItems } = useCart();
   // Solo ofrecemos el atajo si esta ficha tiene tabla de medidas para mostrar.
   const hasMeasurements = getMeasurements(product.slug) !== null;
   const variants = (product.variants ?? []).filter((v) => v.active);
@@ -65,6 +65,30 @@ export function ProductPurchase({
   const hasCompare = product.compare_at_price && product.compare_at_price > product.price;
   const hasOutOfStock = variants.some((v) => availableStock(v) <= 0);
   const oosVariants = variants.filter((v) => availableStock(v) <= 0);
+
+  // ---- Tope de cantidad ----------------------------------------------------
+  // Si de un talle hay una sola, no se pueden pedir cinco. El tope es el stock
+  // real de ESE talle, menos lo que ya haya de ese mismo talle en el carrito:
+  // si no, alguien agrega la única unidad, vuelve y agrega otra.
+  //
+  // No hay tope cuando el producto acepta encargo (`allow_backorder`) ni en las
+  // Mystery Box, donde la variante es solo un soporte para el talle elegido.
+  const stockSelected = selected ? availableStock(selected) : 0;
+  const alreadyInCart = selected
+    ? cartItems.find((i) => i.variantId === selected.id)?.quantity ?? 0
+    : 0;
+  const unlimited = isMysteryBox || canBackorder;
+  // Sin talle elegido todavía no hay nada que topear: el aviso de "Elegí un
+  // talle" lo da `handleAdd`, no un botón deshabilitado sin explicación.
+  const noSizeYet = !selected && !isMultiBox;
+  const maxQty = unlimited || noSizeYet ? 99 : Math.max(0, stockSelected - alreadyInCart);
+  const soldOutForNow = !unlimited && !noSizeYet && maxQty === 0;
+
+  // Al cambiar de talle, la cantidad elegida puede quedar por encima del stock
+  // del talle nuevo (elegís 3 de L, que tiene 3, y pasás a M, que tiene 1).
+  useEffect(() => {
+    setQty((q) => Math.min(Math.max(1, q), Math.max(1, maxQty)));
+  }, [maxQty]);
 
   function toggleNotifySize(size: string) {
     setNotifyErr(null);
@@ -139,6 +163,17 @@ export function ProductPurchase({
     const stock = availableStock(selected);
     if (stock <= 0 && !canBackorder) {
       setError('Sin stock en ese talle.');
+      return;
+    }
+    // Segundo cerrojo: el botón "+" ya no deja pasarse, pero el estado puede
+    // haber quedado viejo (otra pestaña, el carrito cambiado mientras tanto).
+    if (!unlimited && qty > maxQty) {
+      setError(
+        maxQty === 0
+          ? `Ya tenés en el carrito ${alreadyInCart === 1 ? 'la única unidad' : `las ${alreadyInCart} unidades`} que hay del talle ${selected.size}.`
+          : `Del talle ${selected.size} queda${maxQty === 1 ? '' : 'n'} ${maxQty} unidad${maxQty === 1 ? '' : 'es'}.`,
+      );
+      setQty(Math.max(1, maxQty));
       return;
     }
     setError(null);
@@ -405,12 +440,13 @@ export function ProductPurchase({
       )}
 
       {/* Cantidad */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="text-sm font-bold text-navy">Cantidad</span>
         <div className="flex items-center rounded-full border-2 border-navy/15">
           <button
             type="button"
-            className="px-3.5 py-1.5 text-lg font-bold text-navy/70 transition hover:text-navy"
+            disabled={qty <= 1}
+            className="px-3.5 py-1.5 text-lg font-bold text-navy/70 transition hover:text-navy disabled:cursor-not-allowed disabled:text-navy/20 disabled:hover:text-navy/20"
             onClick={() => setQty((q) => Math.max(1, q - 1))}
             aria-label="Restar"
           >
@@ -419,13 +455,25 @@ export function ProductPurchase({
           <span className="min-w-8 text-center text-sm font-bold">{qty}</span>
           <button
             type="button"
-            className="px-3.5 py-1.5 text-lg font-bold text-navy/70 transition hover:text-navy"
-            onClick={() => setQty((q) => q + 1)}
+            disabled={qty >= maxQty}
+            title={qty >= maxQty && !unlimited ? 'No hay más stock de ese talle' : undefined}
+            className="px-3.5 py-1.5 text-lg font-bold text-navy/70 transition hover:text-navy disabled:cursor-not-allowed disabled:text-navy/20 disabled:hover:text-navy/20"
+            onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
             aria-label="Sumar"
           >
             +
           </button>
         </div>
+        {/* Por qué el "+" está apagado: sin esto parece que el botón no anda. */}
+        {!unlimited && !noSizeYet && (
+          <span className="text-xs font-medium text-navy/55">
+            {soldOutForNow
+              ? `Ya tenés en el carrito ${alreadyInCart === 1 ? 'la única unidad' : `las ${alreadyInCart} unidades`} del talle ${selected?.size}`
+              : qty >= maxQty
+                ? `Es todo el stock que hay del talle ${selected?.size}`
+                : `Queda${maxQty === 1 ? '' : 'n'} ${maxQty} en talle ${selected?.size}`}
+          </span>
+        )}
       </div>
 
       {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
@@ -441,8 +489,13 @@ export function ProductPurchase({
             </p>
           </div>
         ) : (
-          <button type="button" onClick={handleAdd} className="btn-primary w-full text-base">
-            Agregar al carrito
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={soldOutForNow}
+            className="btn-primary w-full text-base disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {soldOutForNow ? 'Ya está en tu carrito' : 'Agregar al carrito'}
           </button>
         )}
         <a

@@ -93,7 +93,8 @@ export function CartDrawer({ transferDiscount }: { transferDiscount: number }) {
                       <div className="mt-auto flex items-center justify-between">
                         <div className="flex items-center rounded-full border border-navy/15">
                           <button
-                            className="px-2.5 py-1 text-navy/70"
+                            className="px-2.5 py-1 text-navy/70 disabled:cursor-not-allowed disabled:text-navy/20"
+                            disabled={item.quantity <= 1}
                             onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
                             aria-label="Restar"
                           >
@@ -102,8 +103,16 @@ export function CartDrawer({ transferDiscount }: { transferDiscount: number }) {
                           <span className="min-w-6 text-center text-sm font-semibold">
                             {item.quantity}
                           </span>
+                          {/* Apagado en el tope: antes el botón andaba pero no
+                              hacía nada, que se lee como que la página está rota. */}
                           <button
-                            className="px-2.5 py-1 text-navy/70"
+                            className="px-2.5 py-1 text-navy/70 disabled:cursor-not-allowed disabled:text-navy/20"
+                            disabled={item.quantity >= (item.maxStock || 99)}
+                            title={
+                              item.quantity >= (item.maxStock || 99)
+                                ? 'No hay más stock de ese talle'
+                                : undefined
+                            }
                             onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
                             aria-label="Sumar"
                           >

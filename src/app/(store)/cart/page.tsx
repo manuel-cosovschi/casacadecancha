@@ -46,9 +46,30 @@ export default function CartPage() {
                     </div>
                     <div className="mt-auto flex items-center justify-between">
                       <div className="flex items-center rounded-full border border-navy/15">
-                        <button className="px-3 py-1.5" onClick={() => updateQuantity(item.variantId, item.quantity - 1)}>−</button>
+                        <button
+                          className="px-3 py-1.5 disabled:cursor-not-allowed disabled:text-navy/20"
+                          disabled={item.quantity <= 1}
+                          aria-label="Restar"
+                          onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                        >
+                          −
+                        </button>
                         <span className="min-w-8 text-center text-sm font-semibold">{item.quantity}</span>
-                        <button className="px-3 py-1.5" onClick={() => updateQuantity(item.variantId, item.quantity + 1)}>+</button>
+                        {/* Apagado en el tope: antes el botón andaba pero no hacía
+                            nada, que se lee como que la página está rota. */}
+                        <button
+                          className="px-3 py-1.5 disabled:cursor-not-allowed disabled:text-navy/20"
+                          disabled={item.quantity >= (item.maxStock || 99)}
+                          title={
+                            item.quantity >= (item.maxStock || 99)
+                              ? 'No hay más stock de ese talle'
+                              : undefined
+                          }
+                          aria-label="Sumar"
+                          onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                        >
+                          +
+                        </button>
                       </div>
                       <span className="font-bold">{formatPrice(item.price * item.quantity)}</span>
                     </div>

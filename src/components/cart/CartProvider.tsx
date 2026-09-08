@@ -53,24 +53,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items, hydrated]);
 
   const addItem = useCallback((item: CartItem) => {
+    // El tope vale también para el primer alta, no solo al sumar sobre algo que
+    // ya estaba: si no, entra cualquier cantidad y recién la corta el servidor
+    // al confirmar el pedido, con un error al final de toda la compra.
+    const cap = item.maxStock || 99;
+    const clean = { ...item, quantity: Math.max(1, Math.min(item.quantity, cap)) };
     setItems((prev) => {
-      const existing = prev.find((i) => i.variantId === item.variantId);
+      const existing = prev.find((i) => i.variantId === clean.variantId);
       if (existing) {
         return prev.map((i) =>
-          i.variantId === item.variantId
+          i.variantId === clean.variantId
             ? {
                 ...i,
-                quantity: Math.min(i.quantity + item.quantity, item.maxStock || 99),
+                quantity: Math.min(i.quantity + clean.quantity, cap),
               }
             : i,
         );
       }
-      return [...prev, item];
+      return [...prev, clean];
     });
     trackEvent('AddToCart', {
-      content_name: item.name,
-      content_ids: [item.productId],
-      value: item.price * item.quantity,
+      content_name: clean.name,
+      content_ids: [clean.productId],
+      value: clean.price * clean.quantity,
       currency: 'ARS',
     });
     setIsOpen(true);
