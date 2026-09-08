@@ -25,8 +25,8 @@ const best = (coupon: number, loyalty: number) => Math.max(coupon, loyalty);
 
 console.log('--- cuánto descuenta cada nivel sobre $120.000 ---');
 check('0 compras -> $0',      loyaltyDiscount(120_000, percentForOrders(0)), 0);
-check('1 compra  -> $12.000', loyaltyDiscount(120_000, percentForOrders(1)), 12_000);
-check('2 compras -> $14.400', loyaltyDiscount(120_000, percentForOrders(2)), 14_400);
+check('1 compra  -> $6.000',  loyaltyDiscount(120_000, percentForOrders(1)), 6_000);
+check('2 compras -> $12.000', loyaltyDiscount(120_000, percentForOrders(2)), 12_000);
 check('3 compras -> $18.000', loyaltyDiscount(120_000, percentForOrders(3)), 18_000);
 check('9 compras -> $18.000 (tope)', loyaltyDiscount(120_000, percentForOrders(9)), 18_000);
 
@@ -34,7 +34,7 @@ console.log('\n--- no se acumula: gana el mejor, nunca se suman ---');
 check('cupón $5.000 vs cliente $18.000 -> gana cliente', best(5_000, 18_000), 18_000);
 check('cupón $30.000 vs cliente $18.000 -> gana cupón',  best(30_000, 18_000), 30_000);
 check('cupón $18.000 vs cliente $18.000 -> uno solo',    best(18_000, 18_000), 18_000);
-check('sin cupón -> queda el de cliente',                best(0, 12_000), 12_000);
+check('sin cupón -> queda el de cliente',                best(0, 6_000), 6_000);
 check('sin nada -> $0',                                  best(0, 0), 0);
 check('la suma NUNCA es el resultado', best(5_000, 18_000) === 23_000, false);
 
@@ -112,8 +112,8 @@ check('la promo del sitio venció el', SITE_SALE.ends_at.slice(0, 10), '2026-09-
 
 console.log('\n--- lo que se le muestra al cliente ---');
 check('recién llegado: nada que mostrar', statusFromOrders(0).percent, 0);
-check('1 compra: 10% y le falta 1 para el 12%', statusFromOrders(1), {
-  orders: 1, percent: 10, toNext: 1, nextPercent: 12,
+check('1 compra: 5% y le falta 1 para el 10%', statusFromOrders(1), {
+  orders: 1, percent: 5, toNext: 1, nextPercent: 10,
 });
 check('3 compras: al tope, sin "próximo nivel"', statusFromOrders(3).toNext, null);
 

@@ -32,8 +32,8 @@ export const LOYALTY = {
    */
   tiers: [
     { orders: 3, percent: 15 },
-    { orders: 2, percent: 12 },
-    { orders: 1, percent: 10 },
+    { orders: 2, percent: 10 },
+    { orders: 1, percent: 5 },
   ],
   windowDays: 60,
 };
