@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { subscribeWelcome } from '@/app/(store)/welcome-actions';
 
 /**
@@ -15,7 +16,23 @@ import { subscribeWelcome } from '@/app/(store)/welcome-actions';
  */
 const KEY = 'cdc_welcome_ok';
 
+/**
+ * Cuánto esperamos antes de mostrarlo. Saltar encima del visitante apenas
+ * entra es la forma más rápida de que cierre la pestaña: primero que mire las
+ * camisetas, y recién ahí le ofrecemos el descuento.
+ */
+const DELAY_MS = 5000;
+
+/**
+ * Dónde no aparece nunca. Con la espera de 5 segundos el popup ya no cae al
+ * entrar sino en el medio de lo que la persona esté haciendo, y taparle el
+ * formulario de compra a alguien que está tipeando su dirección es perder la
+ * venta para ganar un mail.
+ */
+const SILENT_PATHS = ['/checkout', '/cart', '/pedido', '/cobrar'];
+
 export function WelcomePopup() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,6 +40,11 @@ export function WelcomePopup() {
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const visible = open && !SILENT_PATHS.some((p) => pathname?.startsWith(p));
+
+  // El reloj arranca una sola vez, en la primera carga, y no se reinicia al
+  // navegar: son 5 segundos en la tienda, no 5 segundos por página. Si no,
+  // quien va clickeando de una camiseta a otra no lo ve nunca.
   useEffect(() => {
     let already = false;
     try {
@@ -31,13 +53,12 @@ export function WelcomePopup() {
       /* ignore */
     }
     if (already) return;
-    // Un respiro antes de aparecer: que la página cargue primero.
-    const t = setTimeout(() => setOpen(true), 1200);
+    const t = setTimeout(() => setOpen(true), DELAY_MS);
     return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!visible) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
@@ -45,7 +66,7 @@ export function WelcomePopup() {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [open]);
+  }, [visible]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,7 +92,7 @@ export function WelcomePopup() {
     }
   }
 
-  if (!open) return null;
+  if (!visible) return null;
 
   return (
     <div
