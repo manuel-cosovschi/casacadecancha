@@ -16,6 +16,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * nivel es una función del historial de compras, y no hay firma que sustituya
  * ese dato. Firmar el nivel sin poder verificarlo sería dejar que cualquiera
  * se autoproclame nivel 3.
+ *
+ * El descuento se aplica SOLO con el email, sin cuenta y sin código: con
+ * escribir su mail en el checkout, al cliente le aparece el nivel que le
+ * corresponde. Los códigos `FID-` de abajo siguen andando para mandarlos a
+ * mano por WhatsApp, pero ya no son el camino principal.
  */
 export const LOYALTY = {
   active: true,
@@ -109,6 +114,40 @@ export function statusFromOrders(orders: number): LoyaltyStatus {
     toNext: higher ? higher.orders - orders : null,
     nextPercent: higher ? higher.percent : null,
   };
+}
+
+/**
+ * Nivel de fidelidad de ese email, sin código de por medio.
+ *
+ * Es la vía principal: el checkout la llama apenas el cliente escribe su mail
+ * y aplica el descuento solo. Falla cerrado — si la base no contesta, no hay
+ * descuento — porque el nivel sale del historial de compras y no hay forma de
+ * suponerlo sin mentir.
+ *
+ * El porcentaje sale de la base (`loyalty_config`, editable sin deploy); la
+ * cantidad de compras y el próximo escalón se arman acá solo para mostrarlos.
+ */
+export async function loyaltyForEmail(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<LoyaltyStatus & { ok: boolean }> {
+  const none = { ...statusFromOrders(0), ok: false };
+  const clean = (email || '').trim().toLowerCase();
+  if (!LOYALTY.active || !clean.includes('@')) return none;
+
+  try {
+    const { data, error } = await supabase.rpc('loyalty_percent_for_email', {
+      p_email: clean,
+    });
+    if (error || !data) return none;
+    const orders = Number((data as any).orders) || 0;
+    // El porcentaje manda la base: si el dueño cambia los escalones desde
+    // `loyalty_config`, el checkout lo respeta sin tocar el código.
+    const percent = Number((data as any).percent) || 0;
+    return { ...statusFromOrders(orders), percent, ok: true };
+  } catch {
+    return none;
+  }
 }
 
 export interface LoyaltyCheck {

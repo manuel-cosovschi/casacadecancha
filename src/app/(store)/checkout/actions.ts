@@ -5,7 +5,7 @@ import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
 import { isWelcomeCode, checkWelcomeEligibility, WELCOME } from '@/lib/welcome';
-import { isLoyaltyCode, checkLoyalty } from '@/lib/loyalty';
+import { isLoyaltyCode, checkLoyalty, loyaltyForEmail, LOYALTY } from '@/lib/loyalty';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
@@ -98,6 +98,62 @@ export async function saveCart(input: {
 }
 
 
+
+export interface LoyaltyLookup {
+  /** Descuento que le corresponde por ser cliente. 0 = no le corresponde. */
+  percent: number;
+  /** Compras que ya tiene contadas. */
+  orders: number;
+  /** Cuántas le faltan para el próximo escalón (null si está al tope). */
+  toNext: number | null;
+  nextPercent: number | null;
+  /** Texto listo para mostrar, o null si no hay nada que decir. */
+  message: string | null;
+}
+
+const NO_LOYALTY: LoyaltyLookup = {
+  percent: 0,
+  orders: 0,
+  toNext: null,
+  nextPercent: null,
+  message: null,
+};
+
+/**
+ * Nivel de fidelidad de ese email, para mostrarlo y aplicarlo en el checkout
+ * sin que el cliente tenga que hacer nada.
+ *
+ * Esto es solo para la vista: el descuento que se cobra lo vuelve a calcular
+ * `createOrder` desde cero contra la base. Lo que devuelva esta función no
+ * define ningún precio.
+ */
+export async function lookupLoyalty(email: string): Promise<LoyaltyLookup> {
+  if (!LOYALTY.active) return NO_LOYALTY;
+  // Con la promo del catálogo activa no se acumula nada, así que ni se ofrece:
+  // mostrarlo y no poder aplicarlo sería peor que no mostrarlo.
+  if (couponBlockedBySale()) return NO_LOYALTY;
+
+  try {
+    const supabase = await createClient();
+    const st = await loyaltyForEmail(supabase, email);
+    if (!st.ok) return NO_LOYALTY;
+
+    if (st.percent > 0) {
+      return {
+        percent: st.percent,
+        orders: st.orders,
+        toNext: st.toNext,
+        nextPercent: st.nextPercent,
+        message: `Sos cliente de Casaca: ${st.percent}% OFF aplicado por tus ${st.orders} ${
+          st.orders === 1 ? 'compra' : 'compras'
+        } anteriores.`,
+      };
+    }
+    return NO_LOYALTY;
+  } catch {
+    return NO_LOYALTY;
+  }
+}
 
 /**
  * Valida el cupón de fidelidad. El nivel sale del historial de compras, así que
@@ -246,6 +302,13 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       return { ok: false, error: 'Un producto del carrito ya no está disponible.' };
     }
     const product = Array.isArray(v.products) ? v.products[0] : (v.products as any);
+    // Si el producto se despublicó, la RLS del storefront lo deja fuera del
+    // join y `product` viene vacío. Sin este corte el precio caía al `?? 0` de
+    // más abajo y el pedido se creaba en $0, reservando stock igual: a quien
+    // tenía la camiseta en el carrito le quedaba gratis.
+    if (!product) {
+      return { ok: false, error: 'Un producto del carrito ya no está disponible.' };
+    }
     const available = (v.stock_physical || 0) - (v.stock_reserved || 0) - (v.encargo_reserved || 0);
     const allowBackorder = Boolean(product?.allow_backorder);
 
@@ -256,7 +319,11 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       };
     }
 
-    const listPrice = v.variant_price ?? product?.price ?? 0;
+    const listPrice = v.variant_price ?? product.price ?? 0;
+    // Cinturón y tiradores: nada se vende en $0 por un dato faltante.
+    if (!(listPrice > 0)) {
+      return { ok: false, error: `No pudimos confirmar el precio de ${product.name}.` };
+    }
     // Promo vigente sobre todo el catálogo. Se aplica antes del recargo por
     // despacho: la promo descuenta el producto, no el costo de mandarlo.
     const basePrice = applyDiscount(listPrice, salePct);
@@ -298,8 +365,9 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // 3. Cupón (revalidado en el servidor)
   // Con la promo activa el cupón se ignora, igual que en el checkout: así el
   // total que se cobra es exactamente el que vio el cliente.
+  const saleBlocks = Boolean(couponBlockedBySale());
   let couponResult: CouponResult | null = null;
-  if (data.coupon_code && !couponBlockedBySale()) {
+  if (data.coupon_code && !saleBlocks) {
     couponResult = isWelcomeCode(data.coupon_code)
       ? await validateWelcomeCoupon(supabase, data.coupon_code, subtotal, data.email)
       : isLoyaltyCode(data.coupon_code)
@@ -309,7 +377,30 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       return { ok: false, error: couponResult.message };
     }
   }
-  const couponDiscount = couponResult?.valid ? couponResult.discount : 0;
+
+  // 3b. Descuento automático por ser cliente.
+  // Se recalcula acá contra la base, sin mirar nada de lo que mandó el
+  // navegador: el nivel no es un dato del formulario, es una consecuencia del
+  // historial de compras. Lo que el cliente vio en pantalla es una vista.
+  const loyalty = saleBlocks
+    ? { percent: 0, orders: 0 }
+    : await loyaltyForEmail(supabase, data.email);
+  const loyaltyDiscount =
+    loyalty.percent > 0 ? Math.round(subtotal * (loyalty.percent / 100)) : 0;
+
+  // Los descuentos no se acumulan: se aplica el mejor de los dos y se avisa.
+  // Que se lleve el mayor es lo que el cliente espera; sumarlos sería regalar
+  // dos veces la misma compra.
+  const rawCouponDiscount = couponResult?.valid ? couponResult.discount : 0;
+  const loyaltyWins = loyaltyDiscount > rawCouponDiscount;
+  const couponDiscount = Math.max(rawCouponDiscount, loyaltyDiscount);
+  // Lo que queda asentado en el pedido, para que en el panel se entienda de
+  // dónde salió el descuento aunque el cliente no haya tipeado ningún código.
+  const discountCode = loyaltyWins
+    ? `FIDELIDAD-${loyalty.percent}`
+    : couponResult?.valid
+      ? couponResult.code
+      : null;
 
   // 4. Calcular totales
   const transferDiscount =
@@ -355,7 +446,22 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     saleDiscount > 0
       ? `PROMO ${salePct}% OFF aplicada: $${Math.round(saleDiscount).toLocaleString('es-AR')} de descuento`
       : '';
-  const combinedNotes = [data.notes, deliveryInfo, preorderNote, boxNote, saleNote, shippingNote]
+  // Idem para el descuento por ser cliente: se aplica solo, sin código, así que
+  // sin esta nota en el panel el total aparecería más bajo sin explicación.
+  const loyaltyNote = loyaltyWins
+    ? `FIDELIDAD ${loyalty.percent}% (${loyalty.orders} ${
+        loyalty.orders === 1 ? 'compra previa' : 'compras previas'
+      }): $${loyaltyDiscount.toLocaleString('es-AR')} de descuento`
+    : '';
+  const combinedNotes = [
+    data.notes,
+    deliveryInfo,
+    preorderNote,
+    boxNote,
+    saleNote,
+    loyaltyNote,
+    shippingNote,
+  ]
     .filter(Boolean)
     .join(' · ');
 
@@ -365,7 +471,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const effCity = isLocal ? 'Mar del Plata' : data.city;
 
   const payload = {
-    coupon_code: couponResult?.valid ? couponResult.code : null,
+    coupon_code: discountCode,
     customer: {
       first_name: data.first_name,
       last_name: data.last_name,
@@ -383,7 +489,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     order: {
       subtotal,
       discount,
-      coupon_code: couponResult?.valid ? couponResult.code : null,
+      coupon_code: discountCode,
       coupon_discount: couponDiscount,
       shipping_cost: shippingCost,
       total,
