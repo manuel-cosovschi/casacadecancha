@@ -9,6 +9,7 @@ import { useCart } from '@/components/cart/CartProvider';
 import { getAttribution } from '@/components/store/UtmCapture';
 import { createOrder, applyCoupon, saveCart, estimateMdpShipping } from './actions';
 import { isWelcomeCode } from '@/lib/welcome';
+import { isLoyaltyCode } from '@/lib/loyalty';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
 import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT, preorderDeposit } from '@/lib/utils';
@@ -158,7 +159,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     // El cupón de bienvenida se valida contra el historial de ese email, así
     // que sin el email cargado no hay nada que verificar.
     const email = (watch('email') || '').trim();
-    if (isWelcomeCode(couponCode) && !email.includes('@')) {
+    if ((isWelcomeCode(couponCode) || isLoyaltyCode(couponCode)) && !email.includes('@')) {
       setCouponOk(false);
       setCouponDiscount(0);
       setCouponMsg('Completá tu email más arriba y volvé a aplicar el cupón.');
