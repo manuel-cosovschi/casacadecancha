@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/components/cart/CartProvider';
+import { CartProgress } from '@/components/cart/CartProgress';
 import { formatPrice } from '@/lib/utils';
 
 export default function CartPage() {
@@ -59,6 +60,7 @@ export default function CartPage() {
 
           <aside className="card h-fit p-5">
             <h2 className="mb-4 text-lg font-bold">Resumen</h2>
+            <CartProgress subtotal={subtotal} className="mb-4" />
             <div className="flex justify-between border-b border-navy/10 pb-3 text-sm">
               <span className="text-navy/70">Subtotal</span>
               <span className="font-semibold">{formatPrice(subtotal)}</span>
