@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/components/cart/CartProvider';
+import { CartProgress } from '@/components/cart/CartProgress';
 import {
   applyDiscount,
   discountAmount,
@@ -120,6 +121,7 @@ export function CartDrawer({ transferDiscount }: { transferDiscount: number }) {
             </div>
 
             <div className="border-t border-navy/10 p-4">
+              <CartProgress subtotal={subtotal} className="mb-3" />
               <div className="mb-2 flex justify-between text-sm">
                 <span className="text-navy/70">Subtotal</span>
                 <span className="font-semibold">{formatPrice(subtotal)}</span>

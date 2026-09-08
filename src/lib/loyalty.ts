@@ -22,27 +22,19 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * corresponde. Los códigos `FID-` de abajo siguen andando para mandarlos a
  * mano por WhatsApp, pero ya no son el camino principal.
  */
-export const LOYALTY = {
-  active: true,
-  prefix: 'FID-',
-  minOrderAmount: 100_000,
-  /** Escalones: a partir de N compras calificadas, tal porcentaje. */
-  tiers: [
-    { orders: 3, percent: 20 },
-    { orders: 2, percent: 15 },
-    { orders: 1, percent: 10 },
-  ],
-  windowDays: 60,
-};
+// Los escalones y el umbral viven en `loyalty-tiers` para que el carrito
+// pueda importarlos sin arrastrar `crypto` al bundle del navegador.
+// Se re-exportan acá para no romper a quien ya importaba desde este módulo.
+export {
+  LOYALTY,
+  percentForOrders,
+  statusFromOrders,
+  FIRST_TIER_PERCENT,
+} from './loyalty-tiers';
+export type { LoyaltyStatus } from './loyalty-tiers';
 
-/** Porcentaje que corresponde a esa cantidad de compras calificadas. */
-export function percentForOrders(orders: number): number {
-  if (!LOYALTY.active) return 0;
-  for (const t of LOYALTY.tiers) {
-    if (orders >= t.orders) return t.percent;
-  }
-  return 0;
-}
+import { LOYALTY, statusFromOrders } from './loyalty-tiers';
+import type { LoyaltyStatus } from './loyalty-tiers';
 
 function secret(): string | null {
   return process.env.WELCOME_SECRET || process.env.CRON_SECRET || null;
@@ -92,28 +84,6 @@ export function verifyLoyaltyCode(
 
 export function isLoyaltyCode(code: string): boolean {
   return (code || '').trim().toUpperCase().startsWith(LOYALTY.prefix);
-}
-
-export interface LoyaltyStatus {
-  orders: number;
-  percent: number;
-  /** Compras que faltan para el próximo escalón, o null si ya está al tope. */
-  toNext: number | null;
-  nextPercent: number | null;
-}
-
-/** Arma el estado a mostrar al cliente a partir de su cantidad de compras. */
-export function statusFromOrders(orders: number): LoyaltyStatus {
-  const percent = percentForOrders(orders);
-  const higher = [...LOYALTY.tiers]
-    .sort((a, b) => a.orders - b.orders)
-    .find((t) => t.orders > orders);
-  return {
-    orders,
-    percent,
-    toNext: higher ? higher.orders - orders : null,
-    nextPercent: higher ? higher.percent : null,
-  };
 }
 
 /**
