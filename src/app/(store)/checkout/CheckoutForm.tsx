@@ -7,7 +7,14 @@ import { useForm, type UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCart } from '@/components/cart/CartProvider';
 import { getAttribution } from '@/components/store/UtmCapture';
-import { createOrder, applyCoupon, saveCart, estimateMdpShipping } from './actions';
+import {
+  createOrder,
+  applyCoupon,
+  saveCart,
+  estimateMdpShipping,
+  lookupLoyalty,
+  type LoyaltyLookup,
+} from './actions';
 import { isWelcomeCode } from '@/lib/welcome';
 import { isLoyaltyCode } from '@/lib/loyalty';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
@@ -34,6 +41,9 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponOk, setCouponOk] = useState(false);
   const [couponBusy, setCouponBusy] = useState(false);
+  // Nivel de fidelidad del email que escribió. Se consulta solo, sin código.
+  const [loyalty, setLoyalty] = useState<LoyaltyLookup | null>(null);
+  const [loyaltyBusy, setLoyaltyBusy] = useState(false);
 
   const {
     register,
@@ -99,13 +109,22 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   );
   const showTransfer = !isRetiro && paymentMethod === 'transfer' && transferDiscount > 0;
   const transferDisc = showTransfer ? discountAmount(eligibleSubtotal, transferDiscount) : 0;
-  const discount = transferDisc + couponDiscount;
 
   // Precio a mostrar por ítem: en ventas nacionales, con el recargo metido en el precio.
   const linePrice = (i: { price: number }) => (isNacional ? withNationalMarkup(i.price) : i.price);
   const displaySubtotal = isNacional
     ? items.reduce((a, i) => a + withNationalMarkup(i.price) * i.quantity, 0)
     : subtotal;
+
+  // Descuento por ser cliente: se calcula sobre la misma base que usa el
+  // servidor en `createOrder`, así el resumen no promete un número distinto
+  // del que se termina cobrando.
+  const loyaltyPct = loyalty?.percent || 0;
+  const loyaltyDiscount = loyaltyPct > 0 ? Math.round(displaySubtotal * (loyaltyPct / 100)) : 0;
+  // No se acumulan: se aplica el mejor de los dos, igual que en el servidor.
+  const bestDiscount = Math.max(couponDiscount, loyaltyDiscount);
+  const loyaltyWins = loyaltyDiscount > couponDiscount;
+  const discount = transferDisc + bestDiscount;
 
   // Preventa: de los ítems en preventa se paga ahora la seña (50%); el resto al recibir.
   const payNowSubtotal = items.reduce(
@@ -154,6 +173,27 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     setMdpCost(z ? z.cost : null);
   }
 
+  /**
+   * Busca el nivel de fidelidad del email cargado. Es solo para mostrarlo: el
+   * descuento real lo recalcula el servidor al confirmar el pedido.
+   */
+  async function refreshLoyalty(email: string) {
+    const clean = (email || '').trim();
+    if (!clean.includes('@')) {
+      setLoyalty(null);
+      return;
+    }
+    setLoyaltyBusy(true);
+    try {
+      const res = await lookupLoyalty(clean);
+      setLoyalty(res.percent > 0 ? res : null);
+    } catch {
+      setLoyalty(null);
+    } finally {
+      setLoyaltyBusy(false);
+    }
+  }
+
   async function handleApplyCoupon() {
     if (!couponCode.trim()) return;
     // El cupón de bienvenida se valida contra el historial de ese email, así
@@ -167,11 +207,19 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     }
     setCouponBusy(true);
     setCouponMsg(null);
-    const res = await applyCoupon(couponCode.trim(), subtotal, email);
+    // Se pasa el subtotal que ve el cliente (con el recargo nacional ya metido
+    // en el precio), que es la misma base que usa el servidor al confirmar.
+    const res = await applyCoupon(couponCode.trim(), displaySubtotal, email);
     setCouponBusy(false);
     setCouponOk(res.valid);
     setCouponDiscount(res.valid ? res.discount : 0);
-    setCouponMsg(res.message);
+    // Si ya tenía un descuento mejor por ser cliente, se lo decimos en vez de
+    // dejarlo pensando que el cupón no le hizo nada.
+    setCouponMsg(
+      res.valid && loyaltyDiscount > res.discount
+        ? `Tu ${loyaltyPct}% de cliente es mejor que este cupón, así que dejamos ese.`
+        : res.message,
+    );
   }
 
   async function onSubmit(values: CheckoutInput) {
@@ -261,6 +309,9 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 {...register('email', {
                   onBlur: (e) => {
                     const email = e.target.value;
+                    // Con el mail alcanza para saber si le corresponde
+                    // descuento por ser cliente: no hace falta cuenta ni código.
+                    refreshLoyalty(email);
                     if (email.includes('@') && items.length > 0) {
                       saveCart({
                         email,
@@ -282,6 +333,30 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
               <input className="input" {...register('dni')} />
             </Field>
           </div>
+
+          {loyaltyBusy && (
+            <p className="mt-4 text-xs text-navy/45">Buscando tus compras anteriores…</p>
+          )}
+          {!loyaltyBusy && loyalty && loyalty.percent > 0 && (
+            <div className="mt-4 rounded-xl border-2 border-green-600/25 bg-green-50 p-3.5">
+              <p className="text-sm font-bold text-green-800">
+                ⭐ Cliente de Casaca — {loyalty.percent}% OFF
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-green-800/80">
+                Ya está aplicado a este pedido por tus {loyalty.orders}{' '}
+                {loyalty.orders === 1 ? 'compra anterior' : 'compras anteriores'}. No hace falta
+                ningún código.
+                {loyalty.toNext !== null && loyalty.nextPercent !== null && (
+                  <>
+                    {' '}
+                    Con {loyalty.toNext}{' '}
+                    {loyalty.toNext === 1 ? 'compra más' : 'compras más'} pasás al{' '}
+                    {loyalty.nextPercent}%.
+                  </>
+                )}
+              </p>
+            </div>
+          )}
         </fieldset>
 
         {/* Envío */}
@@ -525,8 +600,12 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
           {showTransfer && (
             <Row label={`Descuento transferencia (${transferDiscount}%)`} value={`- ${formatPrice(transferDisc)}`} accent />
           )}
-          {couponDiscount > 0 && (
-            <Row label="Cupón" value={`- ${formatPrice(couponDiscount)}`} accent />
+          {bestDiscount > 0 && (
+            <Row
+              label={loyaltyWins ? `Descuento cliente (${loyaltyPct}%)` : 'Cupón'}
+              value={`- ${formatPrice(bestDiscount)}`}
+              accent
+            />
           )}
           <Row
             label="Envío"
@@ -555,7 +634,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
             🔴 Preventa: pagás la seña ahora. El saldo de {formatPrice(balanceDue)} lo pagás cuando te llega.
           </p>
         )}
-        {(showTransfer || couponDiscount > 0) && (
+        {(showTransfer || bestDiscount > 0) && (
           <p className="mt-2 rounded-lg bg-celeste/20 p-2 text-center text-xs font-semibold text-navy">
             Ahorrás {formatPrice(discount)} en esta compra
           </p>

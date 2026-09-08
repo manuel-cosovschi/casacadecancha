@@ -2,6 +2,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/email';
 import { sendWhatsAppText } from '@/lib/whatsapp';
+import { notifyLoyaltyTier } from '@/lib/notify-loyalty';
 import { formatPrice } from '@/lib/utils';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://casacadecancha.shop';
@@ -77,6 +78,11 @@ export async function sendOrderConfirmation(orderNumber: string): Promise<void> 
         (ref ? `\n📦 Seguí el estado de tu envío:\n${trackingUrl}\nCódigo: *${ref}*` : '');
       await sendWhatsAppText(order.customer_phone, msg);
     }
+
+    // ---- Fidelidad ----
+    // Este pedido acaba de quedar pagado, así que recién ahora cuenta para el
+    // programa. Si con esta compra cruzó un escalón, se lo avisamos.
+    await notifyLoyaltyTier(supabase, order);
   } catch {
     /* best-effort: no romper el flujo de pago */
   }
