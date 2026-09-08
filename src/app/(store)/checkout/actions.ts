@@ -5,6 +5,7 @@ import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
 import { isWelcomeCode, checkWelcomeEligibility, WELCOME } from '@/lib/welcome';
+import { isLoyaltyCode, checkLoyalty } from '@/lib/loyalty';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
@@ -97,6 +98,31 @@ export async function saveCart(input: {
 }
 
 
+
+/**
+ * Valida el cupón de fidelidad. El nivel sale del historial de compras, así que
+ * si la base no puede responderlo se rechaza (ver `checkLoyalty`).
+ */
+async function validateLoyaltyCoupon(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  code: string,
+  subtotal: number,
+  email?: string,
+): Promise<CouponResult> {
+  const clean = code.trim().toUpperCase();
+  const check = await checkLoyalty(supabase, email || '', clean);
+  if (!check.valid) {
+    return { valid: false, code: clean, discount: 0, message: check.message };
+  }
+  const discount = Math.round(subtotal * (check.percent / 100));
+  return {
+    valid: true,
+    code: clean,
+    discount,
+    message: `Cupón de cliente aplicado: ahorrás $${discount.toLocaleString('es-AR')}.`,
+  };
+}
+
 /**
  * Valida el cupón de bienvenida. No sale de la tabla `promotions`: el código es
  * personal y está firmado con el mail del cliente, y además se contrasta contra
@@ -141,6 +167,9 @@ export async function applyCoupon(
     // de compras de ese email.
     if (isWelcomeCode(code)) {
       return await validateWelcomeCoupon(supabase, code, subtotal, email);
+    }
+    if (isLoyaltyCode(code)) {
+      return await validateLoyaltyCoupon(supabase, code, subtotal, email);
     }
     return await validateCoupon(supabase, code, subtotal);
   } catch {
@@ -273,7 +302,9 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   if (data.coupon_code && !couponBlockedBySale()) {
     couponResult = isWelcomeCode(data.coupon_code)
       ? await validateWelcomeCoupon(supabase, data.coupon_code, subtotal, data.email)
-      : await validateCoupon(supabase, data.coupon_code, subtotal);
+      : isLoyaltyCode(data.coupon_code)
+        ? await validateLoyaltyCoupon(supabase, data.coupon_code, subtotal, data.email)
+        : await validateCoupon(supabase, data.coupon_code, subtotal);
     if (!couponResult.valid) {
       return { ok: false, error: couponResult.message };
     }
