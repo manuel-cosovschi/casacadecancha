@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail, isEmailEnabled } from '@/lib/email';
-import { WELCOME } from '@/lib/welcome';
+import { WELCOME, personalCode } from '@/lib/welcome';
 
 export interface WelcomeResult {
   ok: boolean;
@@ -13,7 +13,7 @@ export interface WelcomeResult {
 
 const BRAND = '#0B1F3A';
 
-function welcomeEmailHtml(name: string) {
+function welcomeEmailHtml(name: string, code: string) {
   const first = name.trim().split(/\s+/)[0] || '';
   return `<div style="font-family:system-ui,-apple-system,sans-serif;color:${BRAND};max-width:520px;margin:0 auto">
     <h1 style="font-size:22px;margin:0 0 6px">¡Bienvenido${first ? ` ${first}` : ''}!</h1>
@@ -22,11 +22,12 @@ function welcomeEmailHtml(name: string) {
     </p>
     <div style="background:${BRAND};color:#fff;border-radius:16px;padding:24px;text-align:center">
       <p style="margin:0;font-size:11px;letter-spacing:2px;opacity:.75">TU CÓDIGO</p>
-      <p style="margin:8px 0;font-size:30px;font-weight:800;letter-spacing:2px">${WELCOME.code}</p>
+      <p style="margin:8px 0;font-size:30px;font-weight:800;letter-spacing:2px">${code}</p>
       <p style="margin:0;font-size:14px">${WELCOME.percent}% OFF en tu primera compra</p>
     </div>
     <p style="color:#444;line-height:1.6;margin:20px 0">
-      Usalo al finalizar la compra, en el campo de cupón.
+      Usalo al finalizar la compra, en el campo de cupón. Es personal: funciona
+      solo con este mismo email y vence en 30 días.
     </p>
     <p style="margin:0 0 22px">
       <a href="https://casacadecancha.shop/camisetas"
@@ -98,10 +99,17 @@ export async function subscribeWelcome(
     return { ok: true, message: '¡Listo! Te vamos a escribir con tu descuento.', emailed: false };
   }
 
+  const code = personalCode(email);
+  if (!code) {
+    // Sin secreto de firma no se puede emitir un código verificable. Antes de
+    // mandar uno que no va a funcionar, se avisa que escribimos nosotros.
+    return { ok: true, message: '¡Listo! Te vamos a escribir con tu descuento.', emailed: false };
+  }
+
   const sent = await sendEmail({
     to: email,
     subject: `Tu ${WELCOME.percent}% OFF de bienvenida`,
-    html: welcomeEmailHtml(name),
+    html: welcomeEmailHtml(name, code),
   });
 
   return {

@@ -98,9 +98,10 @@ export async function saveCart(input: {
 
 
 /**
- * Valida el cupón de bienvenida. A diferencia del resto, no sale de la tabla
- * `promotions`: se comprueba contra el historial de pedidos de ese email.
- * Si no se puede comprobar, se rechaza (ver `checkWelcomeEligibility`).
+ * Valida el cupón de bienvenida. No sale de la tabla `promotions`: el código es
+ * personal y está firmado con el mail del cliente, y además se contrasta contra
+ * el historial de pedidos cuando la base puede responderlo.
+ * Ver `checkWelcomeEligibility` para el orden de prioridad.
  */
 async function validateWelcomeCoupon(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -111,14 +112,15 @@ async function validateWelcomeCoupon(
   if (!WELCOME.active) {
     return { valid: false, code, discount: 0, message: 'Cupón inválido o inactivo.' };
   }
-  const check = await checkWelcomeEligibility(supabase, email || '');
+  const clean = code.trim().toUpperCase();
+  const check = await checkWelcomeEligibility(supabase, email || '', clean);
   if (!check.eligible) {
-    return { valid: false, code: WELCOME.code, discount: 0, message: check.message };
+    return { valid: false, code: clean, discount: 0, message: check.message };
   }
   const discount = Math.round(subtotal * (WELCOME.percent / 100));
   return {
     valid: true,
-    code: WELCOME.code,
+    code: clean,
     discount,
     message: `Descuento de bienvenida aplicado: ahorrás $${discount.toLocaleString('es-AR')}.`,
   };
