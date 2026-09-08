@@ -11,16 +11,16 @@ const check = (l: string, a: unknown, e: unknown) => {
 
 console.log('--- escalones ---');
 check('0 compras -> sin descuento', percentForOrders(0), 0);
-check('1 compra  -> 10%',           percentForOrders(1), 10);
-check('2 compras -> 12%',           percentForOrders(2), 12);
+check('1 compra  -> 5%',            percentForOrders(1), 5);
+check('2 compras -> 10%',           percentForOrders(2), 10);
 check('3 compras -> 15%',           percentForOrders(3), 15);
 check('5 compras -> 15% (tope)',    percentForOrders(5), 15);
 check('12 compras-> 15% (tope)',    percentForOrders(12), 15);
 
 console.log('\n--- lo que ve el cliente ---');
-check('con 0: le falta 1 para el 10%', statusFromOrders(0), {orders:0,percent:0,toNext:1,nextPercent:10});
-check('con 1: le falta 1 para el 12%', statusFromOrders(1), {orders:1,percent:10,toNext:1,nextPercent:12});
-check('con 2: le falta 1 para el 15%', statusFromOrders(2), {orders:2,percent:12,toNext:1,nextPercent:15});
+check('con 0: le falta 1 para el 5%',  statusFromOrders(0), {orders:0,percent:0,toNext:1,nextPercent:5});
+check('con 1: le falta 1 para el 10%', statusFromOrders(1), {orders:1,percent:5,toNext:1,nextPercent:10});
+check('con 2: le falta 1 para el 15%', statusFromOrders(2), {orders:2,percent:10,toNext:1,nextPercent:15});
 check('con 3: ya está al tope',        statusFromOrders(3), {orders:3,percent:15,toNext:null,nextPercent:null});
 
 console.log('\n--- el código es de ese cliente Y de ese nivel ---');
@@ -29,8 +29,8 @@ const ana15 = loyaltyCode('ana@test.com', 15, hoy)!;
 check('tiene prefijo FID-', isLoyaltyCode(ana15), true);
 check('vale para ana al 15%', verifyLoyaltyCode('ana@test.com', 15, ana15, hoy), true);
 check('NO vale para otro mail', verifyLoyaltyCode('beto@test.com', 15, ana15, hoy), false);
-check('NO vale para otro nivel', verifyLoyaltyCode('ana@test.com', 12, ana15, hoy), false);
-check('al subir de nivel cambia el código', loyaltyCode('ana@test.com', 12, hoy) !== ana15, true);
+check('NO vale para otro nivel', verifyLoyaltyCode('ana@test.com', 10, ana15, hoy), false);
+check('al subir de nivel cambia el código', loyaltyCode('ana@test.com', 10, hoy) !== ana15, true);
 check('inventado no pasa', verifyLoyaltyCode('ana@test.com', 15, 'FID-XXXXXXXX', hoy), false);
 
 console.log('\n--- vigencia y bordes ---');
