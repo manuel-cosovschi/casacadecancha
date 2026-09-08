@@ -9,12 +9,30 @@
 export const LOYALTY = {
   active: true,
   prefix: 'FID-',
-  /** Mínimo de la compra (sobre el subtotal) para que sume al programa. */
-  minOrderAmount: 100_000,
-  /** Escalones: a partir de N compras calificadas, tal porcentaje. */
+  /**
+   * Mínimo de la compra (sobre el subtotal) para que sume al programa.
+   *
+   * Está apenas por debajo de la camiseta más barata del catálogo ($31.111) a
+   * propósito: el umbral existe para que una compra chica no cuente como
+   * compra, y acá no hay compras chicas. Con el valor anterior ($100.000)
+   * hacían falta dos camisetas en un mismo pedido, así que quien compraba de a
+   * una no acumulaba nunca — comprara una vez o diez.
+   */
+  minOrderAmount: 30_000,
+  /**
+   * Escalones: a partir de N compras calificadas, tal porcentaje.
+   *
+   * El tope es 15% y no 20% por los márgenes reales: al 20%, el de $65.000
+   * (que cuesta $52.468) se cobraría $52.000, o sea a pérdida. Al 15% el peor
+   * caso todavía deja ganancia.
+   *
+   * Estos valores tienen que coincidir con la tabla `loyalty_config` de la
+   * base, que es la que manda para el descuento que se cobra. Acá se usan para
+   * lo que se le muestra al cliente antes de que escriba su mail.
+   */
   tiers: [
-    { orders: 3, percent: 20 },
-    { orders: 2, percent: 15 },
+    { orders: 3, percent: 15 },
+    { orders: 2, percent: 12 },
     { orders: 1, percent: 10 },
   ],
   windowDays: 60,
@@ -54,3 +72,15 @@ export function statusFromOrders(orders: number): LoyaltyStatus {
 /** El escalón más bajo: lo que gana quien todavía no compró nunca. */
 export const FIRST_TIER_PERCENT =
   [...LOYALTY.tiers].sort((a, b) => a.orders - b.orders)[0]?.percent ?? 0;
+
+/**
+ * Los escalones que vienen después del primero, de menor a mayor.
+ *
+ * Sale de `tiers` en vez de estar escrito a mano en la vista: si mañana se
+ * cambian los porcentajes, los carteles se actualizan solos en vez de quedar
+ * prometiendo un número viejo.
+ */
+export const HIGHER_TIER_PERCENTS = [...LOYALTY.tiers]
+  .sort((a, b) => a.orders - b.orders)
+  .filter((t) => t.percent > FIRST_TIER_PERCENT)
+  .map((t) => t.percent);
