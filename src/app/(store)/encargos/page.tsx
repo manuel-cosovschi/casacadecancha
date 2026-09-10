@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { EncargoRequestForm } from './EncargoRequestForm';
+import { isAiEnabled } from '@/lib/ai';
 import { VacationNotice } from '@/components/store/VacationNotice';
 import { getAllSettings, vacationState } from '@/lib/settings';
 
@@ -38,7 +40,11 @@ export default async function EncargosPage() {
         </p>
       </div>
 
-      <EncargoRequestForm />
+      {/* El formulario lee la URL (la pre-carga que manda el buscador), y eso
+          necesita su propio límite de Suspense. */}
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-navy/5" />}>
+        <EncargoRequestForm photoReader={isAiEnabled()} />
+      </Suspense>
     </div>
   );
 }
