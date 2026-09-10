@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createEncargoRequest } from './actions';
+import { markSearchBecameRequest } from '@/app/(store)/camisetas/search-actions';
+import { ShirtPhotoPicker } from './ShirtPhotoPicker';
 
 type ItemRow = { product: string; size: string; quantity: number };
 
@@ -11,7 +14,11 @@ const MIN_QTY = 2;
 
 const emptyItem = (): ItemRow => ({ product: '', size: 'M', quantity: 1 });
 
-export function EncargoRequestForm() {
+export function EncargoRequestForm({ photoReader = false }: { photoReader?: boolean }) {
+  const params = useSearchParams();
+  // El buscador manda acá lo que no encontró, ya masticado: ?p=<camiseta> y
+  // ?s=<id de la búsqueda>, para poder marcarla si el encargo se concreta.
+  const searchId = params.get('s');
   const [items, setItems] = useState<ItemRow[]>([emptyItem(), emptyItem()]);
   const [delivery, setDelivery] = useState<'envio' | 'retiro'>('envio');
   const [form, setForm] = useState({
@@ -29,6 +36,17 @@ export function EncargoRequestForm() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
+  // Pre-carga desde el buscador: el primer renglón viene escrito.
+  useEffect(() => {
+    const p = params.get('p');
+    const j = params.get('j');
+    if (!p) return;
+    const texto = [p, j].filter(Boolean).join(' — ');
+    setItems((prev) =>
+      prev[0]?.product ? prev : prev.map((it, i) => (i === 0 ? { ...it, product: texto } : it)),
+    );
+  }, [params]);
+
   const totalQty = useMemo(
     () => items.reduce((a, i) => a + (Number(i.quantity) || 0), 0),
     [items],
@@ -40,6 +58,17 @@ export function EncargoRequestForm() {
   const removeItem = (idx: number) =>
     setItems((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  /**
+   * Lo que devuelve la foto entra en el primer renglón vacío. Si están todos
+   * escritos se agrega uno nuevo, para no pisar lo que la persona ya cargó.
+   */
+  const cargarDesdeFoto = (descripcion: string) =>
+    setItems((prev) => {
+      const libre = prev.findIndex((i) => !i.product.trim());
+      if (libre === -1) return [...prev, { ...emptyItem(), product: descripcion }];
+      return prev.map((it, i) => (i === libre ? { ...it, product: descripcion } : it));
+    });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,6 +112,8 @@ export function EncargoRequestForm() {
       return;
     }
     setDone(res.requestNumber || '');
+    // Queda registrado que esa búsqueda sin resultado terminó en un encargo.
+    if (searchId) markSearchBecameRequest(searchId);
   }
 
   if (done) {
@@ -178,6 +209,12 @@ export function EncargoRequestForm() {
           >
             + Agregar otra camiseta
           </button>
+
+          {photoReader && (
+            <div className="mt-4">
+              <ShirtPhotoPicker onIdentified={cargarDesdeFoto} />
+            </div>
+          )}
 
           <p className="mt-3 text-sm font-semibold text-navy/70">
             Total: {totalQty} prenda(s){' '}

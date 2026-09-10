@@ -27,6 +27,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
       { label: 'Subastas', href: '/admin/subastas' },
       { label: 'Envíos', href: '/admin/envios' },
       { label: 'Faltantes', href: '/admin/faltantes' },
+      { label: 'Demanda', href: '/admin/demanda' },
       { label: 'Qué comprar', href: '/admin/comprar' },
       { label: 'Proveedores', href: '/admin/proveedores' },
       { label: 'Encargos', href: '/admin/encargos' },

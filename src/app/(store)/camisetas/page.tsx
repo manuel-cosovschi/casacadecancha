@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ProductGrid } from '@/components/store/ProductGrid';
+import { SmartSearch } from '@/components/store/SmartSearch';
 import { getProductsByCategorySlug, getActiveProducts } from '@/lib/queries';
 import { getTransferDiscount } from '@/lib/store-helpers';
 
@@ -17,11 +18,16 @@ export default async function CamisetasPage() {
   ]);
   const products = byCat.length > 0 ? byCat : all;
   return (
-    <ProductGrid
-      title="Camisetas"
-      description="Camisetas para vivir cada partido con tus colores."
-      products={products}
-      transferDiscount={transferDiscount}
-    />
+    <>
+      <div className="container-page pt-8">
+        <SmartSearch />
+      </div>
+      <ProductGrid
+        title="Camisetas"
+        description="Camisetas para vivir cada partido con tus colores."
+        products={products}
+        transferDiscount={transferDiscount}
+      />
+    </>
   );
 }
