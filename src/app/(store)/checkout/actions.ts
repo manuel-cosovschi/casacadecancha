@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
+import { precioPromoLinea, promoLineaActiva, PROMO_LINEA } from '@/lib/promo-linea';
 import { isWelcomeCode, checkWelcomeEligibility, WELCOME } from '@/lib/welcome';
 import { isLoyaltyCode, checkLoyalty, loyaltyForEmail, LOYALTY } from '@/lib/loyalty';
 import { getAllSettings, vacationState } from '@/lib/settings';
@@ -267,7 +268,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const variantIds = data.items.map((i) => i.variantId);
   const { data: variants, error: vErr } = await supabase
     .from('product_variants')
-    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_cost, variant_price, active, products(name, price, unit_cost, packaging_cost, allow_backorder, transfer_discount, preorder)')
+    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_cost, variant_price, active, products(name, slug, price, unit_cost, packaging_cost, allow_backorder, transfer_discount, preorder)')
     .in('id', variantIds);
 
   if (vErr || !variants) {
@@ -279,8 +280,14 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // líneas usen el mismo porcentaje aunque la promo venza mientras se cobra.
   const salePct = salePercentAt();
   let saleDiscount = 0; // solo informativo: ya viene descontado en unit_price
+  let promoLineaDiscount = 0; // solo informativo: ya viene descontado en unit_price
   let subtotal = 0;
   let eligibleSubtotal = 0; // base para el descuento por transferencia
+  // Base sobre la que corren cupón y descuento de cliente: el subtotal SIN los
+  // productos que ya están en promo de línea. Es la regla de no acumulación:
+  // esa camiseta ya tiene su descuento y no recibe otro encima. Sin promo
+  // activa esto vale exactamente lo mismo que `subtotal`.
+  let discountableSubtotal = 0;
   let preorderBalance = 0; // saldo de preventa que se paga al recibir (no se cobra ahora)
   let estimatedCost = 0;
   const orderItems: {
@@ -324,16 +331,25 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     if (!(listPrice > 0)) {
       return { ok: false, error: `No pudimos confirmar el precio de ${product.name}.` };
     }
-    // Promo vigente sobre todo el catálogo. Se aplica antes del recargo por
-    // despacho: la promo descuenta el producto, no el costo de mandarlo.
-    const basePrice = applyDiscount(listPrice, salePct);
-    saleDiscount += (listPrice - basePrice) * item.quantity;
+    // Promo de línea (precio fijo) y después la del catálogo (porcentaje). Las
+    // dos van antes del recargo por despacho: descuentan el producto, no el
+    // costo de mandarlo.
+    const promoPrice = precioPromoLinea(product.slug, listPrice);
+    const trasPromoLinea = promoPrice ?? listPrice;
+    promoLineaDiscount += (listPrice - trasPromoLinea) * item.quantity;
+    const basePrice = applyDiscount(trasPromoLinea, salePct);
+    saleDiscount += (trasPromoLinea - basePrice) * item.quantity;
     // Ventas nacionales: recargo por despacho (metido en el precio, no lo ve el cliente como aparte).
     const price = data.shipping_method === 'nacional' ? withNationalMarkup(basePrice) : basePrice;
     const cost = (v.variant_cost ?? product?.unit_cost ?? 0) + (product?.packaging_cost ?? 0);
     const lineSubtotal = price * item.quantity;
     subtotal += lineSubtotal;
-    if (product?.transfer_discount !== false) eligibleSubtotal += lineSubtotal;
+    // Lo que está en promo de línea no recibe ningún otro descuento encima:
+    // queda fuera de la base del cupón, del descuento de cliente y del de
+    // transferencia. Un carrito mixto sí los recibe, sobre el resto.
+    const enPromoLinea = promoPrice !== null;
+    if (!enPromoLinea) discountableSubtotal += lineSubtotal;
+    if (product?.transfer_discount !== false && !enPromoLinea) eligibleSubtotal += lineSubtotal;
     // Preventa: solo se cobra ahora la seña (50%); el resto queda como saldo a pagar al recibir.
     if (product?.preorder) {
       preorderBalance += (price - preorderDeposit(price)) * item.quantity;
@@ -366,13 +382,16 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // Con la promo activa el cupón se ignora, igual que en el checkout: así el
   // total que se cobra es exactamente el que vio el cliente.
   const saleBlocks = Boolean(couponBlockedBySale());
+  // Todo lo que se descuenta acá corre sobre `discountableSubtotal`, que deja
+  // afuera lo que ya está en promo de línea. Sin promo activa es igual a
+  // `subtotal`, así que para el resto del catálogo nada cambia.
   let couponResult: CouponResult | null = null;
   if (data.coupon_code && !saleBlocks) {
     couponResult = isWelcomeCode(data.coupon_code)
-      ? await validateWelcomeCoupon(supabase, data.coupon_code, subtotal, data.email)
+      ? await validateWelcomeCoupon(supabase, data.coupon_code, discountableSubtotal, data.email)
       : isLoyaltyCode(data.coupon_code)
-        ? await validateLoyaltyCoupon(supabase, data.coupon_code, subtotal, data.email)
-        : await validateCoupon(supabase, data.coupon_code, subtotal);
+        ? await validateLoyaltyCoupon(supabase, data.coupon_code, discountableSubtotal, data.email)
+        : await validateCoupon(supabase, data.coupon_code, discountableSubtotal);
     if (!couponResult.valid) {
       return { ok: false, error: couponResult.message };
     }
@@ -386,7 +405,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     ? { percent: 0, orders: 0 }
     : await loyaltyForEmail(supabase, data.email);
   const loyaltyDiscount =
-    loyalty.percent > 0 ? Math.round(subtotal * (loyalty.percent / 100)) : 0;
+    loyalty.percent > 0 ? Math.round(discountableSubtotal * (loyalty.percent / 100)) : 0;
 
   // Los descuentos no se acumulan: se aplica el mejor de los dos y se avisa.
   // Que se lleve el mayor es lo que el cliente espera; sumarlos sería regalar
@@ -446,6 +465,12 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     saleDiscount > 0
       ? `PROMO ${salePct}% OFF aplicada: $${Math.round(saleDiscount).toLocaleString('es-AR')} de descuento`
       : '';
+  // Igual que la promo del catálogo: los unit_price ya vienen con el precio de
+  // promo, así que sin esta nota el total aparece más bajo sin explicación.
+  const promoLineaNote =
+    promoLineaDiscount > 0
+      ? `${PROMO_LINEA.label}: línea Icon a $${PROMO_LINEA.price.toLocaleString('es-AR')} — $${Math.round(promoLineaDiscount).toLocaleString('es-AR')} de descuento`
+      : '';
   // Idem para el descuento por ser cliente: se aplica solo, sin código, así que
   // sin esta nota en el panel el total aparecería más bajo sin explicación.
   const loyaltyNote = loyaltyWins
@@ -459,6 +484,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     preorderNote,
     boxNote,
     saleNote,
+    promoLineaNote,
     loyaltyNote,
     shippingNote,
   ]

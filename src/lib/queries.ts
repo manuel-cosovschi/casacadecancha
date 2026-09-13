@@ -1,20 +1,25 @@
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { availableStock } from '@/lib/utils';
 import { withSalePricing } from '@/lib/sale';
+import { withPromoLinea } from '@/lib/promo-linea';
 import type { Collection, FAQ, Product } from '@/lib/types';
 
 const PRODUCT_SELECT =
   '*, images:product_images(*), variants:product_variants(*)';
 
 /**
- * Ordena imágenes y talles, y aplica la promo vigente. Es el único punto por el
- * que el storefront lee productos, así que alcanza con descontar acá para que
- * el precio de promo salga igual en el catálogo, la ficha y el carrito.
+ * Ordena imágenes y talles, y aplica las promos vigentes. Es el único punto por
+ * el que el storefront lee productos, así que alcanza con descontar acá para
+ * que el precio de promo salga igual en el catálogo, la ficha y el carrito.
+ *
+ * Primero la promo de línea (precio fijo) y después la del catálogo
+ * (porcentaje), en ese orden: si estuviera al revés, el precio fijo pisaría el
+ * porcentaje y la promo del sitio no se notaría en esos productos.
  */
 function sortProduct(p: Product): Product {
   if (p.images) p.images.sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order);
   if (p.variants) p.variants.sort((a, b) => a.sort_order - b.sort_order);
-  return withSalePricing(p);
+  return withSalePricing(withPromoLinea(p));
 }
 
 export async function getActiveProducts(limit = 24): Promise<Product[]> {

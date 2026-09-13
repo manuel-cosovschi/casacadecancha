@@ -247,6 +247,13 @@ export function ProductPurchase({
 
       {/* Precio */}
       <div>
+        {/* El cartel de la promo va arriba del precio: es lo que explica por
+            qué está tachado, y acá es donde la persona decide. */}
+        {product.promo_label && (
+          <span className="mb-2 inline-block rounded-full bg-gold px-3 py-1 text-xs font-black uppercase tracking-wide text-navy">
+            🏆 {product.promo_label}
+          </span>
+        )}
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="text-3xl font-black text-navy">{formatPrice(product.price)}</span>
           {hasCompare && (

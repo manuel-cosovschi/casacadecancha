@@ -56,6 +56,10 @@ export function ProductCard({
               {product.badge}
             </span>
           )}
+          {/* Va antes del -X%: el nombre de la promo vende más que el número. */}
+          {product.promo_label && (
+            <span className="badge bg-gold text-navy shadow-sm">{product.promo_label}</span>
+          )}
           {off > 0 && (
             <span className="badge bg-red-500 text-white shadow-sm">-{off}%</span>
           )}
