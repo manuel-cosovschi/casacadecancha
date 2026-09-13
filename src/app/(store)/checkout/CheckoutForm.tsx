@@ -17,6 +17,7 @@ import {
 } from './actions';
 import { isWelcomeCode } from '@/lib/welcome';
 import { isLoyaltyCode } from '@/lib/loyalty';
+import { estaEnPromoLinea } from '@/lib/promo-linea';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
 import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT, preorderDeposit } from '@/lib/utils';
@@ -116,11 +117,21 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     ? items.reduce((a, i) => a + withNationalMarkup(i.price) * i.quantity, 0)
     : subtotal;
 
+  // Lo que está en promo de línea no recibe otro descuento encima: queda fuera
+  // de la base del cupón y del descuento de cliente, igual que en el servidor.
+  const promoLineaSubtotal = items.reduce(
+    (a, i) => a + (estaEnPromoLinea(i.slug) ? linePrice(i) * i.quantity : 0),
+    0,
+  );
+  const discountableSubtotal = displaySubtotal - promoLineaSubtotal;
+  const hayPromoLinea = promoLineaSubtotal > 0;
+
   // Descuento por ser cliente: se calcula sobre la misma base que usa el
   // servidor en `createOrder`, así el resumen no promete un número distinto
   // del que se termina cobrando.
   const loyaltyPct = loyalty?.percent || 0;
-  const loyaltyDiscount = loyaltyPct > 0 ? Math.round(displaySubtotal * (loyaltyPct / 100)) : 0;
+  const loyaltyDiscount =
+    loyaltyPct > 0 ? Math.round(discountableSubtotal * (loyaltyPct / 100)) : 0;
   // No se acumulan: se aplica el mejor de los dos, igual que en el servidor.
   const bestDiscount = Math.max(couponDiscount, loyaltyDiscount);
   const loyaltyWins = loyaltyDiscount > couponDiscount;
@@ -209,7 +220,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     setCouponMsg(null);
     // Se pasa el subtotal que ve el cliente (con el recargo nacional ya metido
     // en el precio), que es la misma base que usa el servidor al confirmar.
-    const res = await applyCoupon(couponCode.trim(), displaySubtotal, email);
+    const res = await applyCoupon(couponCode.trim(), discountableSubtotal, email);
     setCouponBusy(false);
     setCouponOk(res.valid);
     setCouponDiscount(res.valid ? res.discount : 0);
@@ -606,6 +617,14 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
               value={`- ${formatPrice(bestDiscount)}`}
               accent
             />
+          )}
+          {/* Si hay algo en promo y además un descuento, hay que decir por qué
+              el descuento no cubre todo el pedido: si no, parece un error. */}
+          {hayPromoLinea && bestDiscount > 0 && (
+            <p className="pt-1 text-[11px] leading-relaxed text-navy/45">
+              El descuento no corre sobre lo que ya está en promo, que tiene su
+              propio precio rebajado.
+            </p>
           )}
           <Row
             label="Envío"

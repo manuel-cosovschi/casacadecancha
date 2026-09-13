@@ -82,6 +82,12 @@ export interface Product {
   seo_description: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Cartel de promo puesto en tiempo de lectura por `withPromoLinea`. No está
+   * en la base: es solo para pintar el badge, y desaparece solo cuando la
+   * promo vence.
+   */
+  promo_label?: string;
   images?: ProductImage[];
   variants?: ProductVariant[];
 }
