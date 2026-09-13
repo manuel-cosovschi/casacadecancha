@@ -39,6 +39,10 @@ export const PROMO_LINEA: PromoLinea = {
   badge: 'SEMANA DE COPA',
   // La línea Icon completa. Va por slug y no por nombre: si mañana se renombra
   // un producto, es preferible que la promo no lo agarre a que agarre otro.
+  //
+  // Cinco slugs dicen "-importada" aunque el producto ahora se llame "adidas
+  // Originals": los slugs son las URLs que ya circulan y no se tocan al
+  // renombrar. No están desactualizados, son las 8 correctas.
   slugs: [
     'camiseta-ajax-icon-importada',
     'camiseta-arsenal-icon-adidas',
