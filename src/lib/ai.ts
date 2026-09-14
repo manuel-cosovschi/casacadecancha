@@ -39,13 +39,19 @@ export function isAiEnabled(): boolean {
 /**
  * El modelo de cada proveedor.
  *
- * Los de OpenAI se pueden pisar con `OPENAI_MODEL` sin tocar el código, que es
- * lo que conviene: los nombres cambian seguido y no hay que salir a deployar
- * por eso. Si el que está puesto no existe, la API lo rechaza y queda el motivo
- * en la tarjeta de Configuración.
+ * Se pisan con `OPENAI_MODEL` / `ANTHROPIC_MODEL` sin tocar el código: los
+ * nombres cambian seguido y no hay que salir a deployar por eso. Si el que está
+ * puesto no existe, la API lo rechaza y el motivo queda en la tarjeta de
+ * Configuración.
+ *
+ * El default de OpenAI es `gpt-5-mini` y no uno más grande a propósito. Probado
+ * con fotos del catálogo: con una camiseta reconocible aciertan todos, pero con
+ * una difícil gpt-4o y gpt-4.1 inventan un club con confianza "alta" mientras
+ * gpt-5-mini contesta que no sabe. Acá un invento con cara de certeza es peor
+ * que un "no sé": le llena el encargo al cliente con la camiseta equivocada.
  */
 export function modelo(p: Proveedor = proveedor() ?? 'anthropic'): string {
-  if (p === 'openai') return process.env.OPENAI_MODEL || 'gpt-4o';
+  if (p === 'openai') return process.env.OPENAI_MODEL || 'gpt-5-mini';
   return process.env.ANTHROPIC_MODEL || 'claude-opus-5';
 }
 
@@ -167,6 +173,18 @@ async function conClaude<T>(p: PedidoJson): Promise<T | null | 'rechazo'> {
   return (res.parsed_output as T) ?? null;
 }
 
+/**
+ * ¿Es un modelo que razona antes de contestar?
+ *
+ * Importa porque el razonamiento se descuenta del mismo presupuesto de tokens
+ * que la respuesta: con el tope chico, gpt-5 gasta todo pensando y devuelve
+ * vacío. Verificado contra la API real — con 3000 tokens volvía sin contenido
+ * y `finish_reason: 'length'`.
+ */
+function razona(model: string): boolean {
+  return /^(gpt-5|o1|o3|o4)/i.test(model);
+}
+
 async function conGpt<T>(p: PedidoJson): Promise<T | null | 'rechazo'> {
   const contenido: OpenAI.Chat.ChatCompletionContentPart[] = [];
   if (p.imagen) {
@@ -177,8 +195,11 @@ async function conGpt<T>(p: PedidoJson): Promise<T | null | 'rechazo'> {
   }
   contenido.push({ type: 'text', text: p.usuario });
 
+  const model = modelo('openai');
+  const pensador = razona(model);
+
   const res = await clienteOpenAI().chat.completions.create({
-    model: modelo('openai'),
+    model,
     messages: [
       // El contexto grande va en su propio mensaje de sistema: OpenAI cachea
       // solo los prefijos largos, así que conviene que quede al principio y
@@ -197,14 +218,27 @@ async function conGpt<T>(p: PedidoJson): Promise<T | null | 'rechazo'> {
         strict: true,
       },
     },
-    max_completion_tokens: p.maxTokens ?? 2000,
+    // Los razonadores necesitan aire: el presupuesto lo comparten el
+    // razonamiento y la respuesta, y si se queda corto vuelve vacío.
+    max_completion_tokens: pensador ? (p.maxTokens ?? 2000) + 6000 : p.maxTokens ?? 2000,
+    ...(pensador
+      ? { reasoning_effort: p.esfuerzo === 'medio' ? ('medium' as const) : ('low' as const) }
+      : {}),
   });
 
-  const msg = res.choices[0]?.message;
+  const salida = res.choices[0];
+  const msg = salida?.message;
   if (!msg) return null;
   // OpenAI marca la negativa en un campo aparte, no en el motivo de corte.
   if (msg.refusal) return 'rechazo';
-  if (!msg.content) return null;
+  if (!msg.content) {
+    // Sin esto el síntoma es "la IA no anda" sin ninguna pista de por qué.
+    console.error(
+      `[ia:openai] ${model} devolvió vacío (finish_reason: ${salida.finish_reason}). ` +
+        'Si dice "length", el modelo se quedó sin tokens: subí max_completion_tokens.',
+    );
+    return null;
+  }
   return JSON.parse(msg.content) as T;
 }
 

@@ -78,7 +78,8 @@ Reglas:
 - Fijate en el escudo, el sponsor del pecho, la marca, el diseño y el cuello: esas cuatro cosas juntas suelen fijar la temporada.
 - Si dudás entre dos temporadas, elegí la más probable y poné confidence "media" o "baja". No inventes precisión que no tenés.
 - Si en la imagen no hay una camiseta de fútbol, devolvé es_camiseta false y el resto en null.
-- "descripcion" es el renglón del pedido y va en castellano rioplatense, sin adjetivos de venta. Formato: "Camiseta <equipo> <año> <versión>" y, si se ve, " — <jugador> <dorsal>".`;
+- "descripcion" es el renglón del pedido y va en castellano rioplatense, sin adjetivos de venta. Formato: "Camiseta <equipo> <año> <versión>" y, si se ve, " — <jugador> <dorsal>".
+- Lo que no sepas, OMITILO de "descripcion". Nunca escribas "desconocido", "desconocida", "sin datos", "?" ni nada por el estilo: ese texto lo lee el cliente en su propio pedido. Si solo reconocés el club, la descripción es "Camiseta <equipo>" y listo.`;
 
 export interface ResultadoFoto {
   ok: boolean;
