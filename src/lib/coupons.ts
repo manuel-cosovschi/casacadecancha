@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { motivoSinBaseDescontable } from '@/lib/promo-linea';
 
 export interface CouponResult {
   valid: boolean;
@@ -47,6 +48,12 @@ export async function validateCoupon(
   }
   if (promo.max_uses != null && promo.used_count >= promo.max_uses) {
     return { valid: false, code, discount: 0, message: 'El cupón alcanzó su límite de usos.' };
+  }
+
+  // El de envío gratis no toca el subtotal, así que vale aunque la base sea
+  // cero. Los que descuentan plata, no: sin base no descuentan nada.
+  if (promo.type !== 'free_shipping' && !(subtotal > 0)) {
+    return { valid: false, code, discount: 0, message: motivoSinBaseDescontable() };
   }
 
   let discount = 0;

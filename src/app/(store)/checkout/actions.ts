@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
-import { precioPromoLinea, promoLineaActiva, PROMO_LINEA } from '@/lib/promo-linea';
+import { motivoSinBaseDescontable, precioPromoLinea, promoLineaActiva, PROMO_LINEA } from '@/lib/promo-linea';
 import { isWelcomeCode, checkWelcomeEligibility, WELCOME } from '@/lib/welcome';
 import { isLoyaltyCode, checkLoyalty, loyaltyForEmail, LOYALTY } from '@/lib/loyalty';
 import { getAllSettings, vacationState } from '@/lib/settings';
@@ -171,6 +171,9 @@ async function validateLoyaltyCoupon(
   if (!check.valid) {
     return { valid: false, code: clean, discount: 0, message: check.message };
   }
+  if (!(subtotal > 0)) {
+    return { valid: false, code: clean, discount: 0, message: motivoSinBaseDescontable() };
+  }
   const discount = Math.round(subtotal * (check.percent / 100));
   return {
     valid: true,
@@ -199,6 +202,9 @@ async function validateWelcomeCoupon(
   const check = await checkWelcomeEligibility(supabase, email || '', clean);
   if (!check.eligible) {
     return { valid: false, code: clean, discount: 0, message: check.message };
+  }
+  if (!(subtotal > 0)) {
+    return { valid: false, code: clean, discount: 0, message: motivoSinBaseDescontable() };
   }
   const discount = Math.round(subtotal * (WELCOME.percent / 100));
   return {

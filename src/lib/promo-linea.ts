@@ -114,6 +114,21 @@ export function withPromoLinea(product: Product, now?: Date): Product {
   };
 }
 
+/**
+ * Por qué un cupón no descuenta nada.
+ *
+ * Pasa cuando todo el carrito está en promo de línea: como la promo no se
+ * acumula, la base sobre la que corre el cupón queda en cero. Decirle al
+ * cliente "cupón aplicado: ahorrás $0" en verde es mentirle — se rechaza el
+ * cupón y se explica el motivo, aclarando que el código no se quema.
+ */
+export function motivoSinBaseDescontable(): string {
+  const que = promoLineaActiva()
+    ? `en la promo ${PROMO_LINEA.label}, que no se combina con otros descuentos`
+    : 'en promoción, y no se combina con otros descuentos';
+  return `Todo lo que tenés en el carrito está ${que}. Tu código sigue intacto para una próxima compra.`;
+}
+
 /** Fecha de fin en formato largo, para los carteles. */
 export function promoLineaHasta(): string {
   return new Date(PROMO_LINEA.ends_at).toLocaleDateString('es-AR', {
