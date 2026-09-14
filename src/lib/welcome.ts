@@ -77,11 +77,84 @@ export function isWelcomeCode(code: string): boolean {
   return (code || '').trim().toUpperCase().startsWith(WELCOME.prefix);
 }
 
+/**
+ * ¿Tiene pinta de DNI argentino?
+ *
+ * Mismo criterio que `norm_dni` en la base (migración 0037): los dos tienen
+ * que coincidir o el checkout aceptaría algo que después la base ignora.
+ */
+export function looksLikeDni(dni?: string | null): boolean {
+  const d = (dni || '').replace(/\D/g, '');
+  return d.length >= 7 && d.length <= 9;
+}
+
 export interface WelcomeEligibility {
   eligible: boolean;
   /** 'rpc' = verificado contra el historial real. 'code' = código personal. */
   via: 'rpc' | 'code' | null;
   message: string;
+}
+
+/** Qué encontró `first_purchase_check` en el historial. */
+interface PrimeraCompra {
+  /** Compras previas de esa persona, por cualquiera de las tres señales. */
+  orders: number;
+  /** De esas, cuántas usaron un código de bienvenida. */
+  welcome_orders: number;
+  /** Con qué señal se la reconoció. */
+  via: 'dni' | 'phone' | 'email' | null;
+}
+
+/**
+ * ¿Esta persona ya compró antes? Cruza mail, teléfono y DNI.
+ *
+ * El código está firmado contra el mail, así que para repetirlo alcanza con
+ * usar otro — y con Gmail ni siquiera hace falta crear una casilla nueva.
+ * Por eso no se pregunta "¿este mail compró?" sino "¿esta persona compró?".
+ *
+ * Devuelve null si la base todavía no tiene la función (migración 0037 sin
+ * aplicar): ahí manda el chequeo viejo, que al menos cubre el mail.
+ */
+async function buscarCompraPrevia(
+  supabase: SupabaseClient,
+  email: string,
+  phone?: string | null,
+  dni?: string | null,
+): Promise<PrimeraCompra | null> {
+  const { data, error } = await supabase.rpc('first_purchase_check', {
+    p_email: email,
+    p_phone: phone || null,
+    p_dni: dni || null,
+  });
+  if (error || !data) return null;
+  const d = data as Record<string, unknown>;
+  return {
+    orders: Number(d.orders) || 0,
+    welcome_orders: Number(d.welcome_orders) || 0,
+    via: (d.via as PrimeraCompra['via']) ?? null,
+  };
+}
+
+/** Qué se le dice a alguien que ya usó el beneficio, según cómo se lo reconoció. */
+function motivoYaUsado(hit: PrimeraCompra): string {
+  const cierre =
+    ' Si creés que es un error, escribinos por WhatsApp y lo vemos.';
+  if (hit.welcome_orders > 0) {
+    if (hit.via === 'dni') {
+      return `Ese DNI ya usó el descuento de primera compra.${cierre}`;
+    }
+    if (hit.via === 'phone') {
+      return `Ese WhatsApp ya usó el descuento de primera compra.${cierre}`;
+    }
+    return `Ya usaste el descuento de primera compra.${cierre}`;
+  }
+  if (hit.via === 'dni') {
+    return `Ese DNI ya tiene compras, así que no es una primera compra.${cierre}`;
+  }
+  if (hit.via === 'phone') {
+    return `Ese WhatsApp ya tiene compras, así que no es una primera compra.${cierre}`;
+  }
+  return 'El descuento de bienvenida es solo para la primera compra.';
 }
 
 /**
@@ -97,6 +170,8 @@ export async function checkWelcomeEligibility(
   supabase: SupabaseClient,
   email: string,
   code: string,
+  phone?: string | null,
+  dni?: string | null,
 ): Promise<WelcomeEligibility> {
   const clean = (email || '').trim().toLowerCase();
   if (!clean.includes('@')) {
@@ -117,7 +192,26 @@ export async function checkWelcomeEligibility(
     };
   }
 
-  // Verificación real de primera compra, si la base puede responderla.
+  // El DNI se pide SOLO acá: quien paga precio normal no lo completa nunca.
+  // Sin él, cambiar de mail y de teléfono alcanza para repetir el descuento.
+  if (!looksLikeDni(dni)) {
+    return {
+      eligible: false,
+      via: null,
+      message: 'Completá tu DNI para usar el descuento de primera compra.',
+    };
+  }
+
+  // Verificación cruzada: mail, teléfono y DNI.
+  const hit = await buscarCompraPrevia(supabase, clean, phone, dni);
+  if (hit) {
+    if (hit.orders > 0) {
+      return { eligible: false, via: 'rpc', message: motivoYaUsado(hit) };
+    }
+    return { eligible: true, via: 'rpc', message: 'Descuento de bienvenida aplicado.' };
+  }
+
+  // Sin la función nueva: al menos el chequeo viejo, que cubre el mail.
   const { data, error } = await supabase.rpc('orders_count_for_email', {
     p_email: clean,
   });

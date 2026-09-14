@@ -15,7 +15,7 @@ import {
   lookupLoyalty,
   type LoyaltyLookup,
 } from './actions';
-import { isWelcomeCode } from '@/lib/welcome';
+import { isWelcomeCode, looksLikeDni } from '@/lib/welcome';
 import { sugerirEmail } from '@/lib/email-typos';
 import { isLoyaltyCode } from '@/lib/loyalty';
 import { estaEnPromoLinea } from '@/lib/promo-linea';
@@ -130,6 +130,12 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const discountableSubtotal = displaySubtotal - promoLineaSubtotal;
   const hayPromoLinea = promoLineaSubtotal > 0;
 
+  // El DNI se pide SOLO para el descuento de primera compra: quien paga
+  // precio normal no lo completa nunca. Sin él, cambiar de mail y de
+  // teléfono alcanza para repetir el mismo descuento.
+  const usaBienvenida = isWelcomeCode(couponCode);
+  const dniNecesario = usaBienvenida && !looksLikeDni(watch('dni') as string);
+
   // Descuento por ser cliente: se calcula sobre la misma base que usa el
   // servidor en `createOrder`, así el resumen no promete un número distinto
   // del que se termina cobrando.
@@ -224,7 +230,13 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     setCouponMsg(null);
     // Se pasa el subtotal que ve el cliente (con el recargo nacional ya metido
     // en el precio), que es la misma base que usa el servidor al confirmar.
-    const res = await applyCoupon(couponCode.trim(), discountableSubtotal, email);
+    const res = await applyCoupon(
+      couponCode.trim(),
+      discountableSubtotal,
+      email,
+      (watch('phone') as string) || null,
+      (watch('dni') as string) || null,
+    );
     setCouponBusy(false);
     setCouponOk(res.valid);
     setCouponDiscount(res.valid ? res.discount : 0);
@@ -365,8 +377,27 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 </span>
               )}
             </Field>
-            <Field label="DNI (opcional)" error={errors.dni?.message}>
-              <input className="input" {...register('dni')} />
+            <Field
+              label={usaBienvenida ? 'DNI' : 'DNI (opcional)'}
+              error={errors.dni?.message}
+            >
+              <input
+                className="input"
+                inputMode="numeric"
+                placeholder={usaBienvenida ? 'Sin puntos' : ''}
+                {...register('dni')}
+              />
+              {usaBienvenida && (
+                <span
+                  className={`mt-1 block text-xs ${
+                    dniNecesario ? 'text-amber-700' : 'text-navy/50'
+                  }`}
+                >
+                  {dniNecesario
+                    ? 'Necesitamos tu DNI para darte el descuento de primera compra.'
+                    : 'Lo usamos solo para verificar que sea tu primera compra.'}
+                </span>
+              )}
             </Field>
           </div>
 

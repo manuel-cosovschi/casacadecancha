@@ -167,12 +167,12 @@ async function validateLoyaltyCoupon(
   email?: string,
 ): Promise<CouponResult> {
   const clean = code.trim().toUpperCase();
+  if (!(subtotal > 0)) {
+    return { valid: false, code: clean, discount: 0, message: motivoSinBaseDescontable() };
+  }
   const check = await checkLoyalty(supabase, email || '', clean);
   if (!check.valid) {
     return { valid: false, code: clean, discount: 0, message: check.message };
-  }
-  if (!(subtotal > 0)) {
-    return { valid: false, code: clean, discount: 0, message: motivoSinBaseDescontable() };
   }
   const discount = Math.round(subtotal * (check.percent / 100));
   return {
@@ -194,17 +194,22 @@ async function validateWelcomeCoupon(
   code: string,
   subtotal: number,
   email?: string,
+  phone?: string | null,
+  dni?: string | null,
 ): Promise<CouponResult> {
   if (!WELCOME.active) {
     return { valid: false, code, discount: 0, message: 'Cupón inválido o inactivo.' };
   }
   const clean = code.trim().toUpperCase();
-  const check = await checkWelcomeEligibility(supabase, email || '', clean);
-  if (!check.eligible) {
-    return { valid: false, code: clean, discount: 0, message: check.message };
-  }
+  // Primero se mira si hay algo que descontar. Al revés, a alguien con el
+  // carrito entero en promo le pediríamos el DNI para un descuento que de
+  // todos modos no se le puede aplicar.
   if (!(subtotal > 0)) {
     return { valid: false, code: clean, discount: 0, message: motivoSinBaseDescontable() };
+  }
+  const check = await checkWelcomeEligibility(supabase, email || '', clean, phone, dni);
+  if (!check.eligible) {
+    return { valid: false, code: clean, discount: 0, message: check.message };
   }
   const discount = Math.round(subtotal * (WELCOME.percent / 100));
   return {
@@ -220,6 +225,9 @@ export async function applyCoupon(
   code: string,
   subtotal: number,
   email?: string,
+  /** Solo los usa el de bienvenida, para no dar el mismo descuento dos veces. */
+  phone?: string | null,
+  dni?: string | null,
 ): Promise<CouponResult> {
   // Los cupones no se acumulan con la promo del catálogo.
   const blocked = couponBlockedBySale();
@@ -229,7 +237,7 @@ export async function applyCoupon(
     // El de bienvenida no vive en `promotions`: se valida contra el historial
     // de compras de ese email.
     if (isWelcomeCode(code)) {
-      return await validateWelcomeCoupon(supabase, code, subtotal, email);
+      return await validateWelcomeCoupon(supabase, code, subtotal, email, phone, dni);
     }
     if (isLoyaltyCode(code)) {
       return await validateLoyaltyCoupon(supabase, code, subtotal, email);
@@ -394,7 +402,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   let couponResult: CouponResult | null = null;
   if (data.coupon_code && !saleBlocks) {
     couponResult = isWelcomeCode(data.coupon_code)
-      ? await validateWelcomeCoupon(supabase, data.coupon_code, discountableSubtotal, data.email)
+      ? await validateWelcomeCoupon(supabase, data.coupon_code, discountableSubtotal, data.email, data.phone, data.dni)
       : isLoyaltyCode(data.coupon_code)
         ? await validateLoyaltyCoupon(supabase, data.coupon_code, discountableSubtotal, data.email)
         : await validateCoupon(supabase, data.coupon_code, discountableSubtotal);
