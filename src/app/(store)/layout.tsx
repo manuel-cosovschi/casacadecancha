@@ -5,6 +5,7 @@ import { Header } from '@/components/store/Header';
 import { Footer } from '@/components/store/Footer';
 import { WhatsAppButton } from '@/components/store/WhatsAppButton';
 import { UtmCapture } from '@/components/store/UtmCapture';
+import { TrafficTracker } from '@/components/store/TrafficTracker';
 import { VacationGate, VacationBar } from '@/components/store/VacationGate';
 import { SaleStrip, SalePopup } from '@/components/store/SaleBanner';
 import { PromoLineaStrip } from '@/components/store/PromoLineaStrip';
@@ -40,6 +41,7 @@ export default async function StoreLayout({
   return (
     <CartProvider>
       <UtmCapture />
+      <TrafficTracker />
       {vac.active ? (
         <>
           <VacationGate

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import type { CartItem } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
+import { track } from '@/lib/traffic';
 
 const STORAGE_KEY = 'cdc_cart_v1';
 
@@ -77,6 +78,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       content_ids: [clean.productId],
       value: clean.price * clean.quantity,
       currency: 'ARS',
+    });
+    // Para el panel en vivo: qué agregó y por cuánto.
+    track({
+      kind: 'al_carrito',
+      label: clean.name,
+      value: clean.price * clean.quantity,
+      stage: 'carrito',
     });
     setIsOpen(true);
   }, []);

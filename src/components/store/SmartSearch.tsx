@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { searchCatalog, type SearchResponse } from '@/app/(store)/camisetas/search-actions';
 import { formatPrice } from '@/lib/utils';
+import { track } from '@/lib/traffic';
 
 /**
  * Buscador del catálogo en lenguaje natural.
@@ -32,7 +33,10 @@ export function SmartSearch() {
     setBusy(true);
     setError(null);
     try {
-      setRes(await searchCatalog(limpio));
+      const r = await searchCatalog(limpio);
+      setRes(r);
+      // Qué busca la gente: sirve para saber qué falta en el catálogo.
+      track({ kind: 'busqueda', label: limpio.slice(0, 80) });
     } catch {
       setError('No pudimos buscar ahora. Probá de nuevo en un momento.');
     } finally {
