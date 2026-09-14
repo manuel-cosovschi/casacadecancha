@@ -1,13 +1,17 @@
 import { PageHeader } from '@/components/admin/ui';
 import { SettingsForm } from '@/components/admin/SettingsForm';
+import { EmailStatus } from '@/components/admin/EmailStatus';
 import { getAllSettings } from '@/lib/settings';
+import { estadoEmail } from './email-actions';
 
 export default async function ConfigPage() {
-  const s = await getAllSettings();
+  const [s, email] = await Promise.all([getAllSettings(), estadoEmail()]);
 
   return (
     <div className="space-y-5">
       <PageHeader title="Configuración" description="Pagos, envíos, contacto y analítica." />
+
+      <EmailStatus estado={email} />
 
       <SettingsForm
         settingKey="payments_transfer"

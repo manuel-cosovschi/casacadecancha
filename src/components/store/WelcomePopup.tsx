@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { subscribeWelcome } from '@/app/(store)/welcome-actions';
+import { sugerirEmail } from '@/lib/email-typos';
 
 /**
  * Popup de captación: pide nombre y mail a cambio de un 10% en la primera
@@ -39,6 +40,10 @@ export function WelcomePopup() {
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Corrección propuesta del dominio del mail. Se propone, no se impone. */
+  const [sugerencia, setSugerencia] = useState<string | null>(null);
+  /** El mail que ya decidió mandar igual, sugerencia de por medio. */
+  const [insistio, setInsistio] = useState<string | null>(null);
 
   const visible = open && !SILENT_PATHS.some((p) => pathname?.startsWith(p));
 
@@ -72,6 +77,19 @@ export function WelcomePopup() {
     e.preventDefault();
     if (sending) return;
     setError(null);
+
+    // Si hay una corrección pendiente, frenamos UNA vez y se la mostramos. No
+    // alcanza con mirar si la sugerencia está en pantalla: al apretar el botón
+    // el campo pierde el foco y la sugerencia aparece en el mismo instante que
+    // el envío, así que nunca llegaría a verla. Se recuerda para qué mail ya
+    // decidió seguir: si vuelve a mandar, manda lo que escribió. Es su mail.
+    const propuesta = sugerirEmail(email);
+    if (propuesta && insistio !== email) {
+      setSugerencia(propuesta);
+      setInsistio(email);
+      return;
+    }
+
     setSending(true);
     try {
       const res = await subscribeWelcome(name, email);
@@ -161,13 +179,36 @@ export function WelcomePopup() {
               </label>
               <input
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setSugerencia(null);
+                }}
+                onBlur={(e) => setSugerencia(sugerirEmail(e.target.value))}
                 required
                 type="email"
                 autoComplete="email"
                 placeholder="juan@email.com"
                 className="input w-full"
               />
+
+              {/* Un dominio mal tipeado rebota y la persona nunca ve su código.
+                  Se pregunta, no se corrige solo: el mail es de quien lo escribe. */}
+              {sugerencia && (
+                <p className="mt-2 text-sm text-navy/70">
+                  ¿Quisiste decir{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail(sugerencia);
+                      setSugerencia(null);
+                    }}
+                    className="font-bold text-celeste-bright underline underline-offset-2"
+                  >
+                    {sugerencia}
+                  </button>
+                  ?
+                </p>
+              )}
 
               {error && (
                 <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">

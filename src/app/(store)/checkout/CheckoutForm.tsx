@@ -16,6 +16,7 @@ import {
   type LoyaltyLookup,
 } from './actions';
 import { isWelcomeCode } from '@/lib/welcome';
+import { sugerirEmail } from '@/lib/email-typos';
 import { isLoyaltyCode } from '@/lib/loyalty';
 import { estaEnPromoLinea } from '@/lib/promo-linea';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
@@ -61,6 +62,9 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
       items: [],
     },
   });
+
+  /** Corrección propuesta del dominio del mail. Se propone, no se impone. */
+  const [sugerenciaMail, setSugerenciaMail] = useState<string | null>(null);
 
   // Disponibilidad horaria (próximas 48 hs) para coordinar la entrega en MdP.
   const [availDays, setAvailDays] = useState<{ label: string; from: string; to: string }[]>([]);
@@ -318,8 +322,12 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 className="input"
                 type="email"
                 {...register('email', {
+                  onChange: () => setSugerenciaMail(null),
                   onBlur: (e) => {
                     const email = e.target.value;
+                    // Un dominio mal tipeado deja al cliente sin confirmación de
+                    // compra y sin poder validar su descuento.
+                    setSugerenciaMail(sugerirEmail(email));
                     // Con el mail alcanza para saber si le corresponde
                     // descuento por ser cliente: no hace falta cuenta ni código.
                     refreshLoyalty(email);
@@ -339,6 +347,23 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                   },
                 })}
               />
+              {sugerenciaMail && (
+                <span className="mt-1 block text-xs text-navy/70">
+                  ¿Quisiste decir{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', sugerenciaMail, { shouldValidate: true });
+                      setSugerenciaMail(null);
+                      refreshLoyalty(sugerenciaMail);
+                    }}
+                    className="font-bold text-celeste-bright underline underline-offset-2"
+                  >
+                    {sugerenciaMail}
+                  </button>
+                  ?
+                </span>
+              )}
             </Field>
             <Field label="DNI (opcional)" error={errors.dni?.message}>
               <input className="input" {...register('dni')} />
