@@ -1,6 +1,5 @@
 import 'server-only';
-import { jsonSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/json-schema';
-import { getAi, isAiEnabled, wasRefused, AI_MODEL } from '@/lib/ai';
+import { pedirJson, isAiEnabled } from '@/lib/ai';
 
 /**
  * Identifica una camiseta a partir de una foto o captura.
@@ -20,7 +19,8 @@ export type TipoImagen = (typeof TIPOS_OK)[number];
 /** 5 MB: más que eso es una foto de cámara sin comprimir, no una captura. */
 export const MAX_BYTES = 5 * 1024 * 1024;
 
-// JSON Schema y no Zod: el helper de Zod del SDK pide Zod 4 y el proyecto usa
+// JSON Schema y no Zod: es el único formato que entienden los dos proveedores
+// igual, y además el helper de Zod del SDK pide Zod 4 mientras el proyecto usa
 // Zod 3 para los formularios.
 const IDENTIFICACION_SCHEMA = {
   type: 'object',
@@ -102,44 +102,22 @@ export async function identifyShirt(
     return { ok: false, message: 'La imagen es muy pesada. Probá con una captura más liviana.' };
   }
 
-  const ai = getAi();
-  if (!ai) return { ok: false, message: 'La lectura de fotos no está disponible por ahora.' };
+  const res = await pedirJson<Identificacion>({
+    nombre: 'identificacion_camiseta',
+    sistema: SISTEMA,
+    usuario: '¿Qué camiseta es?',
+    imagen: { base64, mediaType },
+    // Acá sí conviene que piense: distinguir 2006 de 2007 en una camiseta se
+    // juega en detalles chicos, y es una sola llamada por foto subida.
+    esfuerzo: 'medio',
+    schema: IDENTIFICACION_SCHEMA as unknown as Record<string, unknown>,
+  });
 
-  try {
-    const res = await ai.messages.parse({
-      model: AI_MODEL,
-      max_tokens: 2000,
-      system: SISTEMA,
-      // Acá sí conviene que piense: distinguir 2006 de 2007 en una camiseta se
-      // juega en detalles chicos, y es una sola llamada por foto subida.
-      thinking: { type: 'adaptive' },
-      output_config: {
-        effort: 'medium',
-        format: jsonSchemaOutputFormat(IDENTIFICACION_SCHEMA),
-      },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType as TipoImagen, data: base64 },
-            },
-            { type: 'text', text: '¿Qué camiseta es?' },
-          ],
-        },
-      ],
-    });
-
-    if (wasRefused(res) || !res.parsed_output) {
-      return { ok: false, message: 'No pudimos leer esa imagen. Probá con otra.' };
-    }
-    if (!res.parsed_output.es_camiseta) {
-      return { ok: false, message: 'En esa imagen no vemos una camiseta. Probá con otra foto.' };
-    }
-    return { ok: true, data: res.parsed_output };
-  } catch (e) {
-    console.error('[foto] falló la identificación:', e);
-    return { ok: false, message: 'No pudimos leer la imagen ahora. Probá de nuevo en un momento.' };
+  if (!res.ok) {
+    return { ok: false, message: 'No pudimos leer esa imagen. Probá con otra.' };
   }
+  if (!res.data.es_camiseta) {
+    return { ok: false, message: 'En esa imagen no vemos una camiseta. Probá con otra foto.' };
+  }
+  return { ok: true, data: res.data };
 }

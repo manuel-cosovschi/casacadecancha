@@ -11,6 +11,7 @@ import {
   type DominioResend,
 } from '@/lib/email';
 import { personalCode } from '@/lib/welcome';
+import { proveedor, modelo, probarIa } from '@/lib/ai';
 
 export interface EstadoEmail {
   /** ¿Hay RESEND_API_KEY? */
@@ -109,4 +110,39 @@ export async function mandarMailDePrueba(destino: string): Promise<ResultadoPrue
     ? ' Estás mandando desde onboarding@resend.dev, que solo entrega a tu propio mail. Verificá el dominio en Resend y configurá EMAIL_FROM.'
     : '';
   return { ok: false, mensaje: `No salió. ${res.error || ''}${extra}` };
+}
+
+export interface EstadoIa {
+  /** ¿Hay alguna key cargada? */
+  activo: boolean;
+  /** Cuál está en uso. */
+  proveedor: 'anthropic' | 'openai' | null;
+  /** Qué modelo va a pedir. */
+  modelo: string | null;
+  /** ¿Están cargadas las dos? (manda Claude salvo que AI_PROVIDER diga otra cosa) */
+  ambas: boolean;
+}
+
+/** Qué IA está configurada, sin llamar a nadie. */
+export async function estadoIa(): Promise<EstadoIa> {
+  await requireAdmin();
+  const p = proveedor();
+  return {
+    activo: p !== null,
+    proveedor: p,
+    modelo: p ? modelo(p) : null,
+    ambas: Boolean(process.env.ANTHROPIC_API_KEY && process.env.OPENAI_API_KEY),
+  };
+}
+
+/**
+ * Le pide al modelo una respuesta mínima para ver si la key sirve de verdad.
+ *
+ * Que la variable esté cargada no quiere decir nada: puede estar vencida, sin
+ * saldo, o apuntando a un modelo que no existe. Esto lo dice de verdad.
+ */
+export async function probarIaAction(): Promise<ResultadoPrueba> {
+  await requireAdmin();
+  const r = await probarIa();
+  return { ok: r.ok, mensaje: r.detalle };
 }
