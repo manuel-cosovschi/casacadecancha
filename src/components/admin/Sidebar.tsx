@@ -9,7 +9,10 @@ import { cn } from '@/lib/utils';
 const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = [
   {
     title: 'General',
-    items: [{ label: 'Resumen', href: '/admin' }],
+    items: [
+      { label: 'Resumen', href: '/admin' },
+      { label: 'En vivo', href: '/admin/en-vivo' },
+    ],
   },
   {
     title: 'Catálogo',

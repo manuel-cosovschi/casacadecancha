@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { subscribeWelcome } from '@/app/(store)/welcome-actions';
 import { sugerirEmail } from '@/lib/email-typos';
+import { track } from '@/lib/traffic';
 
 /**
  * Popup de captación: pide nombre y mail a cambio de un 10% en la primera
@@ -102,6 +103,7 @@ export function WelcomePopup() {
       } catch {
         /* ignore */
       }
+      track({ kind: 'suscripcion', label: res.emailed ? 'con código' : 'sin código' });
       setDone(res.message);
     } catch {
       setError('No se pudo enviar. Probá de nuevo en un momento.');

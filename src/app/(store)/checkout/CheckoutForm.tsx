@@ -25,6 +25,7 @@ import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT, preorderDep
 import { computeNationalShipping, parseZones, withNationalMarkup } from '@/lib/shipping';
 import type { ShippingSettings, ShippingCalcSettings } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
+import { track } from '@/lib/traffic';
 
 interface Props {
   transferDiscount: number;
@@ -284,6 +285,15 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
         value: total,
         currency: 'ARS',
         order: result.orderNumber,
+      });
+      // Cierra el embudo del panel en vivo: esta visita terminó en compra.
+      track({
+        kind: 'compra',
+        value: total,
+        stage: 'compro',
+        order_number: result.orderNumber,
+        cart_items: items.length,
+        cart_value: total,
       });
       clear();
       router.push(
