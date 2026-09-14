@@ -1,6 +1,5 @@
 import 'server-only';
-import { jsonSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/json-schema';
-import { getAi, isAiEnabled, wasRefused, AI_MODEL } from '@/lib/ai';
+import { pedirJson, isAiEnabled } from '@/lib/ai';
 import { buildCatalogSnapshot, type CatalogSnapshot } from '@/lib/catalog-index';
 import type { Product } from '@/lib/types';
 
@@ -12,13 +11,14 @@ import type { Product } from '@/lib/types';
  * eso se le arma el encargo pre-cargado y se anota la demanda que se estaba
  * perdiendo en silencio.
  *
- * Sin `ANTHROPIC_API_KEY` no se rompe nada: cae a una búsqueda por texto
- * (`buscarPorTexto`), que encuentra menos pero encuentra.
+ * Sin key de IA no se rompe nada: cae a una búsqueda por texto
+ * (`buscarPorTexto`), que encuentra menos pero encuentra. Da igual si la key
+ * es de Claude o de GPT: eso lo resuelve `pedirJson`.
  */
 
-// Se describe como JSON Schema y no con Zod porque el helper de Zod del SDK
-// pide Zod 4, y el proyecto usa Zod 3 para los formularios. Este helper tipa
-// igual el `parsed_output` y no ata las dos versiones.
+// JSON Schema y no Zod: es el único formato que entienden los dos
+// proveedores igual, y además el helper de Zod del SDK pide Zod 4 mientras el
+// proyecto usa Zod 3 para los formularios.
 const RESPUESTA_SCHEMA = {
   type: 'object',
   properties: {
@@ -135,8 +135,7 @@ export async function smartSearch(queryRaw: string): Promise<SmartSearchResult> 
     return { products: [], reply: '', understood: null, via: 'texto' };
   }
 
-  const ai = getAi();
-  if (!ai || !isAiEnabled()) {
+  if (!isAiEnabled()) {
     const products = buscarPorTexto(query, snapshot.products);
     return {
       products,
@@ -148,47 +147,33 @@ export async function smartSearch(queryRaw: string): Promise<SmartSearchResult> 
     };
   }
 
-  try {
-    const res = await ai.messages.parse({
-      model: AI_MODEL,
-      max_tokens: 2000,
-      // El catálogo va primero y se cachea: cambia poco, y la consulta —que
-      // cambia siempre— queda después del breakpoint.
-      system: [
-        { type: 'text', text: SISTEMA },
-        {
-          type: 'text',
-          text: `CATÁLOGO ACTUAL:\n${snapshot.text}`,
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-      // Es una consulta de tienda: la persona está esperando con la página
-      // abierta, así que prioriza responder rápido sobre razonar de más.
-      output_config: {
-        effort: 'low',
-        format: jsonSchemaOutputFormat(RESPUESTA_SCHEMA),
-      },
-      messages: [{ role: 'user', content: query }],
-    });
+  const res = await pedirJson<{
+    slugs: string[];
+    reply: string;
+    understood: Entendido;
+  }>({
+    nombre: 'resultado_busqueda',
+    sistema: SISTEMA,
+    // El catálogo va aparte: es lo que más ocupa y lo que menos cambia, así
+    // que conviene que quede cacheado y no mezclado con la consulta.
+    contexto: `CATÁLOGO ACTUAL:\n${snapshot.text}`,
+    usuario: query,
+    // Es una consulta de tienda: la persona está esperando con la página
+    // abierta, así que prioriza responder rápido sobre razonar de más.
+    esfuerzo: 'bajo',
+    schema: RESPUESTA_SCHEMA as unknown as Record<string, unknown>,
+  });
 
-    if (wasRefused(res) || !res.parsed_output) {
-      const products = buscarPorTexto(query, snapshot.products);
-      return { products, reply: '', understood: null, via: 'texto' };
-    }
-
-    const { slugs, reply, understood } = res.parsed_output;
-    // Solo slugs que existan de verdad: si el modelo inventa uno, se descarta.
-    const products = slugs
-      .map((s) => snapshot.bySlug.get(s))
-      .filter((p): p is Product => Boolean(p));
-
-    return { products, reply, understood, via: 'ia' };
-  } catch (e) {
-    // Cualquier problema con la API y la tienda sigue andando. Pero queda
-    // registrado: si esto falla siempre, el buscador está degradado sin que
-    // nadie se entere, y por fuera se ve igual que funcionando.
-    console.error('[buscador] falló la consulta al modelo:', e);
+  if (!res.ok) {
     const products = buscarPorTexto(query, snapshot.products);
     return { products, reply: '', understood: null, via: 'texto' };
   }
+
+  const { slugs, reply, understood } = res.data;
+  // Solo slugs que existan de verdad: si el modelo inventa uno, se descarta.
+  const products = slugs
+    .map((s) => snapshot.bySlug.get(s))
+    .filter((p): p is Product => Boolean(p));
+
+  return { products, reply, understood, via: 'ia' };
 }
