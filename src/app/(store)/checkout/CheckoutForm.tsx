@@ -374,14 +374,41 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
             <p className="mt-4 text-xs text-navy/45">Buscando tus compras anteriores…</p>
           )}
           {!loyaltyBusy && loyalty && loyalty.percent > 0 && (
-            <div className="mt-4 rounded-xl border-2 border-green-600/25 bg-green-50 p-3.5">
-              <p className="text-sm font-bold text-green-800">
+            <div
+              className={`mt-4 rounded-xl border-2 p-3.5 ${
+                loyaltyDiscount > 0
+                  ? 'border-green-600/25 bg-green-50'
+                  : 'border-amber-500/30 bg-amber-50'
+              }`}
+            >
+              <p
+                className={`text-sm font-bold ${
+                  loyaltyDiscount > 0 ? 'text-green-800' : 'text-amber-800'
+                }`}
+              >
                 ⭐ Cliente de Casaca — {loyalty.percent}% OFF
               </p>
-              <p className="mt-0.5 text-xs leading-relaxed text-green-800/80">
-                Ya está aplicado a este pedido por tus {loyalty.orders}{' '}
-                {loyalty.orders === 1 ? 'compra anterior' : 'compras anteriores'}. No hace falta
-                ningún código.
+              <p
+                className={`mt-0.5 text-xs leading-relaxed ${
+                  loyaltyDiscount > 0 ? 'text-green-800/80' : 'text-amber-900/80'
+                }`}
+              >
+                {/* Con el carrito entero en promo el descuento da $0. Decir "ya
+                    está aplicado" sería mentira: se dice qué pasa de verdad. */}
+                {loyaltyDiscount > 0 ? (
+                  <>
+                    Ya está aplicado a este pedido por tus {loyalty.orders}{' '}
+                    {loyalty.orders === 1 ? 'compra anterior' : 'compras anteriores'}. No hace
+                    falta ningún código.
+                  </>
+                ) : (
+                  <>
+                    Te corresponde por tus {loyalty.orders}{' '}
+                    {loyalty.orders === 1 ? 'compra anterior' : 'compras anteriores'}, pero{' '}
+                    <strong>en este pedido no suma</strong>: lo que tenés en el carrito ya está en
+                    promo y las promos no se combinan. Te queda para tu próxima compra.
+                  </>
+                )}
                 {loyalty.toNext !== null && loyalty.nextPercent !== null && (
                   <>
                     {' '}
