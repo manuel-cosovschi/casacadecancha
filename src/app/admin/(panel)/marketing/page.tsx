@@ -1,26 +1,108 @@
 import { PageHeader, StatCard, EmptyState } from '@/components/admin/ui';
 import { ExportButton } from '@/components/admin/ExportButton';
-import { getStockNotifications, getAbandonedCarts } from '@/lib/admin/data';
+import { getStockNotifications, getAbandonedCarts, getWelcomeSignups } from '@/lib/admin/data';
+import { WELCOME } from '@/lib/welcome';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 
+/** mailto: con el código adentro, para mandarlo desde tu propio mail. */
+function mailtoCodigo(s: { name: string; email: string; code: string | null }) {
+  const nombre = s.name.trim().split(/\s+/)[0] || '';
+  const cuerpo = [
+    `¡Hola${nombre ? ` ${nombre}` : ''}!`,
+    '',
+    `Acá va tu código de ${WELCOME.percent}% OFF para tu primera compra: ${s.code ?? ''}`,
+    '',
+    'Lo ponés en el campo de cupón al finalizar la compra, con este mismo mail.',
+    '',
+    'https://casacadecancha.shop/camisetas',
+  ].join('\n');
+  return `mailto:${s.email}?subject=${encodeURIComponent(`Tu ${WELCOME.percent}% OFF de bienvenida`)}&body=${encodeURIComponent(cuerpo)}`;
+}
+
 export default async function MarketingPage() {
-  const [stock, carts] = await Promise.all([
+  const [stock, carts, suscriptores] = await Promise.all([
     getStockNotifications(),
     getAbandonedCarts(),
+    getWelcomeSignups(),
   ]);
 
   const pendingStock = stock.filter((s: any) => !s.notified);
   const openCarts = carts.filter((c: any) => !c.converted);
+  const sinComprar = suscriptores.filter((s) => s.orders === 0);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Marketing" description="Demanda de stock y carritos abandonados." />
+      <PageHeader title="Marketing" description="Suscriptores, demanda de stock y carritos abandonados." />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard label="Suscriptores del popup" value={String(suscriptores.length)} hint={`${sinComprar.length} todavía sin comprar`} />
         <StatCard label="Avisos de stock pendientes" value={String(pendingStock.length)} accent={pendingStock.length > 0 ? 'amber' : 'navy'} />
         <StatCard label="Personas esperando" value={String(new Set(pendingStock.map((s: any) => s.email)).size)} />
         <StatCard label="Carritos abandonados" value={String(openCarts.length)} accent={openCarts.length > 0 ? 'amber' : 'navy'} />
         <StatCard label="Recuperables" value={formatPrice(openCarts.reduce((a: number, c: any) => a + Number(c.subtotal), 0))} />
+      </div>
+
+      {/* Suscriptores del popup */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-navy">Suscriptores del popup</h2>
+          <ExportButton
+            rows={suscriptores.map((s) => ({ nombre: s.name, email: s.email, codigo: s.code, compro: s.orders > 0 ? 'sí' : 'no', fecha: s.created_at }))}
+            filename="suscriptores"
+          />
+        </div>
+        <p className="mb-2 text-sm text-navy/60">
+          El código de cada uno es el que acepta el checkout. Si a alguien no le llegó el mail,
+          mandáselo vos desde acá.
+        </p>
+        {suscriptores.length === 0 ? (
+          <EmptyState message="Todavía nadie dejó su mail en el popup." />
+        ) : (
+          <div className="card overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-sm">
+              <thead>
+                <tr className="border-b border-navy/10 text-left text-navy/50">
+                  <th className="p-3">Nombre</th>
+                  <th className="p-3">Email</th>
+                  <th className="p-3">Su código</th>
+                  <th className="p-3">Estado</th>
+                  <th className="p-3">Fecha</th>
+                  <th className="p-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {suscriptores.map((s) => (
+                  <tr key={s.id} className="border-b border-navy/5">
+                    <td className="p-3 font-medium">{s.name}</td>
+                    <td className="p-3 text-navy/70">{s.email}</td>
+                    <td className="p-3">
+                      {s.code ? (
+                        <code className="select-all rounded bg-navy/5 px-1.5 py-0.5 font-bold text-navy">{s.code}</code>
+                      ) : (
+                        <span className="text-xs text-red-600">Falta WELCOME_SECRET</span>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      {s.orders > 0 ? (
+                        <span className="badge bg-green-100 text-green-800">Ya compró</span>
+                      ) : (
+                        <span className="badge bg-amber-100 text-amber-800">Sin comprar</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-navy/50">{new Date(s.created_at).toLocaleDateString('es-AR')}</td>
+                    <td className="p-3 text-right">
+                      {s.code && s.orders === 0 && (
+                        <a href={mailtoCodigo(s)} className="text-xs font-semibold text-celeste-bright hover:underline">
+                          Mandarle el código
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Avisos de stock */}

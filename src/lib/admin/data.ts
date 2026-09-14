@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentProfile, isOwnerRole } from '@/lib/admin/auth';
+import { personalCode } from '@/lib/welcome';
 
 async function db() {
   return createClient();
@@ -630,4 +631,59 @@ export async function getEncargoById(id: string) {
       (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
     ),
   };
+}
+
+export interface WelcomeSignup {
+  id: string;
+  email: string;
+  name: string;
+  created_at: string;
+  /** Su código personal de bienvenida, para mandarlo a mano si el mail no salió. */
+  code: string | null;
+  /** Cuántos pedidos hizo ese mail: 0 = todavía no compró. */
+  orders: number;
+}
+
+/**
+ * Suscriptores del popup, con su código y si ya compraron.
+ *
+ * El código se recalcula acá y no se guarda: es determinístico (HMAC del mail
+ * con la ventana de 30 días), así que el que se muestra es exactamente el mismo
+ * que acepta el checkout. Sirve para rescatar a mano a quien no recibió el mail.
+ */
+export async function getWelcomeSignups(): Promise<WelcomeSignup[]> {
+  const supabase = await db();
+  const { data } = await supabase
+    .from('welcome_signups')
+    .select('id, email, name, created_at')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  // `orders.customer_email` se guarda tal cual lo tipeó la persona, así que un
+  // `.in()` contra la lista en minúscula se perdería a quien puso mayúsculas.
+  // Se traen los mails de los pedidos y se cruzan en minúscula acá.
+  const { data: pedidos } = await supabase
+    .from('orders')
+    .select('customer_email')
+    .not('customer_email', 'is', null)
+    .limit(5000);
+
+  const compras = new Map<string, number>();
+  for (const p of pedidos ?? []) {
+    const mail = String((p as any).customer_email ?? '').trim().toLowerCase();
+    if (!mail) continue;
+    compras.set(mail, (compras.get(mail) ?? 0) + 1);
+  }
+
+  return rows.map((r: any) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    created_at: r.created_at,
+    code: personalCode(String(r.email).toLowerCase()),
+    orders: compras.get(String(r.email).toLowerCase()) ?? 0,
+  }));
 }

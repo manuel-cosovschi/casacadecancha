@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { sendEmail, isEmailEnabled } from '@/lib/email';
+import { sendEmailDetailed, isEmailEnabled, emailFrom, usingTestSender } from '@/lib/email';
 import { WELCOME, personalCode } from '@/lib/welcome';
 
 export interface WelcomeResult {
@@ -80,37 +80,56 @@ export async function subscribeWelcome(
     /* la RPC todavía no existe: seguimos, el mail al dueño no se pierde */
   }
 
-  // Aviso al dueño: mientras la tabla no exista, esta es la lista de contactos.
+  const code = personalCode(email);
+
+  // PRIMERO el mail al cliente, DESPUÉS el aviso al dueño: así el aviso puede
+  // contar si llegó o no. Al revés, el dueño se enteraba de la suscripción
+  // pero nunca de que el código no había salido.
+  let sent = false;
+  let sendError: string | undefined;
+
+  if (!isEmailEnabled()) {
+    sendError = 'Falta RESEND_API_KEY: no se manda ningún mail.';
+  } else if (!code) {
+    // Sin secreto de firma no se puede emitir un código verificable. Antes de
+    // mandar uno que no va a funcionar, se avisa que escribimos nosotros.
+    sendError = 'Falta WELCOME_SECRET (o CRON_SECRET): no se puede firmar el código.';
+  } else {
+    const res = await sendEmailDetailed({
+      to: email,
+      subject: `Tu ${WELCOME.percent}% OFF de bienvenida`,
+      html: welcomeEmailHtml(name, code),
+    });
+    sent = res.ok;
+    sendError = res.error;
+  }
+
+  // Aviso al dueño. Lo importante no es que alguien se suscribió: es si esa
+  // persona recibió su código. Si no lo recibió, acá está para mandarlo a mano.
   const adminEmail = process.env.ADMIN_EMAIL;
   if (adminEmail && isEmailEnabled()) {
-    await sendEmail({
+    const aviso = sent
+      ? `<p style="color:#15803d"><strong>✅ Le llegó su código: ${code}</strong></p>`
+      : `<div style="background:#fef2f2;border:2px solid #fecaca;border-radius:12px;padding:14px">
+           <p style="margin:0 0 6px;color:#b91c1c"><strong>⚠️ NO se le pudo mandar el código.</strong></p>
+           ${code ? `<p style="margin:0 0 6px">Su código es <strong style="font-size:18px">${code}</strong> — mandáselo por WhatsApp.</p>` : ''}
+           <p style="margin:0;font-size:13px;color:#7f1d1d">Motivo: ${sendError || 'desconocido'}</p>
+           ${usingTestSender() ? '<p style="margin:8px 0 0;font-size:13px;color:#7f1d1d">Estás mandando desde <code>onboarding@resend.dev</code>, que <strong>solo entrega a tu propio mail</strong>. Verificá el dominio en Resend y configurá EMAIL_FROM.</p>' : ''}
+         </div>`;
+
+    await sendEmailDetailed({
       to: adminEmail,
-      subject: `📩 Nuevo suscriptor: ${name}`,
+      subject: sent ? `📩 Nuevo suscriptor: ${name}` : `⚠️ Suscriptor SIN código: ${name}`,
       html: `<div style="font-family:system-ui,sans-serif;color:${BRAND}">
         <h2>Nuevo alta del popup</h2>
         <p><strong>${name}</strong><br>${email}</p>
+        ${aviso}
         <p>${stored ? 'Guardado en welcome_signups.' : '<strong>NO se pudo guardar en la base</strong> (falta aplicar la migración 0031). Anotalo a mano.'}</p>
         ${alreadyBought ? '<p>Ojo: este email ya tiene compras, así que no le corresponde el descuento de bienvenida.</p>' : ''}
+        <p style="color:#888;font-size:12px">Remitente: ${emailFrom()}</p>
       </div>`,
     });
   }
-
-  if (!isEmailEnabled()) {
-    return { ok: true, message: '¡Listo! Te vamos a escribir con tu descuento.', emailed: false };
-  }
-
-  const code = personalCode(email);
-  if (!code) {
-    // Sin secreto de firma no se puede emitir un código verificable. Antes de
-    // mandar uno que no va a funcionar, se avisa que escribimos nosotros.
-    return { ok: true, message: '¡Listo! Te vamos a escribir con tu descuento.', emailed: false };
-  }
-
-  const sent = await sendEmail({
-    to: email,
-    subject: `Tu ${WELCOME.percent}% OFF de bienvenida`,
-    html: welcomeEmailHtml(name, code),
-  });
 
   return {
     ok: true,
