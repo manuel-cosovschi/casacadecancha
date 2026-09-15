@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentProfile, isOwnerRole } from '@/lib/admin/auth';
 import { personalCode } from '@/lib/welcome';
+import { ORDEN_TALLES } from '@/lib/talles';
 
 async function db() {
   return createClient();
@@ -576,7 +577,7 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
       'size, stock_physical, stock_reserved, encargo_reserved, active, products(name, price, active, preorder, mystery_box)',
     );
 
-  const ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+  const ORDER: string[] = [...ORDEN_TALLES];
   const map = new Map<string, StockSummaryRow>();
 
   for (const v of (data ?? []) as any[]) {

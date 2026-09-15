@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { sortOrderDeTalle } from '@/lib/talles';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { assertWriter, logActivity } from '@/lib/admin/actions-helpers';
@@ -138,6 +139,14 @@ export async function deleteProduct(id: string): Promise<ActionState> {
 }
 
 // --- Variantes ---
+
+/** Traduce el choque del índice único a algo que se entienda. */
+function mensajeVariante(raw: string, size: string | null): string {
+  if (/product_variants_producto_talle_uq|duplicate key/i.test(raw)) {
+    return `Ese producto ya tiene el talle ${size ?? ''}. Editá el que existe en vez de crear otro.`.replace('  ', ' ');
+  }
+  return raw;
+}
 export async function saveVariant(formData: FormData): Promise<ActionState> {
   try {
     await assertWriter();
@@ -146,22 +155,45 @@ export async function saveVariant(formData: FormData): Promise<ActionState> {
   }
   const supabase = await createClient();
   const id = clean(formData.get('id'));
+  const productId = formData.get('product_id')?.toString();
+  const size = clean(formData.get('size')) ?? null;
   const payload = {
-    product_id: formData.get('product_id')?.toString(),
-    size: clean(formData.get('size')) ?? null,
+    product_id: productId,
+    size,
     sku: clean(formData.get('sku')) ?? null,
     stock_physical: Number(formData.get('stock_physical') || 0),
     stock_minimum: Number(formData.get('stock_minimum') || 0),
     variant_cost: clean(formData.get('variant_cost')) ? Number(formData.get('variant_cost')) : null,
     active: formData.get('active') === 'on',
+    // Se guarda derecho también en la base: así una exportación o un reporte
+    // que ordene por esta columna sale bien sin saber nada de talles.
+    sort_order: sortOrderDeTalle(size),
   };
+
+  // Un talle repetido parte el stock en dos filas: la ficha muestra el talle dos
+  // veces, una agotada y otra no, y la cuenta de "qué tengo" deja de cerrar.
+  // La base tiene un índice único que lo impide; esto es para que el mensaje
+  // diga qué pasó en vez de escupir el error crudo de Postgres.
+  if (productId && size) {
+    let dup = supabase
+      .from('product_variants')
+      .select('id')
+      .eq('product_id', productId)
+      .ilike('size', size.trim());
+    if (id) dup = dup.neq('id', id);
+    const { data: repetido } = await dup.maybeSingle();
+    if (repetido) {
+      return { error: `Ese producto ya tiene el talle ${size}. Editá el que existe en vez de crear otro.` };
+    }
+  }
+
   let variantId = id;
   if (id) {
     const { error } = await supabase.from('product_variants').update(payload).eq('id', id);
-    if (error) return { error: error.message };
+    if (error) return { error: mensajeVariante(error.message, size) };
   } else {
     const { data, error } = await supabase.from('product_variants').insert(payload).select('id').single();
-    if (error) return { error: error.message };
+    if (error) return { error: mensajeVariante(error.message, size) };
     variantId = data?.id;
   }
   if (variantId && payload.stock_physical > 0) await notifyRestock(variantId);
