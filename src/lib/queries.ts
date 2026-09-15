@@ -2,6 +2,7 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { availableStock } from '@/lib/utils';
 import { withSalePricing } from '@/lib/sale';
 import { withPromoLinea } from '@/lib/promo-linea';
+import { compararTalles } from '@/lib/talles';
 import type { Collection, FAQ, Product } from '@/lib/types';
 
 const PRODUCT_SELECT =
@@ -18,7 +19,9 @@ const PRODUCT_SELECT =
  */
 function sortProduct(p: Product): Product {
   if (p.images) p.images.sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order);
-  if (p.variants) p.variants.sort((a, b) => a.sort_order - b.sort_order);
+  // Por el talle y no por `sort_order`: ese número se escribe a mano y una
+  // variante creada sin tocarlo se iba al principio de la lista.
+  if (p.variants) p.variants.sort((a, b) => compararTalles(a.size, b.size));
   return withSalePricing(withPromoLinea(p));
 }
 
