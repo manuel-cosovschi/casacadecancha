@@ -201,22 +201,23 @@ async function validateWelcomeCoupon(
     return { valid: false, code, discount: 0, message: 'Cupón inválido o inactivo.' };
   }
   const clean = code.trim().toUpperCase();
-  // Primero se mira si hay algo que descontar. Al revés, a alguien con el
-  // carrito entero en promo le pediríamos el DNI para un descuento que de
-  // todos modos no se le puede aplicar.
+  // Este corre sobre el carrito entero, promos incluidas, así que acá un
+  // subtotal en cero solo puede ser un carrito vacío.
   if (!(subtotal > 0)) {
-    return { valid: false, code: clean, discount: 0, message: motivoSinBaseDescontable() };
+    return { valid: false, code: clean, discount: 0, message: 'Tu carrito está vacío.' };
   }
   const check = await checkWelcomeEligibility(supabase, email || '', clean, phone, dni);
   if (!check.eligible) {
     return { valid: false, code: clean, discount: 0, message: check.message };
   }
-  const discount = Math.round(subtotal * (WELCOME.percent / 100));
+  // El porcentaje sale del código y no de la configuración: los que se
+  // emitieron al 10% se respetan hasta que se vencen.
+  const discount = Math.round(subtotal * (check.percent / 100));
   return {
     valid: true,
     code: clean,
     discount,
-    message: `Descuento de bienvenida aplicado: ahorrás $${discount.toLocaleString('es-AR')}.`,
+    message: `Descuento de bienvenida (${check.percent}%) aplicado: ahorrás $${discount.toLocaleString('es-AR')}.`,
   };
 }
 
@@ -229,8 +230,9 @@ export async function applyCoupon(
   phone?: string | null,
   dni?: string | null,
 ): Promise<CouponResult> {
-  // Los cupones no se acumulan con la promo del catálogo.
-  const blocked = couponBlockedBySale();
+  // Los cupones no se acumulan con la promo del catálogo. El de bienvenida sí:
+  // es la excepción, y por eso es más chico.
+  const blocked = isWelcomeCode(code) ? null : couponBlockedBySale();
   if (blocked) return { valid: false, code, discount: 0, message: blocked };
   try {
     const supabase = await createClient();
@@ -395,17 +397,22 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // 3. Cupón (revalidado en el servidor)
   // Con la promo activa el cupón se ignora, igual que en el checkout: así el
   // total que se cobra es exactamente el que vio el cliente.
-  const saleBlocks = Boolean(couponBlockedBySale());
-  // Todo lo que se descuenta acá corre sobre `discountableSubtotal`, que deja
-  // afuera lo que ya está en promo de línea. Sin promo activa es igual a
-  // `subtotal`, así que para el resto del catálogo nada cambia.
+  // El de bienvenida es la excepción a las dos reglas de no acumulación: corre
+  // sobre el carrito ENTERO —promo de línea incluida— y no lo frena la promo
+  // del catálogo. Es más chico justamente para poder combinarse.
+  const esBienvenida = Boolean(data.coupon_code && isWelcomeCode(data.coupon_code));
+  const saleBlocks = !esBienvenida && Boolean(couponBlockedBySale());
+  // El resto corre sobre `discountableSubtotal`, que deja afuera lo que ya está
+  // en promo de línea. Sin promo activa es igual a `subtotal`, así que para el
+  // resto del catálogo nada cambia.
+  const baseCupon = esBienvenida ? subtotal : discountableSubtotal;
   let couponResult: CouponResult | null = null;
   if (data.coupon_code && !saleBlocks) {
-    couponResult = isWelcomeCode(data.coupon_code)
-      ? await validateWelcomeCoupon(supabase, data.coupon_code, discountableSubtotal, data.email, data.phone, data.dni)
+    couponResult = esBienvenida
+      ? await validateWelcomeCoupon(supabase, data.coupon_code, baseCupon, data.email, data.phone, data.dni)
       : isLoyaltyCode(data.coupon_code)
-        ? await validateLoyaltyCoupon(supabase, data.coupon_code, discountableSubtotal, data.email)
-        : await validateCoupon(supabase, data.coupon_code, discountableSubtotal);
+        ? await validateLoyaltyCoupon(supabase, data.coupon_code, baseCupon, data.email)
+        : await validateCoupon(supabase, data.coupon_code, baseCupon);
     if (!couponResult.valid) {
       return { ok: false, error: couponResult.message };
     }
@@ -415,7 +422,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // Se recalcula acá contra la base, sin mirar nada de lo que mandó el
   // navegador: el nivel no es un dato del formulario, es una consecuencia del
   // historial de compras. Lo que el cliente vio en pantalla es una vista.
-  const loyalty = saleBlocks
+  // El de fidelidad sigue sin acumularse con la promo del catálogo: la
+  // excepción es solo para el de bienvenida, así que acá se mira la promo
+  // directo y no `saleBlocks`, que ya trae esa excepción adentro.
+  const loyalty = couponBlockedBySale()
     ? { percent: 0, orders: 0 }
     : await loyaltyForEmail(supabase, data.email);
   const loyaltyDiscount =
