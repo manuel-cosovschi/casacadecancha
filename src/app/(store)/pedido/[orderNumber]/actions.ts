@@ -46,9 +46,13 @@ export async function submitTransferProof(
   if (upErr) return { error: 'No se pudo subir el comprobante. Intentá de nuevo.' };
 
   // Marcar el pedido "en revisión" y guardar la referencia del comprobante.
+  // El código de seguimiento va como prueba de que este pedido es de quien
+  // sube el comprobante: el número de pedido es correlativo y sin esto
+  // cualquiera podía marcar pedidos ajenos como "ya transferí".
   const { error: rpcErr } = await supabase.rpc('submit_transfer_proof', {
     p_order_number: orderNumber,
     p_proof_url: path,
+    p_ref: order.tracking_ref,
   });
   if (rpcErr) return { error: 'No se pudo registrar el comprobante.' };
 
