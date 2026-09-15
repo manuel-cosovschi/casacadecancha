@@ -5,10 +5,14 @@ import { usePathname } from 'next/navigation';
 import { subscribeWelcome } from '@/app/(store)/welcome-actions';
 import { sugerirEmail } from '@/lib/email-typos';
 import { track } from '@/lib/traffic';
+import { WELCOME } from '@/lib/welcome';
 
 /**
- * Popup de captación: pide nombre y mail a cambio de un 10% en la primera
- * compra.
+ * Popup de captación: pide nombre y mail a cambio de un descuento en la
+ * primera compra.
+ *
+ * El porcentaje sale de `WELCOME` y no está escrito acá: se cambia en un solo
+ * lugar y el popup, el mail y el checkout quedan diciendo lo mismo.
  *
  * Aparece en CADA visita, no una sola vez, porque así se pidió. Lo único que
  * lo silencia es haberse suscrito: guardamos esa marca en localStorage para no
@@ -118,7 +122,7 @@ export function WelcomePopup() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="10% de descuento en tu primera compra"
+      aria-label={`${WELCOME.percent}% de descuento en tu primera compra`}
       className="fixed inset-0 z-[70] flex items-center justify-center bg-navy/70 p-4 backdrop-blur-sm"
       onClick={() => setOpen(false)}
     >
@@ -154,7 +158,7 @@ export function WelcomePopup() {
               <p className="text-xs font-bold uppercase tracking-[0.25em] text-cream/70">
                 Bienvenido
               </p>
-              <p className="mt-3 text-6xl font-black leading-none">10%</p>
+              <p className="mt-3 text-6xl font-black leading-none">{WELCOME.percent}%</p>
               <p className="text-2xl font-black uppercase tracking-tight">OFF</p>
               <p className="mt-3 text-sm font-semibold">En tu primera compra</p>
             </div>
@@ -223,12 +227,13 @@ export function WelcomePopup() {
                 disabled={sending}
                 className="mt-5 w-full rounded-full bg-navy py-3.5 text-sm font-black uppercase tracking-wide text-cream transition hover:bg-navy/90 disabled:opacity-60"
               >
-                {sending ? 'Enviando…' : 'Quiero mi 10%'}
+                {sending ? 'Enviando…' : `Quiero mi ${WELCOME.percent}%`}
               </button>
 
               <p className="mt-3 text-center text-[11px] leading-relaxed text-navy/45">
-                Válido solo en la primera compra. Te escribimos únicamente por tus
-                pedidos y novedades de la tienda.
+                Válido solo en la primera compra y <strong>se suma a las promos</strong>:
+                corre también sobre las camisetas que ya están rebajadas. Te escribimos
+                únicamente por tus pedidos y novedades de la tienda.
               </p>
             </form>
           </>

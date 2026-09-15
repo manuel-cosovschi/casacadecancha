@@ -131,6 +131,10 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const discountableSubtotal = displaySubtotal - promoLineaSubtotal;
   const hayPromoLinea = promoLineaSubtotal > 0;
 
+  // El de bienvenida es la excepción: se acumula, así que corre sobre el
+  // carrito entero. Misma cuenta que hace el servidor en `createOrder`.
+  const baseCupon = isWelcomeCode(couponCode) ? displaySubtotal : discountableSubtotal;
+
   // El DNI se pide SOLO para el descuento de primera compra: quien paga
   // precio normal no lo completa nunca. Sin él, cambiar de mail y de
   // teléfono alcanza para repetir el mismo descuento.
@@ -146,6 +150,9 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   // No se acumulan: se aplica el mejor de los dos, igual que en el servidor.
   const bestDiscount = Math.max(couponDiscount, loyaltyDiscount);
   const loyaltyWins = loyaltyDiscount > couponDiscount;
+  // El de bienvenida es el único que cubre también lo que está en promo, así
+  // que cuando es el que se aplica no hay que aclarar que deja algo afuera.
+  const descuentoCubreTodo = usaBienvenida && couponOk && !loyaltyWins;
   const discount = transferDisc + bestDiscount;
 
   // Preventa: de los ítems en preventa se paga ahora la seña (50%); el resto al recibir.
@@ -233,7 +240,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     // en el precio), que es la misma base que usa el servidor al confirmar.
     const res = await applyCoupon(
       couponCode.trim(),
-      discountableSubtotal,
+      baseCupon,
       email,
       (watch('phone') as string) || null,
       (watch('dni') as string) || null,
@@ -713,10 +720,16 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
           )}
           {/* Si hay algo en promo y además un descuento, hay que decir por qué
               el descuento no cubre todo el pedido: si no, parece un error. */}
-          {hayPromoLinea && bestDiscount > 0 && (
+          {hayPromoLinea && bestDiscount > 0 && !descuentoCubreTodo && (
             <p className="pt-1 text-[11px] leading-relaxed text-navy/45">
               El descuento no corre sobre lo que ya está en promo, que tiene su
               propio precio rebajado.
+            </p>
+          )}
+          {hayPromoLinea && descuentoCubreTodo && (
+            <p className="pt-1 text-[11px] leading-relaxed text-navy/45">
+              Tu descuento de bienvenida se suma a la promo: corre sobre todo el
+              pedido, incluso lo que ya está rebajado.
             </p>
           )}
           <Row

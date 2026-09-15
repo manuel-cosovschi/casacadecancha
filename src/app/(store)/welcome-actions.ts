@@ -28,6 +28,9 @@ function welcomeEmailHtml(name: string, code: string) {
     <p style="color:#444;line-height:1.6;margin:20px 0">
       Usalo al finalizar la compra, en el campo de cupón. Es personal: funciona
       solo con este mismo email y vence en 30 días.
+      <br />
+      <strong>Se suma a las promos</strong>: también descuenta sobre las camisetas
+      que ya están rebajadas.
     </p>
     <p style="margin:0 0 22px">
       <a href="https://casacadecancha.shop/camisetas"

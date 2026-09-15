@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentProfile, isOwnerRole } from '@/lib/admin/auth';
-import { personalCode } from '@/lib/welcome';
+import { codigoEmitido, percentEmitido } from '@/lib/welcome';
 import { ORDEN_TALLES } from '@/lib/talles';
 
 async function db() {
@@ -641,6 +641,11 @@ export interface WelcomeSignup {
   created_at: string;
   /** Su código personal de bienvenida, para mandarlo a mano si el mail no salió. */
   code: string | null;
+  /**
+   * Cuánto descuenta SU código. Los que se anotaron antes de que el descuento
+   * bajara a 5% tienen uno de 10% y se les respeta hasta que se vence.
+   */
+  percent: number;
   /** Cuántos pedidos hizo ese mail: 0 = todavía no compró. */
   orders: number;
 }
@@ -684,7 +689,10 @@ export async function getWelcomeSignups(): Promise<WelcomeSignup[]> {
     email: r.email,
     name: r.name,
     created_at: r.created_at,
-    code: personalCode(String(r.email).toLowerCase()),
+    // El código y el porcentaje que ESA persona tiene en su mail: quien se
+    // suscribió antes del cambio recibió uno de 10% y hay que respetárselo.
+    code: codigoEmitido(String(r.email).toLowerCase(), r.created_at),
+    percent: percentEmitido(r.created_at),
     orders: compras.get(String(r.email).toLowerCase()) ?? 0,
   }));
 }

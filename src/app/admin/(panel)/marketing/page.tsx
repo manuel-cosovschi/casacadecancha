@@ -5,18 +5,25 @@ import { WELCOME } from '@/lib/welcome';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 
 /** mailto: con el código adentro, para mandarlo desde tu propio mail. */
-function mailtoCodigo(s: { name: string; email: string; code: string | null }) {
+function mailtoCodigo(s: {
+  name: string;
+  email: string;
+  code: string | null;
+  /** El de esa persona: los que se anotaron antes del cambio tienen 10%. */
+  percent: number;
+}) {
   const nombre = s.name.trim().split(/\s+/)[0] || '';
   const cuerpo = [
     `¡Hola${nombre ? ` ${nombre}` : ''}!`,
     '',
-    `Acá va tu código de ${WELCOME.percent}% OFF para tu primera compra: ${s.code ?? ''}`,
+    `Acá va tu código de ${s.percent}% OFF para tu primera compra: ${s.code ?? ''}`,
     '',
     'Lo ponés en el campo de cupón al finalizar la compra, con este mismo mail.',
+    'Se suma a las promos: vale también sobre las camisetas ya rebajadas.',
     '',
     'https://casacadecancha.shop/camisetas',
   ].join('\n');
-  return `mailto:${s.email}?subject=${encodeURIComponent(`Tu ${WELCOME.percent}% OFF de bienvenida`)}&body=${encodeURIComponent(cuerpo)}`;
+  return `mailto:${s.email}?subject=${encodeURIComponent(`Tu ${s.percent}% OFF de bienvenida`)}&body=${encodeURIComponent(cuerpo)}`;
 }
 
 export default async function MarketingPage() {
