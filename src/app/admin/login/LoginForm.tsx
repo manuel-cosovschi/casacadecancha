@@ -42,9 +42,16 @@ export function LoginForm() {
     const supabase = createClient();
 
     // Si escribe un email lo usamos directo; si no, resolvemos el usuario a su email.
+    // La contraseña viaja en la misma consulta a propósito: sin ella, esto era
+    // un traductor público de usuario a mail y con la clave pública cualquiera
+    // sacaba la dirección del dueño. Ahora solo contesta si la contraseña es
+    // la correcta, que es cuando el que pregunta ya podía entrar igual.
     let email = username.trim();
     if (!email.includes('@')) {
-      const { data } = await supabase.rpc('auth_email_for_username', { p_username: email });
+      const { data } = await supabase.rpc('auth_email_for_username', {
+        p_username: email,
+        p_password: password,
+      });
       if (!data) {
         setError('Usuario o contraseña incorrectos.');
         setLoading(false);
