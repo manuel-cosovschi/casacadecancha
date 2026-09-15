@@ -20,12 +20,11 @@ export async function validateCoupon(
   const code = (rawCode || '').trim();
   if (!code) return { valid: false, code: '', discount: 0, message: 'Ingresá un código.' };
 
-  const { data: promo } = await supabase
-    .from('promotions')
-    .select('*')
-    .ilike('code', code)
-    .eq('active', true)
-    .maybeSingle();
+  // Por RPC y no leyendo la tabla: la lectura pública de `promotions` dejaba
+  // listar todos los códigos vivos desde el navegador con la clave pública.
+  // Esta función resuelve UN código exacto, que es lo único que hace falta
+  // para validar y lo único que ya sabe quien tiene el cupón.
+  const { data: promo } = await supabase.rpc('coupon_lookup', { p_code: code });
 
   if (!promo) {
     return { valid: false, code, discount: 0, message: 'Cupón inválido o inactivo.' };

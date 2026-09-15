@@ -570,6 +570,21 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   );
 
   if (rpcErr || !orderNumber) {
+    // La reserva de stock corre condicionada dentro del RPC: si entre el
+    // control de arriba y ese momento entró otro pedido por la misma última
+    // camiseta, corta con SIN_STOCK. Decirle "intentá de nuevo" a alguien que
+    // se quedó sin la camiseta es mandarlo a reintentar algo que no va a
+    // funcionar nunca; mejor que sepa qué pasó.
+    const agotado = (rpcErr?.message || '').startsWith('SIN_STOCK:');
+    if (agotado) {
+      const nombre = rpcErr!.message.slice('SIN_STOCK:'.length).trim();
+      return {
+        ok: false,
+        error: nombre
+          ? `Se agotó ${nombre} mientras completabas el pedido. Sacalo del carrito para seguir.`
+          : 'Se agotó un producto del carrito mientras completabas el pedido.',
+      };
+    }
     return { ok: false, error: 'No se pudo registrar el pedido. Intentá de nuevo.' };
   }
 
