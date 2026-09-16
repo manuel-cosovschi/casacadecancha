@@ -16,7 +16,7 @@ export function Hero({
   const hasImage = Boolean(data.image_desktop);
 
   return (
-    <section className="gradient-hero brand-stripes relative overflow-hidden text-cream">
+    <section className="gradient-hero brand-stripes brand-stripes-fade relative overflow-hidden text-cream">
       <div className="pitch-pattern absolute inset-0 opacity-70" aria-hidden="true" />
 
       <div
@@ -78,7 +78,7 @@ export function Hero({
                     sizes="(max-width: 1024px) 0px, 45vw"
                     className="object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-navy/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy/40 to-navy/0" />
                 </div>
               </div>
             ) : (
@@ -88,8 +88,9 @@ export function Hero({
         )}
       </div>
 
-      {/* Fade inferior hacia el contenido */}
-      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-cream to-transparent" />
+      {/* Fade inferior hacia el contenido. Más alto que antes: en 80px el salto
+          de un azul casi negro al crema es demasiado corto y se ve la rampa. */}
+      <div className="hero-fade pointer-events-none absolute inset-x-0 bottom-0 h-36 sm:h-44" />
     </section>
   );
 }

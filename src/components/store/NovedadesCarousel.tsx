@@ -181,7 +181,7 @@ export function NovedadesCarousel({ slides }: { slides: NovedadSlide[] }) {
             <Chevron dir="right" />
           </button>
 
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <div className="mt-3 flex flex-wrap justify-center gap-2 sm:mt-4">
             {slides.map((s, i) => (
               <button
                 key={s.href + i}

@@ -98,7 +98,9 @@ export default async function HomePage() {
       {/* Trust strip */}
       {show('trust') && (
       <section className="relative z-10 -mt-2 border-b border-navy/5 bg-cream">
-        <div className="container-page grid grid-cols-2 gap-3 py-6 sm:grid-cols-4">
+        {/* Con 3 ítems en dos columnas, el último quedaba solo y al lado un hueco
+            blanco del tamaño de una tarjeta. Si sobra uno, ocupa el ancho. */}
+        <div className="container-page grid grid-cols-2 gap-3 py-5 sm:grid-cols-4 sm:py-6 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
           {(settings.trust_strip?.items || []).map((item: { title: string }, i: number) => (
             <div
               key={i}
@@ -116,7 +118,7 @@ export default async function HomePage() {
 
       {/* Novedades: carrusel de nuevas formas de comprar */}
       {show('novedades') && (
-        <section className="py-12">
+        <section className="section-y">
           <div className="container-page">
             <SectionTitle kicker="Todo lo nuevo" title="Novedades" />
             <NovedadesCarousel slides={novedadesSlides} />
@@ -126,7 +128,7 @@ export default async function HomePage() {
 
       {/* Preventa: casacas que se vienen */}
       {preorderProducts.length > 0 && show('preventa') && (
-        <section id="preventa" className="scroll-mt-24 py-12">
+        <section id="preventa" className="scroll-mt-24 section-y">
           <div className="container-page">
             <SectionTitle
               kicker="Se vienen"
@@ -147,7 +149,7 @@ export default async function HomePage() {
 
       {/* Colecciones */}
       {collections.length > 0 && show('collections') && (
-        <section className="py-12">
+        <section className="section-y">
           <div className="container-page">
             <SectionTitle kicker="Explorá" title="Colecciones" />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
@@ -169,7 +171,7 @@ export default async function HomePage() {
                     <CollectionArt slug={c.slug} name={c.name} />
                   )}
                   <div className="brand-stripes absolute inset-0 opacity-40" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-navy/95 via-navy/25 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy/95 via-navy/25 to-navy/0" />
                   <div className="relative p-4">
                     <span className="text-base font-extrabold uppercase tracking-wide text-cream">
                       {c.name}
@@ -187,7 +189,7 @@ export default async function HomePage() {
 
       {/* Grilla de productos */}
       {newProducts.length > 0 && show('products') && (
-        <section className="py-12">
+        <section className="section-y">
           <div className="container-page">
             <SectionTitle kicker="En stock" title="Camisetas y más" cta={{ label: 'Ver todo', href: '/camisetas' }} />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
@@ -201,9 +203,9 @@ export default async function HomePage() {
 
       {/* Bloque emocional del Mundial */}
       {settings.mundial_block?.active && show('mundial') && (
-        <section className="relative my-12 overflow-hidden">
+        <section className="relative my-8 overflow-hidden sm:my-12 lg:my-16">
           <div className="container-page">
-            <div className="gradient-hero brand-stripes relative overflow-hidden rounded-[2.5rem] px-6 py-16 text-center text-cream sm:py-20">
+            <div className="gradient-hero brand-stripes relative overflow-hidden rounded-[2.5rem] px-6 py-12 text-center text-cream sm:py-16 lg:py-20">
               <div className="pitch-pattern absolute inset-0 opacity-60" aria-hidden />
               {settings.mundial_block.image_url && (
                 <Image
@@ -233,7 +235,7 @@ export default async function HomePage() {
 
       {/* Cómo comprar */}
       {show('how_to_buy') && (
-      <section className="py-14">
+      <section className="section-y">
         <div className="container-page">
           <SectionTitle kicker="Súper simple" title="Cómo comprar" center />
           <ol className="mx-auto grid max-w-5xl gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -262,7 +264,7 @@ export default async function HomePage() {
 
       {/* FAQ */}
       {faqs.length > 0 && show('faq') && (
-        <section className="py-14">
+        <section className="section-y">
           <div className="container-page">
             <SectionTitle kicker="Dudas frecuentes" title="Preguntas frecuentes" center />
             <FaqAccordion faqs={faqs} />
@@ -286,7 +288,7 @@ function SectionTitle({
 }) {
   return (
     <div
-      className={`mb-7 flex flex-wrap items-end gap-3 ${
+      className={`mb-5 flex flex-wrap items-end gap-3 sm:mb-7 ${
         center ? 'flex-col justify-center text-center' : 'justify-between'
       }`}
     >
