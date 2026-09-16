@@ -322,7 +322,7 @@ function Jersey({
 function Sweep() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="cc-sweep absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/18 to-transparent" />
+      <div className="cc-sweep absolute inset-y-0 w-1/3 bg-gradient-to-r from-white/0 via-white/18 to-white/0" />
     </div>
   );
 }

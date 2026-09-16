@@ -56,6 +56,19 @@
   .container-page {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
+  /**
+   * El aire entre secciones.
+   *
+   * Antes cada sección tenía su `py-12` escrito a mano, el mismo número en un
+   * celular que en una pantalla de escritorio: 96px de nada entre una sección y
+   * la siguiente, que en un teléfono es medio pantallazo en blanco y obliga a
+   * scrollear a ciegas para encontrar lo que sigue.
+   *
+   * Acá el aire crece con la pantalla, que es donde sobra lugar.
+   */
+  .section-y {
+    @apply py-6 sm:py-12 lg:py-16;
+  }
   .card {
     @apply rounded-2xl border border-navy/5 bg-white shadow-card;
   }
@@ -112,6 +125,62 @@
     rgba(246, 241, 232, 0.04) 44px 50px
   );
   pointer-events: none;
+}
+
+/**
+ * Las franjas se apagan antes de llegar al borde de abajo.
+ *
+ * Si llegan hasta el final, se cortan en seco contra la sección siguiente y esa
+ * línea de corte es justo lo que delata dónde termina el hero, por más prolijo
+ * que sea el difuminado.
+ */
+.brand-stripes-fade::after {
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 88%);
+  mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 88%);
+}
+
+/**
+ * El difuminado del hero hacia el contenido.
+ *
+ * Antes era `from-cream to-transparent`. El problema es que en CSS
+ * "transparent" es NEGRO transparente, así que el degradado no iba del crema al
+ * nada: pasaba por gris. Eso dejaba una banda sucia en el medio y un borde
+ * frío abajo que no coincidía con el crema de la página — se veía la costura.
+ *
+ * Acá el color es siempre el mismo crema y lo único que cambia es la opacidad,
+ * así que no hay banda. Los cortes están repartidos con una curva suave (no en
+ * partes iguales) para que tampoco se note dónde arranca.
+ */
+.hero-fade {
+  background-image:
+    /* Una bruma cálida en el tramo del medio. Sin esto, el azul del hero
+       mezclado con el crema da un gris frío que se lee como suciedad: es el
+       punto donde los dos colores están al 50% y ninguno manda. Un toque del
+       dorado de la marca lo vuelve una transición y no una mancha. */
+    linear-gradient(
+      to top,
+      rgba(199, 167, 107, 0) 18%,
+      rgba(199, 167, 107, 0.07) 42%,
+      rgba(199, 167, 107, 0.05) 62%,
+      rgba(199, 167, 107, 0) 82%
+    ),
+    /* El crema, siempre el mismo color, subiendo de opacidad. Llega arriba del
+       90% en el primer tercio para que el tramo mezclado sea corto, y arrastra
+       una cola muy tenue hasta el final para que no se vea dónde arranca. */
+    linear-gradient(
+      to top,
+      #f6f1e8 0%,
+      rgba(246, 241, 232, 0.99) 8%,
+      rgba(246, 241, 232, 0.94) 18%,
+      rgba(246, 241, 232, 0.84) 28%,
+      rgba(246, 241, 232, 0.68) 39%,
+      rgba(246, 241, 232, 0.48) 51%,
+      rgba(246, 241, 232, 0.3) 63%,
+      rgba(246, 241, 232, 0.16) 74%,
+      rgba(246, 241, 232, 0.07) 84%,
+      rgba(246, 241, 232, 0.02) 93%,
+      rgba(246, 241, 232, 0) 100%
+    );
 }
 
 /* ---- Hojas imprimibles (comprobantes y resumen de stock) ---- */
