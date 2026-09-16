@@ -27,13 +27,13 @@ const KEY = 'cdc_welcome_ok';
  * entra es la forma más rápida de que cierre la pestaña: primero que mire las
  * camisetas, y recién ahí le ofrecemos el descuento.
  */
-const DELAY_MS = 5000;
+const DELAY_MS = 10_000;
 
 /**
- * Dónde no aparece nunca. Con la espera de 5 segundos el popup ya no cae al
- * entrar sino en el medio de lo que la persona esté haciendo, y taparle el
- * formulario de compra a alguien que está tipeando su dirección es perder la
- * venta para ganar un mail.
+ * Dónde no aparece nunca. Con la espera el popup ya no cae al entrar sino en
+ * el medio de lo que la persona esté haciendo, y taparle el formulario de
+ * compra a alguien que está tipeando su dirección es perder la venta para
+ * ganar un mail.
  */
 const SILENT_PATHS = ['/checkout', '/cart', '/pedido', '/cobrar'];
 
