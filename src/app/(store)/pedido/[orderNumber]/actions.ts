@@ -49,12 +49,17 @@ export async function submitTransferProof(
   // El código de seguimiento va como prueba de que este pedido es de quien
   // sube el comprobante: el número de pedido es correlativo y sin esto
   // cualquiera podía marcar pedidos ajenos como "ya transferí".
-  const { error: rpcErr } = await supabase.rpc('submit_transfer_proof', {
+  const { data: aplicado, error: rpcErr } = await supabase.rpc('submit_transfer_proof', {
     p_order_number: orderNumber,
     p_proof_url: path,
     p_ref: order.tracking_ref,
   });
-  if (rpcErr) return { error: 'No se pudo registrar el comprobante.' };
+  // `aplicado === false` es la función diciendo que no encontró el pedido. Sin
+  // este control el cliente ve "listo", el comprobante queda colgado y nadie se
+  // entera de que pagó.
+  if (rpcErr || aplicado !== true) {
+    return { error: 'No se pudo registrar el comprobante. Escribinos por WhatsApp y lo cargamos a mano.' };
+  }
 
   // Notificar al administrador por email (si está configurado Resend).
   const adminEmail = process.env.ADMIN_EMAIL;
