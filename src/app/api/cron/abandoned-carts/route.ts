@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/email';
+import { getAllSettings } from '@/lib/settings';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
@@ -27,6 +28,20 @@ export async function GET(request: Request) {
     p_minutes: 60,
   });
 
+  // El descuento por transferencia estaba escrito a mano en el mail ("10% OFF")
+  // y hoy está en 0%: a quien volvía por ese mail y pagaba por transferencia no
+  // le aparecía ningún descuento. Prometer algo que el checkout no da, justo
+  // cuando la persona está por comprar, es peor que no prometer nada. Ahora sale
+  // del mismo lugar que lo aplica, y si está en cero no se menciona.
+  const settings = await getAllSettings();
+  const transferPct = settings.payments_transfer?.active
+    ? Number(settings.payments_transfer.discount_percent) || 0
+    : 0;
+  const lineaTransferencia =
+    transferPct > 0
+      ? `<p style="color:#64748b;font-size:13px">Recordá: ${transferPct}% OFF pagando por transferencia.</p>`
+      : '';
+
   let sent = 0;
   for (const c of (carts as any[]) || []) {
     const items = (c.items_json || [])
@@ -41,7 +56,7 @@ export async function GET(request: Request) {
         <p><strong>${items || 'tu pedido'}</strong></p>
         <p>Terminá tu compra en un toque:</p>
         <p><a href="${SITE_URL}/checkout" style="background:#0B1F3A;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Volver al checkout</a></p>
-        <p style="color:#64748b;font-size:13px">Recordá: 10% OFF pagando por transferencia.</p>
+        ${lineaTransferencia}
       </div>`,
     });
     if (ok) sent++;
