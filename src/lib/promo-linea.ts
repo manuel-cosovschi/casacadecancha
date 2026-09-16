@@ -17,7 +17,11 @@ export interface PromoLinea {
   active: boolean;
   /** Precio final de cada producto de la lista. */
   price: number;
-  /** Precio de lista, solo para los carteles (el tachado sale del producto). */
+  /**
+   * Precio de lista con el que salió la promo. Se usa en los carteles y como
+   * piso del tachado, así que el "antes" que ve el cliente no cambia aunque el
+   * precio de lista del producto se mueva mientras la promo está viva.
+   */
   compare_price: number;
   /** Último instante en que sigue viva, inclusive. ISO con offset. */
   ends_at: string;
@@ -103,7 +107,15 @@ export function withPromoLinea(product: Product, now?: Date): Product {
     ...product,
     price: precio,
     promo_label: PROMO_LINEA.badge,
-    compare_at_price: Math.max(product.price, product.compare_at_price ?? 0),
+    // El tachado nunca baja de `compare_price`, que es el precio con el que
+    // salió la promo. Sin este piso, bajarle el precio de lista a un producto
+    // en promo encogía el tachado y la promo se veía peor de lo que es —
+    // aunque lo que paga el cliente sea exactamente el mismo.
+    compare_at_price: Math.max(
+      product.price,
+      product.compare_at_price ?? 0,
+      PROMO_LINEA.compare_price,
+    ),
     // Los talles con precio propio también quedan al precio de promo: si no,
     // un talle especial se escaparía de la promo sin que nadie lo note.
     variants: product.variants?.map((v) =>
