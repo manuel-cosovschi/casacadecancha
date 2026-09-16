@@ -52,10 +52,13 @@ export async function POST(request: Request) {
   }
 
   // Guardar el preference_id (RPC acotada).
+  // Sin el código de seguimiento: en Mercado Pago el pedido todavía no lo
+  // tiene (se asigna al confirmarse el pago), así que pedirlo acá hacía que no
+  // se guardara nunca. La función se cierra sola: solo escribe mientras el pago
+  // siga pendiente.
   await supabase.rpc('mp_set_preference', {
     p_order_number: order.order_number,
     p_preference_id: preference.id,
-    p_ref: order.tracking_ref,
   });
 
   return NextResponse.json({ init_point: preference.init_point, id: preference.id });

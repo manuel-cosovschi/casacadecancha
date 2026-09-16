@@ -110,8 +110,34 @@ export function pageLabel(): string {
  * pestaña justo después, que es exactamente cuando más interesa el dato (la
  * última página que vio antes de irse).
  */
+/**
+ * ¿Esto es un navegador manejado por un programa y no por una persona?
+ *
+ * Playwright, Selenium y los robots de rastreo prenden `navigator.webdriver`.
+ * Contarlos arruina las estadísticas de la peor manera: aparecen decenas de
+ * "visitantes" que entran directo al checkout sin mirar nada, el embudo da
+ * porcentajes imposibles (425% del paso anterior) y la conversión real queda
+ * escondida abajo de ese ruido.
+ *
+ * No es una medida de seguridad —quien quiera falsear una visita puede—, es
+ * para que los números signifiquen algo.
+ */
+function esRobot(): boolean {
+  try {
+    if (navigator.webdriver) return true;
+    // Los rastreadores que se anuncian. Los que no, no se pueden distinguir
+    // desde el navegador y no vale la pena intentarlo.
+    return /bot|crawler|spider|headless|playwright|puppeteer|lighthouse/i.test(
+      navigator.userAgent || '',
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function track(hit: Hit = {}): void {
   if (typeof window === 'undefined') return;
+  if (esRobot()) return;
   try {
     const cuerpo = JSON.stringify({
       sid: sessionId(),
