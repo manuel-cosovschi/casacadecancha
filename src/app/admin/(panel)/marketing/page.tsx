@@ -2,6 +2,12 @@ import { PageHeader, StatCard, EmptyState } from '@/components/admin/ui';
 import { ExportButton } from '@/components/admin/ExportButton';
 import { getStockNotifications, getAbandonedCarts, getWelcomeSignups } from '@/lib/admin/data';
 import { WELCOME } from '@/lib/welcome';
+import { AvisoPrecios } from './AvisoPrecios';
+import {
+  ASUNTO_BAJA_PRECIOS,
+  avisoBajaPreciosHtml,
+  EJEMPLOS_BAJA_PRECIOS,
+} from '@/lib/avisos';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 
 /** mailto: con el código adentro, para mandarlo desde tu propio mail. */
@@ -40,6 +46,12 @@ export default async function MarketingPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Marketing" description="Suscriptores, demanda de stock y carritos abandonados." />
+
+      <AvisoPrecios
+        destinatarios={suscriptores.length}
+        asunto={ASUNTO_BAJA_PRECIOS}
+        previewHtml={avisoBajaPreciosHtml('', EJEMPLOS_BAJA_PRECIOS)}
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Suscriptores del popup" value={String(suscriptores.length)} hint={`${sinComprar.length} todavía sin comprar`} />
