@@ -130,11 +130,18 @@ export function WelcomePopup() {
         className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-lift"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* La salida.
+            Antes era `bg-navy/10` con texto navy, estilado para fondo blanco —
+            pero el botón cae sobre la cabecera azul, así que quedaba navy sobre
+            navy y prácticamente no se veía. Al que no le interesa el descuento
+            y no encuentra cómo cerrar, lo que cierra es la pestaña.
+            Ahora es un círculo claro sólido: se ve sobre cualquier fondo. Y mide
+            44px, que es el mínimo para no errarle con el dedo. */}
         <button
           type="button"
           onClick={() => setOpen(false)}
           aria-label="Cerrar"
-          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-navy/10 text-lg font-bold text-navy transition hover:bg-navy/20"
+          className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-cream text-xl font-black leading-none text-navy shadow-lg ring-1 ring-navy/10 transition hover:bg-white hover:scale-105 active:scale-95"
         >
           ✕
         </button>
@@ -230,7 +237,18 @@ export function WelcomePopup() {
                 {sending ? 'Enviando…' : `Quiero mi ${WELCOME.percent}%`}
               </button>
 
-              <p className="mt-3 text-center text-[11px] leading-relaxed text-navy/45">
+              {/* La otra salida, en palabras. Mucha gente no busca la X: busca
+                  la manera de decir que no. Si no la encuentra, cierra la
+                  página, y ahí no se pierde un mail, se pierde la visita. */}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="mt-3 w-full py-2 text-center text-sm font-semibold text-navy/55 underline underline-offset-4 transition hover:text-navy"
+              >
+                Ahora no, gracias
+              </button>
+
+              <p className="mt-2 text-center text-[11px] leading-relaxed text-navy/45">
                 Válido solo en la primera compra y <strong>se suma a las promos</strong>:
                 corre también sobre las camisetas que ya están rebajadas. Te escribimos
                 únicamente por tus pedidos y novedades de la tienda.
