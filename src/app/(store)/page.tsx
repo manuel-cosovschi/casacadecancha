@@ -95,9 +95,14 @@ export default async function HomePage() {
     <>
       <Hero data={settings.hero} whatsapp={settings.whatsapp} />
 
-      {/* Trust strip */}
+      {/* Trust strip.
+          En celular no se muestra: dice lo mismo que los chips del hero, que
+          están tres centímetros más arriba ("Envíos a todo el país", "Atención
+          por WhatsApp"). Entre los dos se comían 400px antes de la primera
+          camiseta. En pantallas grandes hay lugar de sobra y suma, así que ahí
+          queda. */}
       {show('trust') && (
-      <section className="relative z-10 -mt-2 border-b border-navy/5 bg-cream">
+      <section className="relative z-10 -mt-2 hidden border-b border-navy/5 bg-cream sm:block">
         {/* Con 3 ítems en dos columnas, el último quedaba solo y al lado un hueco
             blanco del tamaño de una tarjeta. Si sobra uno, ocupa el ancho. */}
         <div className="container-page grid grid-cols-2 gap-3 py-5 sm:grid-cols-4 sm:py-6 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
@@ -114,6 +119,26 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+      )}
+
+      {/* Las camisetas primero.
+          Medido en un celular: con la grilla acá abajo, el primer link a una
+          ficha caía a 975px y el catálogo a 1825px — más de dos pantallas de
+          scroll antes de ver mercadería. De 57 visitas en 30 días, 16 abrieron
+          una camiseta: tres de cada cuatro se iban sin ver una sola. Una tienda
+          tiene que mostrar lo que vende antes que nada. */}
+      {/* Grilla de productos */}
+      {newProducts.length > 0 && show('products') && (
+        <section className="section-y">
+          <div className="container-page">
+            <SectionTitle kicker="En stock" title="Camisetas y más" cta={{ label: 'Ver todo', href: '/camisetas' }} />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+              {newProducts.map((p) => (
+                <ProductCard key={p.id} product={p} transferDiscount={transferDiscount} />
+              ))}
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Novedades: carrusel de nuevas formas de comprar */}
@@ -181,20 +206,6 @@ export default async function HomePage() {
                     </span>
                   </div>
                 </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Grilla de productos */}
-      {newProducts.length > 0 && show('products') && (
-        <section className="section-y">
-          <div className="container-page">
-            <SectionTitle kicker="En stock" title="Camisetas y más" cta={{ label: 'Ver todo', href: '/camisetas' }} />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-              {newProducts.map((p) => (
-                <ProductCard key={p.id} product={p} transferDiscount={transferDiscount} />
               ))}
             </div>
           </div>
