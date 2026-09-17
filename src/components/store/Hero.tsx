@@ -21,7 +21,7 @@ export function Hero({
 
       <div
         className={cn(
-          'container-page relative grid items-center gap-10 py-16 sm:py-20 lg:grid-cols-2 lg:py-24',
+          'container-page relative grid items-center gap-10 py-11 sm:py-20 lg:grid-cols-2 lg:py-24',
           alignCenter && 'lg:grid-cols-1',
         )}
       >
@@ -30,11 +30,11 @@ export function Hero({
           <h1 className="text-balance text-5xl font-black uppercase leading-[0.9] sm:text-7xl lg:text-[5.5rem]">
             {data.title}
           </h1>
-          <p className="mt-6 max-w-lg text-base leading-relaxed text-cream/75 sm:text-lg">
+          <p className="mt-4 max-w-lg text-base leading-relaxed text-cream/75 sm:mt-6 sm:text-lg">
             {data.subtitle}
           </p>
 
-          <div className={cn('mt-9 flex flex-col gap-3 sm:flex-row', alignCenter && 'justify-center')}>
+          <div className={cn('mt-6 flex flex-col gap-3 sm:mt-9 sm:flex-row', alignCenter && 'justify-center')}>
             <Link href={data.cta_link || '/camisetas'} className="btn-celeste text-base">
               {data.cta_text}
               <span aria-hidden>→</span>
@@ -52,7 +52,7 @@ export function Hero({
           </div>
 
           {/* Trust chips */}
-          <div className={cn('mt-9 flex flex-wrap gap-2.5', alignCenter && 'justify-center')}>
+          <div className={cn('mt-6 flex flex-wrap gap-2.5 sm:mt-9', alignCenter && 'justify-center')}>
             {['Envíos a todo el país', 'Gratis en Mar del Plata', 'Atención por WhatsApp'].map(
               (t) => (
                 <span key={t} className="chip border-white/10 bg-white/5 text-cream/80">
