@@ -256,3 +256,198 @@ export async function enviarPromoSemana(soloPrueba = false): Promise<EnvioResult
   revalidatePath('/admin/marketing');
   return { ok: true, enviados, fallados: fallos.length, detalle: fallos.slice(0, 8) };
 }
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Aviso libre a los suscriptores.
+ *
+ * Sirve para las tres cosas que pasan seguido y hasta ahora había que pedir
+ * que alguien programara: sale una promo, baja el precio de algo, o sale un
+ * cupón. Es el mismo mail con distinta volanta.
+ */
+export interface AvisoLibre {
+  volanta: string;
+  titulo: string;
+  bajada: string;
+  /** Vacío = el aviso no vence. Una baja de precio no tiene fecha. */
+  hasta?: string;
+  /** Slugs de las camisetas que se muestran, con su "antes" si lo hay. */
+  productos: { slug: string; antes?: number | null }[];
+  /** Código de cupón a anunciar, si el aviso es de un descuento. */
+  codigo?: string;
+}
+
+export interface ProductoAviso {
+  slug: string;
+  name: string;
+  precio: number;
+  /** El tachado que ya tiene cargado el producto, si lo tiene. */
+  compare: number | null;
+  talles: string;
+}
+
+/**
+ * El catálogo que se puede anunciar: solo lo que tiene stock comprable.
+ *
+ * Lo agotado no aparece en la lista a propósito. Un mail que anuncia una
+ * camiseta que no se puede comprar hace que la persona entre, no la encuentre
+ * y no vuelva — y eso cuesta más que la venta que no se hizo.
+ */
+export async function catalogoParaAviso(): Promise<ProductoAviso[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('products')
+    .select('slug, name, price, compare_at_price, active, product_variants(size, stock_physical, stock_reserved, encargo_reserved, active, sort_order)')
+    .eq('active', true)
+    .order('name');
+
+  const out: ProductoAviso[] = [];
+  for (const p of (data ?? []) as Record<string, any>[]) {
+    const libres = (p.product_variants ?? [])
+      .filter((v: Record<string, any>) => v.active && v.stock_physical - v.stock_reserved - (v.encargo_reserved ?? 0) > 0)
+      .sort((a: Record<string, any>, b: Record<string, any>) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    if (libres.length === 0) continue;
+    out.push({
+      slug: p.slug,
+      name: p.name,
+      precio: Number(p.price),
+      compare: p.compare_at_price ? Number(p.compare_at_price) : null,
+      talles: libres.map((v: Record<string, any>) => v.size).join(' · '),
+    });
+  }
+  return out;
+}
+
+/** Los cupones que se pueden anunciar hoy. */
+export async function cuponesParaAviso(): Promise<
+  { code: string; name: string; monto: number | null; porcentaje: number | null; minimo: number | null }[]
+> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('promotions')
+    .select('code, name, fixed_amount, percentage, minimum_amount, active')
+    .eq('active', true)
+    .not('code', 'is', null);
+  return (data ?? []).map((c: Record<string, any>) => ({
+    code: c.code,
+    name: c.name,
+    monto: c.fixed_amount ? Number(c.fixed_amount) : null,
+    porcentaje: c.percentage ? Number(c.percentage) : null,
+    minimo: c.minimum_amount ? Number(c.minimum_amount) : null,
+  }));
+}
+
+/** Arma el HTML del aviso, igual que va a salir. */
+async function armarAviso(a: AvisoLibre, nombre: string): Promise<string> {
+  const catalogo = await catalogoParaAviso();
+  const items: ItemPromoMail[] = [];
+  for (const sel of a.productos) {
+    const p = catalogo.find((c) => c.slug === sel.slug);
+    if (!p) continue;
+    items.push({
+      name: p.name,
+      antes: sel.antes ?? p.compare ?? null,
+      ahora: p.precio,
+      talles: p.talles,
+    });
+  }
+
+  let codigo: string | undefined;
+  let monto: number | undefined;
+  let minimo: number | undefined;
+  if (a.codigo) {
+    const c = (await cuponesParaAviso()).find((x) => x.code === a.codigo);
+    if (c) {
+      codigo = c.code;
+      monto = c.monto ?? undefined;
+      minimo = c.minimo ?? undefined;
+    }
+  }
+
+  return promoSemanaHtml({
+    nombre,
+    volanta: a.volanta,
+    label: a.titulo,
+    bajada: a.bajada,
+    hasta: a.hasta,
+    items: items.length ? items : undefined,
+    codigo,
+    monto,
+    minimo,
+  });
+}
+
+/** Vista previa, para verlo antes de mandarlo. */
+export async function previsualizarAviso(a: AvisoLibre): Promise<{ html?: string; error?: string }> {
+  try {
+    await assertWriter();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  if (!a.titulo.trim()) return { error: 'Falta el título.' };
+  return { html: await armarAviso(a, '') };
+}
+
+/** Manda el aviso libre a los suscriptores. */
+export async function enviarAvisoLibre(a: AvisoLibre, soloPrueba = false): Promise<EnvioResult> {
+  try {
+    await assertWriter();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  if (!a.titulo.trim()) return { error: 'Falta el título.' };
+  if (!a.bajada.trim()) return { error: 'Falta la bajada: una línea diciendo de qué se trata.' };
+  if (a.productos.length === 0 && !a.codigo) {
+    return { error: 'El mail no dice nada: elegí al menos una camiseta o un cupón para anunciar.' };
+  }
+
+  const supabase = await createClient();
+  const perfil = await getCurrentProfile();
+
+  const { data: subs } = await supabase
+    .from('welcome_signups')
+    .select('email, name')
+    .order('created_at');
+
+  const destinatarios = soloPrueba
+    ? (subs ?? []).filter(
+        (s: { email: string }) => s.email.toLowerCase() === (perfil?.email || '').toLowerCase(),
+      )
+    : (subs ?? []);
+
+  if (destinatarios.length === 0) {
+    return {
+      error: soloPrueba
+        ? 'Tu mail no está en la lista de suscriptores, así que no hay a quién mandarle la prueba.'
+        : 'No hay suscriptores.',
+    };
+  }
+
+  let enviados = 0;
+  const fallos: string[] = [];
+
+  for (const s of destinatarios as { email: string; name: string }[]) {
+    const r = await sendEmailDetailed({
+      to: s.email,
+      subject: a.titulo,
+      html: await armarAviso(a, s.name || ''),
+    });
+    if (r.ok) enviados++;
+    else fallos.push(`${s.email}: ${r.error ?? 'error'}`);
+    await new Promise((res) => setTimeout(res, 600));
+  }
+
+  if (!soloPrueba) {
+    await logActivity('send', 'aviso_libre', perfil?.email ?? 'admin', {
+      titulo: a.titulo,
+      productos: a.productos.length,
+      codigo: a.codigo ?? null,
+      enviados,
+      fallados: fallos.length,
+    });
+  }
+
+  revalidatePath('/admin/marketing');
+  return { ok: true, enviados, fallados: fallos.length, detalle: fallos.slice(0, 8) };
+}
