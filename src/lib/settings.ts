@@ -93,8 +93,14 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     origin_lat: -37.9530255,
     origin_lng: -57.5745997,
     origin_label: 'Méndez Funes de Millán 1168, Mar del Plata',
-    fuel_price: 1500,
+    // Nafta súper en Mar del Plata, relevada el 18/09/2026: Gulf $2.151,
+    // Puma $2.185, Axion $2.199, Shell $2.223. Estaba en $1.500, un 45% por
+    // debajo: cada entrega lejana se cobraba casi a mitad de lo que costaba.
+    // Conviene revisarlo cada tanto — es el único valor de acá que se mueve solo.
+    fuel_price: 2200,
     fuel_consumption: 9,
+    // Se cobra el viaje entero, ida y vuelta. Llevar una camiseta a 7 km son
+    // 14 km de manejo: cobrar la mitad es poner la otra mitad de tu bolsillo.
     round_trip: true,
     road_factor: 1.3,
     // Km EN AUTO, no en línea recta. Eran 3.5 de línea recta, que sobre el
