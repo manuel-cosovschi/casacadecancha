@@ -68,17 +68,33 @@ export function haversineKm(
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** Costo del envío en MdP a partir de la distancia (línea recta) hasta la casa. */
-export function mdpCostFromKm(straightKm: number, s: ShippingCalcSettings): number {
+/**
+ * Costo del envío en MdP a partir de los kilómetros EN AUTO hasta la casa.
+ *
+ * Los km entran ya medidos (`drivingKm` en `@/lib/ruteo`): acá no se estima
+ * nada. El radio de envío gratis también se mide en km de manejo, que es lo
+ * que uno ve en Google Maps y lo que efectivamente se gasta.
+ */
+export function mdpCostFromDrivingKm(drivingKm: number, s: ShippingCalcSettings): number {
   // Zona cercana (Constitución / hasta Av. Libertad, ~7-8 min): envío gratis.
-  if (s.mdp_free_km && straightKm <= s.mdp_free_km) return 0;
-  const roadKm = straightKm * (s.road_factor || 1.3);
-  const tripKm = roadKm * (s.round_trip ? 2 : 1);
+  if (s.mdp_free_km && drivingKm <= s.mdp_free_km) return 0;
+  const tripKm = drivingKm * (s.round_trip ? 2 : 1);
   const litres = (tripKm * (s.fuel_consumption || 9)) / 100;
   const raw = litres * (s.fuel_price || 0);
   const withMin = Math.max(raw, s.mdp_min || 0);
   const round = s.mdp_round || 1;
   return Math.max(0, Math.ceil(withMin / round) * round);
+}
+
+/**
+ * Km en auto estimados a partir de la línea recta.
+ *
+ * Es el plan B de `drivingKm`, para cuando el ruteador no contesta. Se equivoca
+ * hasta un 10% para cualquier lado, así que sirve para no frenar una venta pero
+ * no para cobrar bien. Mientras el ruteador conteste, esto no se usa.
+ */
+export function estimateDrivingKm(straightKm: number, s: ShippingCalcSettings): number {
+  return straightKm * (s.road_factor || 1.3);
 }
 
 /** Parsea la lista de zonas de respaldo ("Nombre|costo" por línea). */

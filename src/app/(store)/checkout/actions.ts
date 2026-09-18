@@ -12,11 +12,13 @@ import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
   quoteShipping,
   computeNationalShipping,
-  mdpCostFromKm,
+  mdpCostFromDrivingKm,
+  estimateDrivingKm,
   haversineKm,
   withNationalMarkup,
 } from '@/lib/shipping';
 import { geocodeMdp } from '@/lib/geocode';
+import { drivingKm } from '@/lib/ruteo';
 import type { ShippingCalcSettings } from '@/lib/types';
 import { sendOrderPush } from '@/lib/push';
 import { sendEmail } from '@/lib/email';
@@ -34,6 +36,23 @@ export interface ShippingEstimate {
   needsZone: boolean; // true si hay que caer a elegir zona manual
 }
 
+/**
+ * Kilómetros de manejo hasta una casa de Mar del Plata.
+ *
+ * Medidos contra el callejero real. Si el ruteador no contesta caemos a la
+ * estimación geométrica de siempre: es peor, pero frenar la compra porque un
+ * servicio de mapas está caído sería mucho peor.
+ */
+async function kmEnAutoHasta(
+  coords: { lat: number; lng: number },
+  calc: ShippingCalcSettings,
+): Promise<number> {
+  const origin = { lat: calc.origin_lat, lng: calc.origin_lng };
+  const medidos = await drivingKm(origin, coords);
+  if (medidos !== null) return medidos;
+  return estimateDrivingKm(haversineKm(origin, coords), calc);
+}
+
 /** Calcula el costo de envío del lado del servidor (fuente de verdad). */
 async function resolveShippingCost(
   data: CheckoutInput,
@@ -49,8 +68,7 @@ async function resolveShippingCost(
   if (fullAddress.trim().length >= 3) {
     const coords = await geocodeMdp(fullAddress);
     if (coords) {
-      const km = haversineKm({ lat: calc.origin_lat, lng: calc.origin_lng }, coords);
-      return mdpCostFromKm(km, calc);
+      return mdpCostFromDrivingKm(await kmEnAutoHasta(coords, calc), calc);
     }
   }
   // Sin geolocalización: usar la zona elegida (validada contra settings) o el fallback.
@@ -73,8 +91,13 @@ export async function estimateMdpShipping(address: string): Promise<ShippingEsti
   if (!coords) {
     return { cost: calc.mdp_fallback || 0, geocoded: false, needsZone: true };
   }
-  const km = haversineKm({ lat: calc.origin_lat, lng: calc.origin_lng }, coords);
-  return { cost: mdpCostFromKm(km, calc), geocoded: true, km: Math.round(km * 10) / 10, needsZone: false };
+  const km = await kmEnAutoHasta(coords, calc);
+  return {
+    cost: mdpCostFromDrivingKm(km, calc),
+    geocoded: true,
+    km: Math.round(km * 10) / 10,
+    needsZone: false,
+  };
 }
 
 /** Guarda el carrito (para recordatorio si no se completa la compra). */
