@@ -12,7 +12,7 @@ import { PromoLineaStrip } from '@/components/store/PromoLineaStrip';
 import { WelcomePopup } from '@/components/store/WelcomePopup';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { SITE_SALE, salePercentAt } from '@/lib/sale';
-import { PROMO_LINEA, promoLineaActiva, promoLineaHasta } from '@/lib/promo-linea';
+import { promoLineaVigente, promoLineaHasta, resumenPromo } from '@/lib/promo-linea';
 import { MASCOT_URL } from '@/lib/brand';
 
 export default async function StoreLayout({
@@ -30,7 +30,7 @@ export default async function StoreLayout({
   // La promo de línea tampoco se anuncia de vacaciones, y se calla si está
   // corriendo la promo del catálogo entero: dos franjas de oferta a la vez
   // compiten entre sí y no se lee ninguna.
-  const promoLinea = !vac.active && salePct === 0 && promoLineaActiva();
+  const promoLinea = !vac.active && salePct === 0 ? promoLineaVigente() : null;
   const saleUntil = new Date(SITE_SALE.ends_at).toLocaleDateString('es-AR', {
     weekday: 'long',
     day: 'numeric',
@@ -64,11 +64,11 @@ export default async function StoreLayout({
       )}
       {promoLinea && (
         <PromoLineaStrip
-          label={PROMO_LINEA.label}
-          price={PROMO_LINEA.price}
-          comparePrice={PROMO_LINEA.compare_price}
-          endsAt={PROMO_LINEA.ends_at}
+          label={promoLinea.label}
+          subtitle={promoLinea.subtitle}
+          endsAt={promoLinea.ends_at}
           until={promoLineaHasta()}
+          {...resumenPromo(promoLinea)}
         />
       )}
       <Header />
