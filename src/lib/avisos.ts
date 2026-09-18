@@ -88,3 +88,96 @@ export function avisoBajaPreciosHtml(nombre: string, ejemplos: EjemploPrecio[]):
     </p>
   </div>`;
 }
+
+/* ------------------------------------------------------------------ */
+
+/** Una camiseta como sale en el mail de la promo. */
+export interface ItemPromoMail {
+  name: string;
+  antes: number;
+  ahora: number;
+  talles: string;
+}
+
+/**
+ * El mail de la promo de la semana.
+ *
+ * Sirve para los dos tipos de promo que corren en la tienda:
+ *
+ *  - Las de precio fijo, que viven en el calendario de `promo-linea.ts` y
+ *    bajan camisetas puntuales. Ahí van los productos con su precio.
+ *  - Las de cupón, que viven en `promotions` y descuentan un monto sobre el
+ *    carrito. Ahí va el código y el mínimo.
+ *
+ * Los datos entran ya resueltos desde la acción, que los lee de la fuente de
+ * verdad de cada una. Escribir los precios acá a mano sería pedir que un lunes
+ * salga un mail con el precio de la semana pasada.
+ */
+export function promoSemanaHtml(p: {
+  nombre: string;
+  label: string;
+  bajada: string;
+  hasta: string;
+  items?: ItemPromoMail[];
+  codigo?: string;
+  monto?: number;
+  minimo?: number;
+}): string {
+  const primerNombre = (p.nombre || '').trim().split(/\s+/)[0] || '';
+
+  const filas = (p.items ?? [])
+    .map(
+      (i) => `<tr>
+        <td style="padding:7px 0;color:#0B1F3A">
+          ${i.name}
+          ${i.talles ? `<span style="color:#94a3b8;font-size:12px"> · ${i.talles}</span>` : ''}
+        </td>
+        <td style="padding:7px 0;text-align:right;white-space:nowrap">
+          <span style="color:#94a3b8;text-decoration:line-through">${formatPrice(i.antes)}</span>
+          <strong style="color:#0B1F3A;margin-left:8px">${formatPrice(i.ahora)}</strong>
+        </td>
+      </tr>`,
+    )
+    .join('');
+
+  const bloqueItems = filas
+    ? `<div style="background:#F6F1E8;border-radius:16px;padding:18px 20px;margin:0 0 20px">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">${filas}</table>
+      </div>`
+    : '';
+
+  const bloqueCupon = p.codigo
+    ? `<div style="background:${BRAND};border-radius:16px;padding:20px;margin:0 0 20px;text-align:center">
+        <p style="margin:0 0 8px;font-size:11px;letter-spacing:2px;color:rgba(246,241,232,.65)">TU CÓDIGO</p>
+        <p style="margin:0 0 10px;font-size:26px;font-weight:800;letter-spacing:3px;color:#C7A76B">${p.codigo}</p>
+        <p style="margin:0;color:#F6F1E8;font-size:14px">
+          ${p.monto ? `<strong>${formatPrice(p.monto)}</strong> de descuento` : 'Descuento'}
+          ${p.minimo ? ` en compras desde ${formatPrice(p.minimo)}` : ''}
+        </p>
+      </div>`
+    : '';
+
+  return `<div style="font-family:system-ui,-apple-system,sans-serif;color:${BRAND};max-width:540px;margin:0 auto">
+    <p style="margin:0 0 4px;font-size:11px;letter-spacing:2px;color:#94a3b8">ESTA SEMANA</p>
+    <h1 style="font-size:24px;margin:0 0 6px;text-transform:uppercase">${p.label}</h1>
+    <p style="color:#444;line-height:1.6;margin:0 0 18px">
+      ${primerNombre ? `${primerNombre}, ` : ''}${p.bajada}
+      Termina el <strong>${p.hasta}</strong>.
+    </p>
+
+    ${bloqueCupon}
+    ${bloqueItems}
+
+    <p style="margin:0 0 22px">
+      <a href="${SITE}/camisetas"
+         style="background:${BRAND};color:#fff;padding:13px 24px;border-radius:999px;text-decoration:none;font-weight:700;display:inline-block">
+        Ver las camisetas
+      </a>
+    </p>
+
+    <p style="color:#888;font-size:12px;line-height:1.5;margin:0;border-top:1px solid #e5e7eb;padding-top:14px">
+      Somos de Mar del Plata y enviamos a todo el país. Cualquier cosa nos
+      escribís por WhatsApp y te ayudamos. Producto no oficial.
+    </p>
+  </div>`;
+}
