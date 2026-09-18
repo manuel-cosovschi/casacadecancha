@@ -96,7 +96,17 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     // Nafta súper en Mar del Plata, relevada el 18/09/2026: Gulf $2.151,
     // Puma $2.185, Axion $2.199, Shell $2.223. Estaba en $1.500, un 45% por
     // debajo: cada entrega lejana se cobraba casi a mitad de lo que costaba.
-    // Conviene revisarlo cada tanto — es el único valor de acá que se mueve solo.
+    //
+    // Es el único valor de este bloque que se mueve solo, así que no se revisa
+    // a mano: hay una tarea automática los lunes que busca el precio del día y,
+    // si difiere en $100 o más, abre un PR con el número nuevo. Por debajo de
+    // eso no toca nada — el envío se redondea de a $500 y un movimiento chico
+    // no cambia un peso de lo que paga nadie.
+    //
+    // Si alguna vez se carga a mano desde Admin → Configuración, ese valor
+    // queda en `store_settings` y PISA a este: `getAllSettings()` mezcla la
+    // base por encima de los valores por defecto. Cambiar este número no haría
+    // nada y sería muy difícil de darse cuenta.
     fuel_price: 2200,
     fuel_consumption: 9,
     // Se cobra el viaje entero, ida y vuelta. Llevar una camiseta a 7 km son
