@@ -97,7 +97,10 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     fuel_consumption: 9,
     round_trip: true,
     road_factor: 1.3,
-    mdp_free_km: 3.5,
+    // Km EN AUTO, no en línea recta. Eran 3.5 de línea recta, que sobre el
+    // callejero real son ~4.5 de manejo: es el mismo barrio de siempre
+    // (Constitución / hasta Av. Libertad), medido como corresponde.
+    mdp_free_km: 4.5,
     mdp_min: 1500,
     mdp_round: 500,
     mdp_fallback: 3000,

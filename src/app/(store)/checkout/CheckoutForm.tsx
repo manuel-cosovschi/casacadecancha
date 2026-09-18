@@ -190,7 +190,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
       setMdpCost(res.cost);
       setMdpInfo(
         res.cost > 0
-          ? `Envío a tu domicilio${res.km ? ` (~${res.km} km)` : ''}: ${formatPrice(res.cost)}`
+          ? `Envío a tu domicilio${res.km ? ` (${res.km} km en auto)` : ''}: ${formatPrice(res.cost)}`
           : 'Entrega sin cargo.',
       );
     }
