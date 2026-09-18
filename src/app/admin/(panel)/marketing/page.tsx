@@ -3,10 +3,13 @@ import { ExportButton } from '@/components/admin/ExportButton';
 import { getStockNotifications, getAbandonedCarts, getWelcomeSignups } from '@/lib/admin/data';
 import { WELCOME } from '@/lib/welcome';
 import { AvisoPrecios } from './AvisoPrecios';
+import { PromoSemana } from './PromoSemana';
+import { promoDeLaSemana } from './actions';
 import {
   ASUNTO_BAJA_PRECIOS,
   avisoBajaPreciosHtml,
   EJEMPLOS_BAJA_PRECIOS,
+  promoSemanaHtml,
 } from '@/lib/avisos';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 
@@ -33,10 +36,11 @@ function mailtoCodigo(s: {
 }
 
 export default async function MarketingPage() {
-  const [stock, carts, suscriptores] = await Promise.all([
+  const [stock, carts, suscriptores, promo] = await Promise.all([
     getStockNotifications(),
     getAbandonedCarts(),
     getWelcomeSignups(),
+    promoDeLaSemana(),
   ]);
 
   const pendingStock = stock.filter((s: any) => !s.notified);
@@ -46,6 +50,13 @@ export default async function MarketingPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Marketing" description="Suscriptores, demanda de stock y carritos abandonados." />
+
+      <PromoSemana
+        destinatarios={suscriptores.length}
+        label={promo?.label ?? null}
+        hasta={promo?.hasta ?? null}
+        previewHtml={promo ? promoSemanaHtml({ ...promo, nombre: '' }) : null}
+      />
 
       <AvisoPrecios
         destinatarios={suscriptores.length}
