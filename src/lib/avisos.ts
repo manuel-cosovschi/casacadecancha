@@ -94,7 +94,16 @@ export function avisoBajaPreciosHtml(nombre: string, ejemplos: EjemploPrecio[]):
 /** Una camiseta como sale en el mail de la promo. */
 export interface ItemPromoMail {
   name: string;
-  antes: number;
+  /**
+   * El precio anterior, para el tachado. Puede no haber: si no se sabe cuánto
+   * costaba antes, se muestra solo el precio de hoy.
+   *
+   * Nunca se calcula. Ya me pasó una vez de querer sacarlo dividiendo el precio
+   * nuevo por el descuento, y no vuelve: la Japón quedó en $61.500 y esa cuenta
+   * da $64.737, no los $65.000 que costaba. Un "antes" inventado es de las
+   * pocas cosas que un cliente puede verificar y no perdonar.
+   */
+  antes?: number | null;
   ahora: number;
   talles: string;
 }
@@ -115,9 +124,12 @@ export interface ItemPromoMail {
  */
 export function promoSemanaHtml(p: {
   nombre: string;
+  /** El renglón chico de arriba de todo: "ESTA SEMANA", "BAJAMOS EL PRECIO"… */
+  volanta?: string;
   label: string;
   bajada: string;
-  hasta: string;
+  /** Vacío cuando el aviso no vence: una baja de precio no tiene fecha. */
+  hasta?: string;
   items?: ItemPromoMail[];
   codigo?: string;
   monto?: number;
@@ -127,14 +139,21 @@ export function promoSemanaHtml(p: {
 
   const filas = (p.items ?? [])
     .map(
+      // Los talles van en su propio renglón y no al lado del nombre: pegados
+      // atrás de un nombre largo el renglón se parte en cualquier lado y el
+      // precio se amontona contra el texto.
       (i) => `<tr>
-        <td style="padding:7px 0;color:#0B1F3A">
+        <td style="padding:9px 12px 9px 0;color:#0B1F3A;line-height:1.35">
           ${i.name}
-          ${i.talles ? `<span style="color:#94a3b8;font-size:12px"> · ${i.talles}</span>` : ''}
+          ${i.talles ? `<br><span style="color:#94a3b8;font-size:12px">Talles ${i.talles}</span>` : ''}
         </td>
-        <td style="padding:7px 0;text-align:right;white-space:nowrap">
-          <span style="color:#94a3b8;text-decoration:line-through">${formatPrice(i.antes)}</span>
-          <strong style="color:#0B1F3A;margin-left:8px">${formatPrice(i.ahora)}</strong>
+        <td style="padding:9px 0;text-align:right;white-space:nowrap;vertical-align:top">
+          ${
+            i.antes && i.antes > i.ahora
+              ? `<span style="color:#94a3b8;text-decoration:line-through">${formatPrice(i.antes)}</span><br>`
+              : ''
+          }
+          <strong style="color:#0B1F3A;font-size:15px">${formatPrice(i.ahora)}</strong>
         </td>
       </tr>`,
     )
@@ -158,11 +177,11 @@ export function promoSemanaHtml(p: {
     : '';
 
   return `<div style="font-family:system-ui,-apple-system,sans-serif;color:${BRAND};max-width:540px;margin:0 auto">
-    <p style="margin:0 0 4px;font-size:11px;letter-spacing:2px;color:#94a3b8">ESTA SEMANA</p>
+    <p style="margin:0 0 4px;font-size:11px;letter-spacing:2px;color:#94a3b8">${p.volanta ?? 'ESTA SEMANA'}</p>
     <h1 style="font-size:24px;margin:0 0 6px;text-transform:uppercase">${p.label}</h1>
     <p style="color:#444;line-height:1.6;margin:0 0 18px">
       ${primerNombre ? `${primerNombre}, ` : ''}${p.bajada}
-      Termina el <strong>${p.hasta}</strong>.
+      ${p.hasta ? `Termina el <strong>${p.hasta}</strong>.` : ''}
     </p>
 
     ${bloqueCupon}
