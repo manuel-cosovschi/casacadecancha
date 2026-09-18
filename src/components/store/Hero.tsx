@@ -53,7 +53,12 @@ export function Hero({
 
           {/* Trust chips */}
           <div className={cn('mt-6 flex flex-wrap gap-2.5 sm:mt-9', alignCenter && 'justify-center')}>
-            {['Envíos a todo el país', 'Gratis en Mar del Plata', 'Atención por WhatsApp'].map(
+            {/* Decía "Gratis en Mar del Plata" a secas, y no es cierto para toda
+                la ciudad: el envío es gratis dentro del radio cercano y más
+                lejos se cobra por distancia. Prometer gratis y cobrar en el
+                checkout es la peor sorpresa posible, porque llega justo cuando
+                la persona está por pagar. */}
+            {['Envíos a todo el país', 'Gratis en MdP (zona cercana)', 'Atención por WhatsApp'].map(
               (t) => (
                 <span key={t} className="chip border-white/10 bg-white/5 text-cream/80">
                   {t}
