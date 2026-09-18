@@ -111,7 +111,13 @@ export default async function OrderDetailPage({
                 )}
               {order.discount > 0 && <Row label="Descuento" value={`- ${formatPrice(order.discount)}`} />}
               {order.coupon_code && <Row label={`Cupón (${order.coupon_code})`} value={`- ${formatPrice(order.coupon_discount || 0)}`} muted />}
-              <Row label="Envío" value={order.shipping_cost > 0 ? formatPrice(order.shipping_cost) : 'A coordinar'} />
+              {/* Un envío en cero puede ser tres cosas distintas: entrega
+                  gratis en Mar del Plata, retiro en persona, o algo que
+                  efectivamente queda por arreglar. Decir "A coordinar" para las
+                  tres hace pensar que falta cobrar algo cuando en realidad ya
+                  está decidido. El método que eligió el cliente está guardado
+                  en el pedido, así que se muestra eso. */}
+              <Row label="Envío" value={etiquetaEnvio(order)} />
               {mpFee > 0 && <Row label="Recargo Mercado Pago (7%)" value={`+ ${formatPrice(mpFee)}`} />}
               <Row label="Total" value={formatPrice(order.total)} bold />
               <Row label="Costo estimado" value={formatPrice(order.estimated_cost)} muted />
@@ -203,6 +209,22 @@ export default async function OrderDetailPage({
       </div>
     </div>
   );
+}
+
+/**
+ * Qué decir en la fila "Envío".
+ *
+ * Con costo, el costo. Sin costo, el motivo: `shipping_method` guarda la
+ * etiqueta que eligió el cliente ("Entrega en Mar del Plata (sin cargo)",
+ * "Retiro en Mar del Plata"), que es exactamente lo que hay que saber para
+ * despachar. "A coordinar" queda solo para cuando de verdad no se sabe.
+ */
+function etiquetaEnvio(order: { shipping_cost: number; shipping_method?: string | null }): string {
+  if (order.shipping_cost > 0) return formatPrice(order.shipping_cost);
+  const m = (order.shipping_method || '').trim();
+  if (/retiro/i.test(m)) return 'Retira en persona · sin cargo';
+  if (/mar del plata/i.test(m)) return 'Gratis · entrega en Mar del Plata';
+  return m || 'A coordinar';
 }
 
 function Row({ label, value, bold, muted, accent }: { label: string; value: string; bold?: boolean; muted?: boolean; accent?: boolean }) {
