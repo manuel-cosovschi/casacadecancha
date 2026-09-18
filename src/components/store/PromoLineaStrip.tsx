@@ -24,15 +24,21 @@ function faltan(endsAt: number): string {
 
 export function PromoLineaStrip({
   label,
+  subtitle,
   price,
   comparePrice,
+  desde = false,
   endsAt,
   until,
   href = '/camisetas',
 }: {
   label: string;
+  /** Qué entra en esta promo. Antes decía siempre "Línea adidas Icon". */
+  subtitle: string;
   price: number;
   comparePrice: number;
+  /** Cuando cada producto tiene su precio, se anuncia el más barato con "desde". */
+  desde?: boolean;
   endsAt: string;
   until: string;
   href?: string;
@@ -60,9 +66,12 @@ export function PromoLineaStrip({
           🏆 {label}
         </span>
         <span className="text-sm font-bold uppercase tracking-wide">
-          Línea adidas Icon{' '}
+          {subtitle}{' '}
           <span className="text-cream/50 line-through">{fmt(comparePrice)}</span>{' '}
-          <span className="text-gold">{fmt(price)}</span>
+          <span className="text-gold">
+            {desde ? 'desde ' : ''}
+            {fmt(price)}
+          </span>
         </span>
         <span className="rounded-full bg-cream/15 px-3 py-1 text-xs font-bold uppercase tracking-wide">
           {left ? `Termina en ${left}` : `Hasta el ${until}`}

@@ -28,10 +28,17 @@ export default async function PromotionsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <input name="name" placeholder="Nombre" className="input" required />
           <input name="code" placeholder="Código (ej: MUNDIAL10)" className="input" />
+          {/* "Envío gratis" estaba acá y no funcionaba: `validateCoupon` lo
+              acepta y le dice al cliente "Cupón de envío gratis aplicado",
+              pero el cálculo del envío nunca mira el cupón — nadie llama a
+              `isFreeShippingCoupon`. O sea, se le prometía el envío gratis y
+              se le cobraba igual. Sale de la lista hasta que esté hecho de
+              verdad: para eso hay que pasarle el cupón a `resolveShippingCost`
+              y poner el envío en cero ahí. Mientras tanto, un monto fijo hace
+              el mismo trabajo y sí anda. */}
           <select name="type" className="input">
             <option value="coupon">Cupón %</option>
             <option value="fixed">Monto fijo</option>
-            <option value="free_shipping">Envío gratis</option>
           </select>
           <input name="percentage" type="number" placeholder="% descuento" className="input" />
           <input name="fixed_amount" type="number" placeholder="Monto fijo" className="input" />

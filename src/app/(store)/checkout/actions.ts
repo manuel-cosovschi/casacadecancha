@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
-import { motivoSinBaseDescontable, precioPromoLinea, promoLineaActiva, PROMO_LINEA } from '@/lib/promo-linea';
+import { motivoSinBaseDescontable, precioPromoLinea, promoLineaVigente } from '@/lib/promo-linea';
 import { isWelcomeCode, checkWelcomeEligibility, WELCOME } from '@/lib/welcome';
 import { isLoyaltyCode, checkLoyalty, loyaltyForEmail, LOYALTY } from '@/lib/loyalty';
 import { getAllSettings, vacationState } from '@/lib/settings';
@@ -514,9 +514,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       : '';
   // Igual que la promo del catálogo: los unit_price ya vienen con el precio de
   // promo, así que sin esta nota el total aparece más bajo sin explicación.
+  const promoVigente = promoLineaVigente();
   const promoLineaNote =
-    promoLineaDiscount > 0
-      ? `${PROMO_LINEA.label}: línea Icon a $${PROMO_LINEA.price.toLocaleString('es-AR')} — $${Math.round(promoLineaDiscount).toLocaleString('es-AR')} de descuento`
+    promoLineaDiscount > 0 && promoVigente
+      ? `${promoVigente.label} (${promoVigente.subtitle}) — $${Math.round(promoLineaDiscount).toLocaleString('es-AR')} de descuento`
       : '';
   // Idem para el descuento por ser cliente: se aplica solo, sin código, así que
   // sin esta nota en el panel el total aparecería más bajo sin explicación.
