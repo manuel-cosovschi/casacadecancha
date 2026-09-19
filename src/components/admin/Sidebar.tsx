@@ -37,6 +37,7 @@ const SECTIONS: { title: string; items: { label: string; href: string }[] }[] = 
       { label: 'Encargos web', href: '/admin/encargos-web' },
       { label: 'Presupuestos', href: '/admin/presupuestos' },
       { label: 'Clientes', href: '/admin/clientes' },
+      { label: 'Socios', href: '/admin/socios' },
       { label: 'Promociones', href: '/admin/promociones' },
       { label: 'Marketing', href: '/admin/marketing' },
     ],

@@ -18,6 +18,14 @@ interface CreatePreferenceArgs {
   items: PreferenceItem[];
   payerName?: string;
   payerEmail?: string;
+  /**
+   * A dónde vuelve la persona después de pagar, sin el dominio.
+   *
+   * Por defecto vuelve a la página del pedido, que es lo que hace falta el 99%
+   * de las veces. La cuota del carnet de socio no es un pedido —no tiene número
+   * ni página propia— así que necesita volver a otro lado.
+   */
+  backPath?: string;
 }
 
 /** Crea una preference de Checkout Pro y devuelve el init_point. */
@@ -26,11 +34,13 @@ export async function createPreference({
   items,
   payerName,
   payerEmail,
+  backPath,
 }: CreatePreferenceArgs): Promise<{ id: string; init_point: string } | null> {
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!token) return null;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const volver = backPath ?? `/pedido/${orderNumber}`;
 
   const body = {
     items: items.map((i) => ({
@@ -42,9 +52,9 @@ export async function createPreference({
     external_reference: orderNumber,
     payer: payerEmail ? { name: payerName, email: payerEmail } : undefined,
     back_urls: {
-      success: `${siteUrl}/pedido/${orderNumber}?method=mercadopago&status=success`,
-      pending: `${siteUrl}/pedido/${orderNumber}?method=mercadopago&status=pending`,
-      failure: `${siteUrl}/pedido/${orderNumber}?method=mercadopago&status=failure`,
+      success: `${siteUrl}${volver}?method=mercadopago&status=success`,
+      pending: `${siteUrl}${volver}?method=mercadopago&status=pending`,
+      failure: `${siteUrl}${volver}?method=mercadopago&status=failure`,
     },
     auto_return: 'approved',
     notification_url: `${siteUrl}/api/mercadopago/webhook`,

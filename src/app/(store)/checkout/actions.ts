@@ -7,6 +7,7 @@ import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
 import { motivoSinBaseDescontable, precioPromoLinea, promoLineaVigente } from '@/lib/promo-linea';
 import { isWelcomeCode, checkWelcomeEligibility, WELCOME } from '@/lib/welcome';
 import { isLoyaltyCode, checkLoyalty, loyaltyForEmail, LOYALTY } from '@/lib/loyalty';
+import { socioParaEmail, numeroDeSocio, SOCIO } from '@/lib/socios';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { validateCoupon, type CouponResult } from '@/lib/coupons';
 import {
@@ -133,6 +134,10 @@ export interface LoyaltyLookup {
   nextPercent: number | null;
   /** Texto listo para mostrar, o null si no hay nada que decir. */
   message: string | null;
+  /** True si además tiene el carnet de socio al día. */
+  socio: boolean;
+  socioNumero: number | null;
+  socioFundador: boolean;
 }
 
 const NO_LOYALTY: LoyaltyLookup = {
@@ -141,6 +146,9 @@ const NO_LOYALTY: LoyaltyLookup = {
   toNext: null,
   nextPercent: null,
   message: null,
+  socio: false,
+  socioNumero: null,
+  socioFundador: false,
 };
 
 /**
@@ -153,27 +161,42 @@ const NO_LOYALTY: LoyaltyLookup = {
  */
 export async function lookupLoyalty(email: string): Promise<LoyaltyLookup> {
   if (!LOYALTY.active) return NO_LOYALTY;
-  // Con la promo del catálogo activa no se acumula nada, así que ni se ofrece:
-  // mostrarlo y no poder aplicarlo sería peor que no mostrarlo.
-  if (couponBlockedBySale()) return NO_LOYALTY;
 
   try {
     const supabase = await createClient();
-    const st = await loyaltyForEmail(supabase, email);
-    if (!st.ok) return NO_LOYALTY;
+    // El carnet se consulta aunque haya promo del catálogo: el envío sin cargo
+    // no depende del precio de las camisetas, y el socio paga por eso todos los
+    // meses. Lo único que la promo bloquea es el descuento.
+    const carnet = await socioParaEmail(supabase, email);
+    const socio = carnet.activo
+      ? { socio: true, socioNumero: carnet.numero, socioFundador: carnet.fundador }
+      : { socio: false, socioNumero: null, socioFundador: false };
 
-    if (st.percent > 0) {
-      return {
-        percent: st.percent,
-        orders: st.orders,
-        toNext: st.toNext,
-        nextPercent: st.nextPercent,
-        message: `Sos cliente de Casaca: ${st.percent}% OFF aplicado por tus ${st.orders} ${
-          st.orders === 1 ? 'compra' : 'compras'
-        } anteriores.`,
-      };
-    }
-    return NO_LOYALTY;
+    // Con la promo del catálogo activa no se acumula nada, así que ni se
+    // ofrece: mostrarlo y no poder aplicarlo sería peor que no mostrarlo.
+    if (couponBlockedBySale()) return { ...NO_LOYALTY, ...socio };
+
+    const st = await loyaltyForEmail(supabase, email);
+    const porCompras = st.ok ? st.percent : 0;
+    // No se suman: se aplica el mejor. En la práctica el socio llega al 15%
+    // desde la primera compra, que sin carnet recién se consigue en la cuarta.
+    const percent = Math.max(porCompras, carnet.activo ? SOCIO.percent : 0);
+    if (percent <= 0) return { ...NO_LOYALTY, ...socio };
+
+    return {
+      percent,
+      orders: st.ok ? st.orders : 0,
+      // Con el carnet ya está en el tope: mostrarle cuántas compras le faltan
+      // para un escalón que ya tiene sería decirle que le falta algo.
+      toNext: carnet.activo ? null : st.toNext,
+      nextPercent: carnet.activo ? null : st.nextPercent,
+      message: carnet.activo
+        ? `${SOCIO.nombre} ${numeroDeSocio(carnet.numero)}: ${percent}% OFF y envío sin cargo en Mar del Plata.`
+        : `Sos cliente de Casaca: ${percent}% OFF aplicado por tus ${st.orders} ${
+            st.orders === 1 ? 'compra' : 'compras'
+          } anteriores.`,
+      ...socio,
+    };
   } catch {
     return NO_LOYALTY;
   }
@@ -449,19 +472,30 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const loyalty = couponBlockedBySale()
     ? { percent: 0, orders: 0 }
     : await loyaltyForEmail(supabase, data.email);
-  const loyaltyDiscount =
-    loyalty.percent > 0 ? Math.round(discountableSubtotal * (loyalty.percent / 100)) : 0;
+
+  // El carnet de socio, contra la base y no contra lo que mandó el navegador:
+  // ser socio es un hecho que vive en la base, igual que el nivel de fidelidad.
+  const carnet = await socioParaEmail(supabase, data.email);
+  const socioPercent = carnet.activo && !couponBlockedBySale() ? SOCIO.percent : 0;
+
+  // Fidelidad y carnet premian lo mismo, así que no se suman: vale el mejor.
+  const porEmailPercent = Math.max(loyalty.percent, socioPercent);
+  const porEmailDiscount =
+    porEmailPercent > 0 ? Math.round(discountableSubtotal * (porEmailPercent / 100)) : 0;
+  const ganaElCarnet = socioPercent >= loyalty.percent && socioPercent > 0;
 
   // Los descuentos no se acumulan: se aplica el mejor de los dos y se avisa.
   // Que se lleve el mayor es lo que el cliente espera; sumarlos sería regalar
   // dos veces la misma compra.
   const rawCouponDiscount = couponResult?.valid ? couponResult.discount : 0;
-  const loyaltyWins = loyaltyDiscount > rawCouponDiscount;
-  const couponDiscount = Math.max(rawCouponDiscount, loyaltyDiscount);
+  const loyaltyWins = porEmailDiscount > rawCouponDiscount;
+  const couponDiscount = Math.max(rawCouponDiscount, porEmailDiscount);
   // Lo que queda asentado en el pedido, para que en el panel se entienda de
   // dónde salió el descuento aunque el cliente no haya tipeado ningún código.
   const discountCode = loyaltyWins
-    ? `FIDELIDAD-${loyalty.percent}`
+    ? ganaElCarnet
+      ? `SOCIO-${socioPercent}`
+      : `FIDELIDAD-${loyalty.percent}`
     : couponResult?.valid
       ? couponResult.code
       : null;
@@ -479,7 +513,13 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // descuenta plata baja el subtotal, este baja el envío. Son dos renglones
   // distintos del total y mezclarlos daba un pedido con el envío cobrado y el
   // mensaje diciendo que era gratis.
-  const envioGratis = couponResult?.valid === true && couponResult.freeShipping === true;
+  // El socio no paga envío en Mar del Plata. Va aparte del descuento y NO lo
+  // bloquea la promo del catálogo: es un beneficio que paga todos los meses y
+  // que no tiene nada que ver con el precio de las camisetas. Al Correo sí se
+  // le cobra: ahí el costo no lo pone la tienda, lo pone el correo.
+  const envioSocio = carnet.activo && data.shipping_method !== 'nacional';
+  const envioGratis =
+    envioSocio || (couponResult?.valid === true && couponResult.freeShipping === true);
   const shippingCost = envioGratis ? 0 : await resolveShippingCost(data, calc);
   // En preventa se cobra ahora la seña: se descuenta del total el saldo que se paga al recibir.
   const baseTotal = Math.max(0, subtotal - discount - preorderBalance + shippingCost);
@@ -524,11 +564,19 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       : '';
   // Idem para el descuento por ser cliente: se aplica solo, sin código, así que
   // sin esta nota en el panel el total aparecería más bajo sin explicación.
-  const loyaltyNote = loyaltyWins
-    ? `FIDELIDAD ${loyalty.percent}% (${loyalty.orders} ${
-        loyalty.orders === 1 ? 'compra previa' : 'compras previas'
-      }): $${loyaltyDiscount.toLocaleString('es-AR')} de descuento`
-    : '';
+  const loyaltyNote = !loyaltyWins
+    ? ''
+    : ganaElCarnet
+      ? `${SOCIO.nombre.toUpperCase()} ${numeroDeSocio(carnet.numero)} ${socioPercent}%: $${porEmailDiscount.toLocaleString('es-AR')} de descuento`
+      : `FIDELIDAD ${loyalty.percent}% (${loyalty.orders} ${
+          loyalty.orders === 1 ? 'compra previa' : 'compras previas'
+        }): $${porEmailDiscount.toLocaleString('es-AR')} de descuento`;
+  // El envío sin cargo del socio también se deja asentado: en el panel un envío
+  // en $0 sin explicación parece un error de cálculo.
+  const socioEnvioNote =
+    envioSocio && !(couponResult?.valid === true && couponResult.freeShipping === true)
+      ? `Envío sin cargo por ${SOCIO.nombre} ${numeroDeSocio(carnet.numero)}`
+      : '';
   const combinedNotes = [
     data.notes,
     deliveryInfo,
@@ -537,6 +585,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     saleNote,
     promoLineaNote,
     loyaltyNote,
+    socioEnvioNote,
     shippingNote,
   ]
     .filter(Boolean)

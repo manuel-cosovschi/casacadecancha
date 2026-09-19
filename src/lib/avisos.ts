@@ -217,6 +217,130 @@ export function avisoBajaPreciosHtml(nombre: string, ejemplos: EjemploPrecio[]):
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * El mail de bienvenida al carnet: acá está su número de socio.
+ *
+ * El número es lo único que no puede faltar. Es lo que convierte una cuota en
+ * pertenecer a algo, y es el dato que la gente saca captura y manda al grupo.
+ */
+export function bienvenidaSocioHtml(p: {
+  nombre: string | null;
+  numero: number;
+  fundador: boolean;
+  percent: number;
+  pagaHasta: string;
+}): string {
+  const primerNombre = (p.nombre || '').trim().split(/\s+/)[0] || '';
+  const hasta = new Date(p.pagaHasta).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+  });
+
+  const cuerpo = `
+    <tr><td class="cdc-pad" style="padding:32px 34px 0;text-align:center">
+      <p class="cdc-tx2" style="margin:0 0 6px;font-family:${FUENTE};font-size:11px;letter-spacing:2px;color:${GRIS}">YA SOS SOCIO</p>
+      <h1 class="cdc-tx cdc-h1" style="margin:0 0 16px;font-family:${FUENTE};font-size:30px;font-weight:800;color:${NAVY};line-height:1.15;text-transform:uppercase">
+        Bienvenido${primerNombre ? `, ${primerNombre}` : ''}
+      </h1>
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 24px">
+        <tr><td style="background:${NAVY};border-radius:14px;padding:22px 40px;text-align:center">
+          <p style="margin:0 0 4px;font-family:${FUENTE};font-size:11px;letter-spacing:2px;color:#8CC8E8">SOCIO CASACA</p>
+          <p style="margin:0;font-family:${FUENTE};font-size:38px;font-weight:800;color:${CREMA};line-height:1">
+            N° ${String(p.numero).padStart(3, '0')}
+          </p>
+          ${
+            p.fundador
+              ? `<p style="margin:8px 0 0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:1px;color:#8CC8E8">SOCIO FUNDADOR</p>`
+              : ''
+          }
+        </td></tr>
+      </table>
+
+      <p class="cdc-tx2" style="margin:0 0 26px;font-family:${FUENTE};font-size:16px;line-height:1.65;color:${GRIS}">
+        Tenés <strong class="cdc-tx" style="color:${NAVY}">${p.percent}% en todo</strong> y el
+        <strong class="cdc-tx" style="color:${NAVY}">envío sin cargo en Mar del Plata</strong>.
+        No hace falta ningún código: entrá al checkout con este mismo mail y se aplica solo.
+      </p>
+      ${boton('Ver las camisetas', `${SITE}/camisetas`)}
+    </td></tr>
+
+    <tr><td class="cdc-pad" style="padding:30px 34px 34px">
+      ${separador()}
+      <p class="cdc-tx2" style="margin:0;font-family:${FUENTE};font-size:14px;line-height:1.65;color:${GRIS};text-align:center">
+        Tu carnet está al día hasta el <strong class="cdc-tx" style="color:${NAVY}">${hasta}</strong>.
+        ${
+          p.fundador
+            ? 'Por ser de los primeros, la cuota te queda congelada aunque después suba.'
+            : ''
+        }
+      </p>
+    </td></tr>`;
+
+  return envoltorio(
+    cuerpo,
+    `Sos el Socio N° ${String(p.numero).padStart(3, '0')}. Ya tenés ${p.percent}% en todo y envío sin cargo.`,
+  );
+}
+
+/**
+ * El aviso de que la cuota está por vencer.
+ *
+ * Dice la fecha exacta y qué se pierde, sin dramatizar. Un recordatorio que
+ * mete miedo para que la persona pague se siente mal y se nota.
+ */
+export function renovacionSocioHtml(p: {
+  nombre: string | null;
+  numero: number | null;
+  percent: number;
+  pagaHasta: string;
+  diasRestantes: number;
+}): string {
+  const primerNombre = (p.nombre || '').trim().split(/\s+/)[0] || '';
+  const hasta = new Date(p.pagaHasta).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+  });
+  const vencido = p.diasRestantes < 0;
+  const cuando =
+    p.diasRestantes < 0
+      ? 'se te venció'
+      : p.diasRestantes === 0
+        ? 'se te vence hoy'
+        : p.diasRestantes === 1
+          ? 'se te vence mañana'
+          : `se te vence en ${p.diasRestantes} días`;
+
+  const cuerpo = `
+    <tr><td class="cdc-pad" style="padding:32px 34px 0;text-align:center">
+      <p class="cdc-tx2" style="margin:0 0 6px;font-family:${FUENTE};font-size:11px;letter-spacing:2px;color:${GRIS}">
+        ${p.numero ? `SOCIO N° ${String(p.numero).padStart(3, '0')}` : 'SOCIO CASACA'}
+      </p>
+      <h1 class="cdc-tx cdc-h1" style="margin:0 0 16px;font-family:${FUENTE};font-size:30px;font-weight:800;color:${NAVY};line-height:1.15;text-transform:uppercase">
+        ${vencido ? 'Se te venció el carnet' : 'Se te vence el carnet'}
+      </h1>
+      <p class="cdc-tx2" style="margin:0 0 26px;font-family:${FUENTE};font-size:16px;line-height:1.65;color:${GRIS}">
+        ${primerNombre ? `${primerNombre}, tu` : 'Tu'} carnet ${cuando}
+        ${vencido ? `el ${hasta}` : `— el ${hasta}`}. Renovándolo seguís con
+        <strong class="cdc-tx" style="color:${NAVY}">${p.percent}% en todo</strong> y el envío sin
+        cargo en Mar del Plata.
+      </p>
+      ${boton('Renovar el carnet', `${SITE}/socio`)}
+    </td></tr>
+
+    <tr><td class="cdc-pad" style="padding:30px 34px 34px">
+      ${separador()}
+      <p class="cdc-tx2" style="margin:0;font-family:${FUENTE};font-size:14px;line-height:1.65;color:${GRIS};text-align:center">
+        Si preferís no seguir, no tenés que hacer nada: no se te cobra de nuevo y tu número de socio
+        queda guardado por si volvés.
+      </p>
+    </td></tr>`;
+
+  return envoltorio(cuerpo, `Tu carnet de socio ${cuando}.`);
+}
+
+/* ------------------------------------------------------------------ */
+
 /** Una camiseta como sale en el mail, con su ficha. */
 export interface ItemPromoMail {
   name: string;
