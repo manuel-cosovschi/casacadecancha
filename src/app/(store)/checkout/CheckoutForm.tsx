@@ -169,7 +169,12 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const shippingBruto = isRetiro ? 0 : isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
   // Un cupón de envío gratis baja el envío, no el subtotal: son dos renglones
   // distintos del total. El servidor hace exactamente esta misma cuenta.
-  const shippingCost = couponFreeShip ? 0 : shippingBruto;
+  // El socio tampoco paga envío en Mar del Plata (al Correo sí: ese costo no lo
+  // pone la tienda). Tiene que estar acá y no solo en el servidor, porque si el
+  // resumen muestra un envío que después no se cobra, el total que vio el
+  // cliente no es el que termina pagando.
+  const envioSocio = Boolean(loyalty?.socio) && !isNacional;
+  const shippingCost = couponFreeShip || envioSocio ? 0 : shippingBruto;
   const shippingKnown = isRetiro ? true : isNacional ? nationalCost !== null : mdpCost !== null;
   const baseTotal = Math.max(0, payNowSubtotal - discount + shippingCost);
   // Recargo por pagar con Mercado Pago (impuestos), como renglón aparte.
@@ -446,7 +451,14 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                   loyaltyDiscount > 0 ? 'text-green-800' : 'text-amber-800'
                 }`}
               >
-                ⭐ Cliente de Casaca — {loyalty.percent}% OFF
+                {loyalty.socio ? (
+                  <>
+                    🎟️ Socio Casaca {loyalty.socioNumero ? `N° ${String(loyalty.socioNumero).padStart(3, '0')}` : ''}
+                    {loyalty.socioFundador ? ' · Fundador' : ''} — {loyalty.percent}% OFF
+                  </>
+                ) : (
+                  <>⭐ Cliente de Casaca — {loyalty.percent}% OFF</>
+                )}
               </p>
               <p
                 className={`mt-0.5 text-xs leading-relaxed ${
@@ -456,10 +468,23 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 {/* Con el carrito entero en promo el descuento da $0. Decir "ya
                     está aplicado" sería mentira: se dice qué pasa de verdad. */}
                 {loyaltyDiscount > 0 ? (
+                  loyalty.socio ? (
+                    <>
+                      Ya está aplicado por tu carnet, y el envío en Mar del Plata te sale sin
+                      cargo. No hace falta ningún código.
+                    </>
+                  ) : (
+                    <>
+                      Ya está aplicado a este pedido por tus {loyalty.orders}{' '}
+                      {loyalty.orders === 1 ? 'compra anterior' : 'compras anteriores'}. No hace
+                      falta ningún código.
+                    </>
+                  )
+                ) : loyalty.socio ? (
                   <>
-                    Ya está aplicado a este pedido por tus {loyalty.orders}{' '}
-                    {loyalty.orders === 1 ? 'compra anterior' : 'compras anteriores'}. No hace
-                    falta ningún código.
+                    Tu 15% de socio <strong>en este pedido no suma</strong>: lo que tenés en el
+                    carrito ya está en promo y las promos no se combinan. El envío sin cargo en
+                    Mar del Plata sí te lo llevás igual.
                   </>
                 ) : (
                   <>
@@ -725,7 +750,13 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
           )}
           {bestDiscount > 0 && (
             <Row
-              label={loyaltyWins ? `Descuento cliente (${loyaltyPct}%)` : 'Cupón'}
+              label={
+                loyaltyWins
+                  ? loyalty?.socio
+                    ? `Descuento socio (${loyaltyPct}%)`
+                    : `Descuento cliente (${loyaltyPct}%)`
+                  : 'Cupón'
+              }
               value={`- ${formatPrice(bestDiscount)}`}
               accent
             />
@@ -751,9 +782,11 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
                 ? 'A calcular'
                 : couponFreeShip && shippingBruto > 0
                   ? `Gratis con tu cupón (${formatPrice(shippingBruto)})`
-                  : shippingCost === 0
-                    ? 'Gratis'
-                    : formatPrice(shippingCost)
+                  : envioSocio && shippingBruto > 0
+                    ? `Gratis por ser socio (${formatPrice(shippingBruto)})`
+                    : shippingCost === 0
+                      ? 'Gratis'
+                      : formatPrice(shippingCost)
             }
             muted={!shippingKnown}
           />
