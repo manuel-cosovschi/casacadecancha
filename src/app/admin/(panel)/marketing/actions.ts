@@ -13,6 +13,7 @@ import {
   type ItemPromoMail,
 } from '@/lib/avisos';
 import { promoLineaVigente, promoLineaHasta } from '@/lib/promo-linea';
+import { getAllSettings } from '@/lib/settings';
 
 export interface EnvioResult {
   ok?: boolean;
@@ -102,6 +103,7 @@ export interface PromoSemana {
   codigo?: string;
   monto?: number;
   minimo?: number;
+  extras?: string[];
 }
 
 /**
@@ -123,7 +125,7 @@ export async function promoDeLaSemana(): Promise<PromoSemana | null> {
     const supabase = await createClient();
     const { data: prods } = await supabase
       .from('products')
-      .select('slug, name, product_variants(size, stock_physical, stock_reserved, encargo_reserved, active)')
+      .select('slug, name, product_images(url, is_primary, sort_order), product_variants(size, stock_physical, stock_reserved, encargo_reserved, active, sort_order)')
       .in('slug', promo.items.map((i) => i.slug));
 
     const items: ItemPromoMail[] = [];
@@ -146,6 +148,8 @@ export async function promoDeLaSemana(): Promise<PromoSemana | null> {
         antes: i.compare_price,
         ahora: i.price,
         talles,
+        image: fotoPrincipal((p as { product_images?: unknown }).product_images),
+        slug: i.slug,
       });
     }
 
@@ -155,6 +159,7 @@ export async function promoDeLaSemana(): Promise<PromoSemana | null> {
       bajada: `${promo.subtitle}, a precio de promo.`,
       hasta: promoLineaHasta(),
       items,
+      extras: await beneficiosReales(),
     };
   }
 
@@ -189,6 +194,7 @@ export async function promoDeLaSemana(): Promise<PromoSemana | null> {
     codigo: c.code,
     monto: Number(c.fixed_amount),
     minimo: c.minimum_amount ? Number(c.minimum_amount) : undefined,
+    extras: await beneficiosReales(),
   };
 }
 
@@ -285,6 +291,40 @@ export interface ProductoAviso {
   /** El tachado que ya tiene cargado el producto, si lo tiene. */
   compare: number | null;
   talles: string;
+  /** Foto principal, para la ficha del mail. */
+  image: string | null;
+}
+
+/** La foto que va en la ficha: la marcada como principal, o la primera. */
+function fotoPrincipal(imgs: unknown): string | null {
+  const lista = (imgs ?? []) as { url: string; is_primary: boolean; sort_order: number }[];
+  if (lista.length === 0) return null;
+  const orden = [...lista].sort(
+    (a, b) => Number(b.is_primary) - Number(a.is_primary) || (a.sort_order ?? 0) - (b.sort_order ?? 0),
+  );
+  return orden[0]?.url ?? null;
+}
+
+/**
+ * Los "Además sumás" del pie del mail.
+ *
+ * Se arman leyendo la configuración de verdad y no se escriben a mano: un mail
+ * que promete un descuento que el checkout no da es peor que un mail sin
+ * beneficios. El de transferencia solo aparece si está realmente en más de 0.
+ */
+async function beneficiosReales(): Promise<string[]> {
+  const s = await getAllSettings();
+  const transfer = s.payments_transfer as { discount_percent?: number } | undefined;
+  const calc = s.shipping_calc as { mdp_free_km?: number; mdp_charge?: boolean } | undefined;
+
+  const out: string[] = [];
+  if (transfer?.discount_percent && transfer.discount_percent > 0) {
+    out.push(`${transfer.discount_percent}% OFF extra pagando por transferencia`);
+  }
+  if (calc?.mdp_charge === false) out.push('Envío gratis en todo Mar del Plata');
+  else if (calc?.mdp_free_km) out.push('Envío gratis en Mar del Plata (zona cercana)');
+  out.push('Enviamos a todo el país');
+  return out;
 }
 
 /**
@@ -298,7 +338,7 @@ export async function catalogoParaAviso(): Promise<ProductoAviso[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from('products')
-    .select('slug, name, price, compare_at_price, active, product_variants(size, stock_physical, stock_reserved, encargo_reserved, active, sort_order)')
+    .select('slug, name, price, compare_at_price, active, product_images(url, is_primary, sort_order), product_variants(size, stock_physical, stock_reserved, encargo_reserved, active, sort_order)')
     .eq('active', true)
     .order('name');
 
@@ -314,6 +354,7 @@ export async function catalogoParaAviso(): Promise<ProductoAviso[]> {
       precio: Number(p.price),
       compare: p.compare_at_price ? Number(p.compare_at_price) : null,
       talles: libres.map((v: Record<string, any>) => v.size).join(' · '),
+      image: fotoPrincipal(p.product_images),
     });
   }
   return out;
@@ -350,6 +391,8 @@ async function armarAviso(a: AvisoLibre, nombre: string): Promise<string> {
       antes: sel.antes ?? p.compare ?? null,
       ahora: p.precio,
       talles: p.talles,
+      image: p.image,
+      slug: p.slug,
     });
   }
 
@@ -375,6 +418,7 @@ async function armarAviso(a: AvisoLibre, nombre: string): Promise<string> {
     codigo,
     monto,
     minimo,
+    extras: await beneficiosReales(),
   });
 }
 
