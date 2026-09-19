@@ -5,8 +5,41 @@ import { withPromoLinea } from '@/lib/promo-linea';
 import { compararTalles } from '@/lib/talles';
 import type { Collection, FAQ, Product } from '@/lib/types';
 
+/**
+ * Las columnas que lee la tienda, escritas una por una y no con `*`.
+ *
+ * Tiene que ser así desde que los costos dejaron de ser públicos: la clave
+ * anónima ya no tiene permiso sobre `unit_cost`, `packaging_cost` ni
+ * `variant_cost`, y `select('*')` los pide igual porque el asterisco se expande
+ * a TODAS las columnas. Postgres rechaza la consulta entera con "permission
+ * denied for table products" y el catálogo vuelve vacío, sin error a la vista:
+ * la página dice "pronto vas a encontrar productos" como si no hubiera nada
+ * cargado.
+ *
+ * O sea: agregar una columna a `products` no la hace aparecer acá sola. Si es
+ * pública, hay que sumarla a esta lista Y darle permiso a `anon` en la
+ * migración. Es más trabajo que un asterisco, y es el precio de que los costos
+ * no viajen al navegador de cualquiera que entre.
+ *
+ * Va todo en una sola línea, y escrito a mano, porque el cliente de Supabase
+ * saca los tipos del TEXTO del select: si se arma juntando un array en tiempo
+ * de ejecución queda como un `string` cualquiera, no lo puede leer, y la
+ * consulta entera termina tipada como error.
+ */
 const PRODUCT_SELECT =
-  '*, images:product_images(*), variants:product_variants(*)';
+  'id,name,slug,short_description,description,price,compare_at_price,category_id,material,fabric,care,badge,active,featured,allow_backorder,hide_when_out_of_stock,sort_order,seo_title,seo_description,created_at,updated_at,transfer_discount,preorder,mystery_box,mystery_qty,images:product_images(*),variants:product_variants(id,product_id,size,color,model,sku,stock_physical,stock_reserved,stock_minimum,variant_price,active,sort_order,created_at,encargo_reserved)';
+
+/**
+ * Pasa las filas que vuelven de la base a productos de la tienda.
+ *
+ * El casteo existe porque `Product` declara `unit_cost` y `packaging_cost` como
+ * obligatorios —el panel los usa— y la tienda ya no los recibe. No es que se
+ * pierdan: nunca salen de la base para la clave anónima, que es justamente lo
+ * que queremos. Ninguna pantalla de la tienda los muestra.
+ */
+function aProductos(data: unknown): Product[] {
+  return ((data ?? []) as Product[]).map(sortProduct);
+}
 
 /**
  * Ordena imágenes y talles, y aplica las promos vigentes. Es el único punto por
@@ -35,7 +68,7 @@ export async function getActiveProducts(limit = 24): Promise<Product[]> {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(limit);
-  return (data ?? []).map(sortProduct) as Product[];
+  return aProductos(data);
 }
 
 /** Productos activos que tienen al menos un talle con stock disponible. Devuelve todos. */
@@ -49,7 +82,7 @@ export async function getInStockProducts(limit = 100): Promise<Product[]> {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(limit);
-  const products = (data ?? []).map(sortProduct) as Product[];
+  const products = aProductos(data);
   return products.filter((p) =>
     (p.variants ?? []).some((v) => availableStock(v) > 0),
   );
@@ -66,7 +99,7 @@ export async function getFeaturedProduct(): Promise<Product | null> {
     .order('sort_order', { ascending: true })
     .limit(1)
     .maybeSingle();
-  return data ? sortProduct(data as Product) : null;
+  return data ? sortProduct(data as unknown as Product) : null;
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
@@ -78,7 +111,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     .eq('slug', slug)
     .eq('active', true)
     .maybeSingle();
-  return data ? sortProduct(data as Product) : null;
+  return data ? sortProduct(data as unknown as Product) : null;
 }
 
 export async function getRelatedProducts(
@@ -96,7 +129,7 @@ export async function getRelatedProducts(
     .limit(limit);
   if (categoryId) q = q.eq('category_id', categoryId);
   const { data } = await q;
-  return (data ?? []).map(sortProduct) as Product[];
+  return aProductos(data);
 }
 
 export async function getProductsByCategorySlug(slug: string): Promise<Product[]> {
@@ -114,7 +147,7 @@ export async function getProductsByCategorySlug(slug: string): Promise<Product[]
     .eq('active', true)
     .eq('category_id', cat.id)
     .order('sort_order', { ascending: true });
-  return (data ?? []).map(sortProduct) as Product[];
+  return aProductos(data);
 }
 
 /** Productos activos en preventa (los que están por llegar). */
@@ -129,7 +162,7 @@ export async function getPreorderProducts(limit = 8): Promise<Product[]> {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(limit);
-  return (data ?? []).map(sortProduct) as Product[];
+  return aProductos(data);
 }
 
 /** Las Mystery Box activas, ordenadas por precio (menor a mayor). */
@@ -142,7 +175,7 @@ export async function getMysteryBoxes(): Promise<Product[]> {
     .eq('active', true)
     .eq('mystery_box', true)
     .order('price', { ascending: true });
-  return (data ?? []).map(sortProduct) as Product[];
+  return aProductos(data);
 }
 
 export async function getActiveCollections(): Promise<Collection[]> {
@@ -181,7 +214,7 @@ export async function getProductsByCollectionSlug(slug: string): Promise<{
     .in('id', ids);
   return {
     collection: collection as Collection,
-    products: (data ?? []).map(sortProduct) as Product[],
+    products: aProductos(data),
   };
 }
 
