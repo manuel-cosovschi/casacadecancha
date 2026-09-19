@@ -307,7 +307,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   const variantIds = data.items.map((i) => i.variantId);
   const { data: variants, error: vErr } = await supabase
     .from('product_variants')
-    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_cost, variant_price, active, products(name, slug, price, unit_cost, packaging_cost, allow_backorder, transfer_discount, preorder)')
+    .select('id, product_id, size, stock_physical, stock_reserved, encargo_reserved, variant_price, active, products(name, slug, price, allow_backorder, transfer_discount, preorder)')
     .in('id', variantIds);
 
   if (vErr || !variants) {
@@ -328,7 +328,6 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // activa esto vale exactamente lo mismo que `subtotal`.
   let discountableSubtotal = 0;
   let preorderBalance = 0; // saldo de preventa que se paga al recibir (no se cobra ahora)
-  let estimatedCost = 0;
   const orderItems: {
     product_id: string;
     variant_id: string;
@@ -336,7 +335,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     size: string | null;
     quantity: number;
     unit_price: number;
-    unit_cost: number;
+    // Sin `unit_cost`: el costo lo pone `storefront_create_order` leyéndolo de
+    // la base. Acá ya no se puede, porque `unit_cost`, `packaging_cost` y
+    // `variant_cost` dejaron de ser legibles con la clave pública — eran la
+    // estructura de márgenes entera, visible para cualquiera (migración 0048).
     subtotal: number;
   }[] = [];
   const reservations: { variantId: string; quantity: number; current: number }[] = [];
@@ -380,7 +382,6 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     saleDiscount += (trasPromoLinea - basePrice) * item.quantity;
     // Ventas nacionales: recargo por despacho (metido en el precio, no lo ve el cliente como aparte).
     const price = data.shipping_method === 'nacional' ? withNationalMarkup(basePrice) : basePrice;
-    const cost = (v.variant_cost ?? product?.unit_cost ?? 0) + (product?.packaging_cost ?? 0);
     const lineSubtotal = price * item.quantity;
     subtotal += lineSubtotal;
     // Lo que está en promo de línea no recibe ningún otro descuento encima:
@@ -393,8 +394,6 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     if (product?.preorder) {
       preorderBalance += (price - preorderDeposit(price)) * item.quantity;
     }
-    estimatedCost += cost * item.quantity;
-
     orderItems.push({
       product_id: v.product_id,
       variant_id: v.id,
@@ -402,7 +401,6 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       size: v.size,
       quantity: item.quantity,
       unit_price: price,
-      unit_cost: cost,
       subtotal: lineSubtotal,
     });
 
@@ -477,7 +475,12 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
 
   const shippingQuote = quoteShipping(data.shipping_method, settings.shipping);
   const calc = settings.shipping_calc as ShippingCalcSettings;
-  const shippingCost = await resolveShippingCost(data, calc);
+  // El cupón de envío gratis se resuelve ACÁ y no en `validateCoupon`: el que
+  // descuenta plata baja el subtotal, este baja el envío. Son dos renglones
+  // distintos del total y mezclarlos daba un pedido con el envío cobrado y el
+  // mensaje diciendo que era gratis.
+  const envioGratis = couponResult?.valid === true && couponResult.freeShipping === true;
+  const shippingCost = envioGratis ? 0 : await resolveShippingCost(data, calc);
   // En preventa se cobra ahora la seña: se descuenta del total el saldo que se paga al recibir.
   const baseTotal = Math.max(0, subtotal - discount - preorderBalance + shippingCost);
   // Recargo por pagar con Mercado Pago (impuestos).
@@ -567,7 +570,6 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       coupon_discount: couponDiscount,
       shipping_cost: shippingCost,
       total,
-      estimated_cost: estimatedCost,
       payment_method: data.payment_method,
       shipping_method: shippingLabel,
       customer_name: `${data.first_name} ${data.last_name}`,

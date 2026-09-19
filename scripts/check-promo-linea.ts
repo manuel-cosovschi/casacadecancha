@@ -66,23 +66,30 @@ const CATALOGO = new Set([
   'mistery-box-leyend',
 ]);
 
-/** Costo real de cada producto: `unit_cost` + `packaging_cost` ($800). */
+/**
+ * Costo real de cada producto: `unit_cost` + `packaging_cost`.
+ *
+ * Ojo con el packaging: solo 4 de los 28 productos lo tienen cargado (las
+ * cuatro Argentina, a $800). En el resto está en cero, así que el costo es el
+ * `unit_cost` pelado. Antes acá estaban todos con $800 sumados de más, lo que
+ * hacía parecer los márgenes más flacos de lo que son.
+ */
 const COSTO: Record<string, number> = {
-  'camiseta-ajax-icon-importada': 32_800,
-  'camiseta-argentina-2006-messi': 20_800,
-  'camiseta-arsenal-icon-adidas': 38_800,
-  'camiseta-arsenal-icon-bordo-importada': 32_800,
-  'camiseta-barcelona-2009-roma': 46_639,
-  'camiseta-barcelona-edicion-especial-25-26-importada': 38_796,
-  'camiseta-brasil-2002-ronaldo-importada': 36_450,
-  'camiseta-japon-2006': 46_639,
-  'camiseta-japon-titular-26-27-importada': 53_268,
-  'camiseta-juventus-icon-adidas': 38_800,
-  'camiseta-liverpool-icon-adidas': 38_800,
-  'camiseta-liverpool-icon-negra-importada': 32_800,
-  'camiseta-liverpool-icon-verde-importada': 32_800,
-  'camiseta-newcastle-icon-importada': 32_800,
-  'camiseta-racing-2000-01-titular-milito-importada': 49_300,
+  'camiseta-ajax-icon-importada': 32_000,
+  'camiseta-argentina-2006-messi': 20_000,
+  'camiseta-arsenal-icon-adidas': 38_000,
+  'camiseta-arsenal-icon-bordo-importada': 32_000,
+  'camiseta-barcelona-2009-roma': 45_839,
+  'camiseta-barcelona-edicion-especial-25-26-importada': 37_996,
+  'camiseta-brasil-2002-ronaldo-importada': 35_650,
+  'camiseta-japon-2006': 45_839,
+  'camiseta-japon-titular-26-27-importada': 52_468,
+  'camiseta-juventus-icon-adidas': 38_000,
+  'camiseta-liverpool-icon-adidas': 38_000,
+  'camiseta-liverpool-icon-negra-importada': 32_000,
+  'camiseta-liverpool-icon-verde-importada': 32_000,
+  'camiseta-newcastle-icon-importada': 32_000,
+  'camiseta-racing-2000-01-titular-milito-importada': 48_500,
 };
 
 console.log('--- el calendario está bien escrito ---');
@@ -151,7 +158,7 @@ check('el 11/10 23:59 todavía corre', promoLineaVigente(EN('2026-10-11T23:59:00
 check('el 12/10 no corre ninguna', promoLineaVigente(EN('2026-10-12T00:00:01-03:00')), null);
 
 console.log('\n--- la Japón Titular 26/27 nunca entra en promo ---');
-// Cuesta $53.268 y se vende a $61.500: cualquier descuento se come el margen.
+// Cuesta $52.468 y se vende a $61.500: cualquier descuento se come el margen.
 for (const p of CALENDARIO) {
   check(
     `${p.label} no la incluye`,

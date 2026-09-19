@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { assertWriter } from '@/lib/admin/actions-helpers';
 import { getCurrentProfile, isOwnerRole } from '@/lib/admin/auth';
 import { sendAdminPush } from '@/lib/push';
-import { syncEncargoReserved } from '@/lib/admin/encargo-stock';
+import { syncEncargoReserved, adjustPhysicalStock } from '@/lib/admin/encargo-stock';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** Solo el dueño afecta el stock web; los vendedores tienen su workspace aislado. */
@@ -447,14 +447,44 @@ export async function setExchangeStatus(id: string, status: 'pendiente' | 'hecho
   return { ok: true };
 }
 
-/** Marca un ítem del encargo como entregado / no entregado (entregas parciales). */
+/**
+ * Marca un ítem del encargo como entregado / no entregado (entregas parciales).
+ *
+ * Además del casillero, mueve el stock. Antes solo cambiaba la casilla, y eso
+ * dejaba la camiseta contada dos veces: entregada al cliente, pero todavía en
+ * el stock físico Y todavía reservada por el encargo. Los dos errores se
+ * tapaban entre sí —la disponibilidad daba 0, que era lo correcto— hasta que
+ * alguien recalculaba las reservas y la unidad fantasma salía a la venta.
+ *
+ * Entregar descuenta el físico y libera la reserva: las dos bajan lo mismo, así
+ * que la disponibilidad no se mueve. Desmarcar lo devuelve, para poder corregir
+ * un clic equivocado.
+ */
 export async function setItemDelivered(itemId: string, delivered: boolean): Promise<Result> {
   const g = await guard();
   if (g) return g;
   const supabase = await createClient();
+
+  const { data: item } = await supabase
+    .from('encargo_items')
+    .select('quantity, variant_id, delivered')
+    .eq('id', itemId)
+    .maybeSingle();
+  if (!item) return { error: 'No encontramos ese ítem del encargo.' };
+  // Si ya estaba en ese estado no se toca el stock: el botón tiene que poder
+  // apretarse dos veces sin descontar dos camisetas.
+  if (Boolean(item.delivered) === delivered) return { ok: true };
+
   const { error } = await supabase.from('encargo_items').update({ delivered }).eq('id', itemId);
   if (error) return { error: error.message };
+
+  if (item.variant_id) {
+    await adjustPhysicalStock(item.variant_id, delivered ? -(item.quantity || 0) : (item.quantity || 0));
+    await syncEncargoReserved([item.variant_id]);
+  }
+
   revalidatePath('/admin/encargos');
+  revalidatePath('/admin/stock');
   return { ok: true };
 }
 

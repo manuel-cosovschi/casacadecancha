@@ -113,14 +113,31 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     // 14 km de manejo: cobrar la mitad es poner la otra mitad de tu bolsillo.
     round_trip: true,
     road_factor: 1.3,
-    // Km EN AUTO, no en línea recta. Eran 3.5 de línea recta, que sobre el
-    // callejero real son ~4.5 de manejo: es el mismo barrio de siempre
-    // (Constitución / hasta Av. Libertad), medido como corresponde.
-    mdp_free_km: 4.5,
+    // Km EN AUTO, no en línea recta. Eran 3.5 de línea recta; medido sobre el
+    // callejero real eso da 4.7 (la relación real en Mar del Plata ronda 1.33,
+    // no 1.3). Con 4.5 el radio quedaba un poco más chico que el de siempre y
+    // Marconi 1070 —un cliente que ya compró dos veces, a 4,3 km— quedaba a
+    // 200 metros de un salto de $0 a $2.000. Con 4.7 es exactamente la zona
+    // que había antes, bien medida.
+    mdp_free_km: 4.7,
     mdp_min: 1500,
     mdp_round: 500,
     mdp_fallback: 3000,
-    zones: 'Constitución|0\nCentro|0\nLa Perla|0\nPuerto|2500\nZona Sur|3000\nZona Norte|2500\nSierra de los Padres|6000',
+    // Respaldo para cuando no se puede ubicar la dirección. Cada precio sale de
+    // medir la distancia REAL en auto hasta el barrio y pasarla por la misma
+    // fórmula que cobra el calculador, no de una estimación a ojo.
+    //
+    // La lista anterior tenía siete barrios y estaba mal donde más dolía:
+    // Centro y La Perla figuraban GRATIS y están a 7,6 y 6,2 km de manejo
+    // ($3.500 y $2.500). Sierra de los Padres estaba a $6.000 y son 22,5 km,
+    // o sea $9.000. Y faltaban casi todos: el que vive en Villa Primera —el
+    // caso que destapó todo esto— no encontraba su barrio y elegía "Centro",
+    // que estaba en cero.
+    //
+    // "No lo veo en la lista" existe para que nadie quede trabado sin poder
+    // comprar. Vale el costo de respaldo y se termina de arreglar por WhatsApp.
+    zones:
+      'Alfar|8500\nBatán|7000\nBernardino Rivadavia|3000\nCamet|3500\nCentro|3500\nChapadmalal|15000\nConstitución|0\nDon Bosco|3000\nEstación Norte|2500\nGüemes|4000\nJuramento|6000\nLa Perla|2500\nLas Heras|4000\nLibertad|0\nLos Andes|2000\nLos Troncos|4500\nNo lo veo en la lista|3000\nParque Luro|0\nPlaya Grande|5000\nPompeya|2500\nPuerto|5500\nPunta Mogotes|7000\nSan Carlos|5000\nSan Juan|3000\nSierra de los Padres|9000\nTermas Huincó|6000\nVilla Primera|0',
     national_base: 13000,
     extra_ba: 0,
     extra_centro: 3000,
