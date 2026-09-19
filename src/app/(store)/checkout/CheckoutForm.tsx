@@ -43,6 +43,8 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponOk, setCouponOk] = useState(false);
+  /** El cupón aplicado pone el envío en cero (tipo `free_shipping`). */
+  const [couponFreeShip, setCouponFreeShip] = useState(false);
   const [couponBusy, setCouponBusy] = useState(false);
   // Nivel de fidelidad del email que escribió. Se consulta solo, sin código.
   const [loyalty, setLoyalty] = useState<LoyaltyLookup | null>(null);
@@ -164,7 +166,10 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
 
   // Costo de envío efectivo.
   const nationalCost = province ? computeNationalShipping(province, shippingCalc) : null;
-  const shippingCost = isRetiro ? 0 : isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
+  const shippingBruto = isRetiro ? 0 : isNacional ? nationalCost ?? 0 : mdpCost ?? 0;
+  // Un cupón de envío gratis baja el envío, no el subtotal: son dos renglones
+  // distintos del total. El servidor hace exactamente esta misma cuenta.
+  const shippingCost = couponFreeShip ? 0 : shippingBruto;
   const shippingKnown = isRetiro ? true : isNacional ? nationalCost !== null : mdpCost !== null;
   const baseTotal = Math.max(0, payNowSubtotal - discount + shippingCost);
   // Recargo por pagar con Mercado Pago (impuestos), como renglón aparte.
@@ -183,8 +188,13 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     setMdpEstimating(false);
     if (res.needsZone) {
       setMdpNeedsZone(true);
-      setMdpCost(null);
-      setMdpInfo('No pudimos ubicar tu dirección. Elegí tu zona para calcular el envío.');
+      // El costo de respaldo que ya vino calculado, NO null. Poniéndolo en null
+      // el resumen mostraba "Envío: a calcular" y el total sin el envío, pero
+      // el servidor igual cobraba el respaldo al confirmar: el cliente veía un
+      // total y pagaba otro. Ahora se muestra lo que se va a cobrar, y baja o
+      // sube cuando elige su zona.
+      setMdpCost(res.cost);
+      setMdpInfo('No pudimos ubicar tu dirección exacta. Elegí tu zona para ajustar el envío.');
     } else {
       setMdpNeedsZone(false);
       setMdpCost(res.cost);
@@ -231,6 +241,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     if ((isWelcomeCode(couponCode) || isLoyaltyCode(couponCode)) && !email.includes('@')) {
       setCouponOk(false);
       setCouponDiscount(0);
+      setCouponFreeShip(false);
       setCouponMsg('Completá tu email más arriba y volvé a aplicar el cupón.');
       return;
     }
@@ -248,6 +259,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
     setCouponBusy(false);
     setCouponOk(res.valid);
     setCouponDiscount(res.valid ? res.discount : 0);
+    setCouponFreeShip(res.valid && res.freeShipping === true);
     // Si ya tenía un descuento mejor por ser cliente, se lo decimos en vez de
     // dejarlo pensando que el cupón no le hizo nada.
     setCouponMsg(
@@ -737,9 +749,11 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
             value={
               !shippingKnown
                 ? 'A calcular'
-                : shippingCost === 0
-                  ? 'Gratis'
-                  : formatPrice(shippingCost)
+                : couponFreeShip && shippingBruto > 0
+                  ? `Gratis con tu cupón (${formatPrice(shippingBruto)})`
+                  : shippingCost === 0
+                    ? 'Gratis'
+                    : formatPrice(shippingCost)
             }
             muted={!shippingKnown}
           />

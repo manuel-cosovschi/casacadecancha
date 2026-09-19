@@ -6,6 +6,15 @@ export interface CouponResult {
   code: string;
   discount: number;
   message: string;
+  /**
+   * El cupón pone el envío en cero.
+   *
+   * Hacía falta exponerlo: el tipo `free_shipping` existía, el checkout le
+   * decía al cliente "Cupón de envío gratis aplicado" y después le cobraba el
+   * envío igual, porque el cálculo del envío nunca miraba el cupón. Nadie
+   * llamaba a `isFreeShippingCoupon`.
+   */
+  freeShipping?: boolean;
 }
 
 /**
@@ -69,6 +78,7 @@ export async function validateCoupon(
     valid: true,
     code: promo.code || code,
     discount,
+    freeShipping: promo.type === 'free_shipping',
     message:
       promo.type === 'free_shipping'
         ? 'Cupón de envío gratis aplicado.'

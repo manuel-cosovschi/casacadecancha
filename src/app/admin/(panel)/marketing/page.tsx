@@ -13,6 +13,7 @@ import {
   promoSemanaHtml,
 } from '@/lib/avisos';
 import { formatPrice, whatsappLink } from '@/lib/utils';
+import { sugerirEmail } from '@/lib/email-typos';
 
 /** mailto: con el código adentro, para mandarlo desde tu propio mail. */
 function mailtoCodigo(s: {
@@ -113,7 +114,21 @@ export default async function MarketingPage() {
                 {suscriptores.map((s) => (
                   <tr key={s.id} className="border-b border-navy/5">
                     <td className="p-3 font-medium">{s.name}</td>
-                    <td className="p-3 text-navy/70">{s.email}</td>
+                    <td className="p-3 text-navy/70">
+                      {s.email}
+                      {/* Un dominio mal tipeado rebota y esa persona no recibe
+                          nada: ni su código, ni las promos. Como no se le puede
+                          cambiar el mail a alguien por las dudas, se marca acá
+                          para que se decida a mano. */}
+                      {sugerirEmail(s.email) && (
+                        <span
+                          className="ml-2 whitespace-nowrap rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-800"
+                          title={`Parece mal escrito. ¿Será ${sugerirEmail(s.email)}?`}
+                        >
+                          ⚠ ¿{sugerirEmail(s.email)?.split('@')[1]}?
+                        </span>
+                      )}
+                    </td>
                     <td className="p-3">
                       {s.code ? (
                         <code className="select-all rounded bg-navy/5 px-1.5 py-0.5 font-bold text-navy">{s.code}</code>

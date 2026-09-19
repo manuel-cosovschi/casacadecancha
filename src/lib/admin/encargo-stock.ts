@@ -3,8 +3,15 @@ import { notifyRestock } from '@/lib/admin/restock';
 
 /**
  * Recalcula la reserva por encargos de cada variante:
- * encargo_reserved = suma de cantidades de ítems vinculados en encargos NO cancelados.
- * Es idempotente (no acumula errores).
+ * encargo_reserved = cantidades de ítems vinculados en encargos NO cancelados
+ * y TODAVÍA NO ENTREGADOS. Es idempotente (no acumula errores).
+ *
+ * Lo de "no entregados" faltaba, y salía caro: una camiseta entregada seguía
+ * reservando stock para siempre. Como entregar tampoco descontaba el físico
+ * (ver `setItemDelivered`), los dos errores se tapaban entre sí y la
+ * disponibilidad daba bien — pero el físico contaba camisetas que ya no
+ * estaban en la casa. El día que alguien recalculaba las reservas, esas
+ * unidades fantasma pasaban a estar a la venta.
  */
 export async function syncEncargoReserved(variantIds: (string | null | undefined)[]): Promise<void> {
   const ids = Array.from(new Set(variantIds.filter(Boolean) as string[]));
@@ -14,12 +21,15 @@ export async function syncEncargoReserved(variantIds: (string | null | undefined
     for (const variantId of ids) {
       const { data: items } = await supabase
         .from('encargo_items')
-        .select('quantity, encargos(status)')
+        .select('quantity, delivered, encargos(status)')
         .eq('variant_id', variantId);
       let reserved = 0;
       for (const it of (items ?? []) as any[]) {
         const status = Array.isArray(it.encargos) ? it.encargos[0]?.status : it.encargos?.status;
-        if (status !== 'cancelado') reserved += it.quantity || 0;
+        if (status === 'cancelado') continue;
+        // Lo entregado ya salió de la casa: no hay nada que reservar.
+        if (it.delivered) continue;
+        reserved += it.quantity || 0;
       }
       await supabase
         .from('product_variants')
