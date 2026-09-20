@@ -57,19 +57,19 @@ export async function POST(request: Request) {
         const fila = Array.isArray(data) ? data[0] : null;
         // `nuevo` solo viene en true la primera vez: la bienvenida con el
         // número de socio se manda una sola vez, no en cada renovación.
+        //
+        // El mail y el nombre vienen de la MISMA función, y no de leer la
+        // tabla: acá entramos con la clave pública, que no puede leer `socios`
+        // —y está bien que no pueda, ahí están los datos de todos—. Leyéndola
+        // volvía vacío, sin error, y el alta quedaba muda: socio activo que
+        // nunca se entera de su número.
         if (fila?.nuevo) {
-          const { data: ficha } = await supabase
-            .from('socios')
-            .select('email, nombre')
-            .eq('id', socioId)
-            .maybeSingle();
-
-          if (ficha?.email) {
+          if (fila.email) {
             await sendEmail({
-              to: ficha.email,
+              to: fila.email,
               subject: `Ya sos socio — ${numeroDeSocio(fila.numero)}`,
               html: bienvenidaSocioHtml({
-                nombre: ficha.nombre ?? null,
+                nombre: fila.nombre ?? null,
                 numero: fila.numero,
                 fundador: Boolean(fila.fundador),
                 percent: SOCIO.percent,
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
           await sendAdminPush(
             `Socio nuevo ${numeroDeSocio(fila.numero)}`,
-            `${ficha?.nombre || ficha?.email || 'Alguien'} se dio de alta en ${SOCIO.nombre}${fila.fundador ? ' como fundador' : ''}.`,
+            `${fila.nombre || fila.email || 'Alguien'} se dio de alta en ${SOCIO.nombre}${fila.fundador ? ' como fundador' : ''}.`,
             '/admin/socios',
             `cdc-socio-${fila.numero}`,
           );
