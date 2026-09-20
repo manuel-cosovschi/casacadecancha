@@ -80,7 +80,12 @@ export async function altaSocio(input: {
       ],
       payerName: nombre,
       payerEmail: email,
-      backPath: '/socio/listo',
+      // El id del carnet viaja de vuelta para que la página de llegada pueda
+      // mirar la base en vez de creerle al `status` de la dirección. Mercado
+      // Pago no siempre manda uno —si la persona vuelve con la flecha para
+      // atrás no manda nada— y sin esto la página daba por pagado lo que no
+      // estaba pagado.
+      backPath: `/socio/listo?s=${id}`,
     });
 
     if (!pref?.init_point) {

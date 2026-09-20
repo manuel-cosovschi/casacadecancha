@@ -41,6 +41,10 @@ export async function createPreference({
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const volver = backPath ?? `/pedido/${orderNumber}`;
+  // El destino puede traer sus propios parámetros (la cuota de socio vuelve con
+  // el id del carnet). Sin esto quedaba `?s=xxx?method=...` y el segundo `?`
+  // rompe la dirección entera.
+  const sep = volver.includes('?') ? '&' : '?';
 
   const body = {
     items: items.map((i) => ({
@@ -52,9 +56,9 @@ export async function createPreference({
     external_reference: orderNumber,
     payer: payerEmail ? { name: payerName, email: payerEmail } : undefined,
     back_urls: {
-      success: `${siteUrl}${volver}?method=mercadopago&status=success`,
-      pending: `${siteUrl}${volver}?method=mercadopago&status=pending`,
-      failure: `${siteUrl}${volver}?method=mercadopago&status=failure`,
+      success: `${siteUrl}${volver}${sep}method=mercadopago&status=success`,
+      pending: `${siteUrl}${volver}${sep}method=mercadopago&status=pending`,
+      failure: `${siteUrl}${volver}${sep}method=mercadopago&status=failure`,
     },
     auto_return: 'approved',
     notification_url: `${siteUrl}/api/mercadopago/webhook`,
