@@ -15,6 +15,7 @@ import {
   getFAQs,
 } from '@/lib/queries';
 import type { NovedadSlide } from '@/components/store/NovedadesCarousel';
+import { SOCIO } from '@/lib/socios';
 
 export const dynamic = 'force-dynamic';
 
@@ -208,6 +209,46 @@ export default async function HomePage() {
                 </Link>
               ))}
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* Socio Casaca. Va antes del bloque del Mundial y después de las
+          colecciones: quien llegó hasta acá ya miró camisetas y vio los precios,
+          que es el momento en que un 15% significa algo. Arriba de todo, sin
+          haber visto nada, "hacete socio" no quiere decir nada. */}
+      {settings.socio_block?.active && show('socio') && (
+        <section className="relative my-8 overflow-hidden sm:my-12 lg:my-16">
+          <div className="container-page">
+            <Link
+              href="/socio"
+              className="group block focus:outline-none focus-visible:ring-4 focus-visible:ring-celeste/60 focus-visible:ring-offset-4 focus-visible:ring-offset-cream"
+            >
+              <div className="gradient-hero brand-stripes relative overflow-hidden rounded-[2.5rem] px-6 py-12 text-center text-cream transition group-hover:brightness-110 sm:py-16 lg:py-20">
+                <div className="pitch-pattern absolute inset-0 opacity-60" aria-hidden />
+                {settings.socio_block.image_url && (
+                  <Image
+                    src={settings.socio_block.image_url}
+                    alt=""
+                    fill
+                    sizes="100vw"
+                    className="absolute inset-0 object-cover opacity-25"
+                  />
+                )}
+                <div className="relative">
+                  <span className="kicker">🎟️ El carnet de Casaca</span>
+                  <h2 className="mx-auto mt-3 max-w-3xl text-balance text-3xl font-black uppercase leading-[0.95] sm:text-5xl">
+                    {settings.socio_block.title}
+                  </h2>
+                  <p className="mx-auto mt-4 max-w-xl text-cream/75">
+                    {settings.socio_block.subtitle}
+                  </p>
+                  <span className="btn-celeste mt-8 inline-block">
+                    Hacerme socio — {formatPrice(SOCIO.cuota)}/mes →
+                  </span>
+                </div>
+              </div>
+            </Link>
           </div>
         </section>
       )}
