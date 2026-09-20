@@ -13,6 +13,7 @@ const NAV = [
   { label: 'Buzos', href: '/buzos' },
   { label: 'Mystery Box', href: '/mistery-box' },
   { label: 'Encargá tu camiseta', href: '/encargos' },
+  { label: 'Socios', href: '/socio' },
   { label: 'FAQ', href: '/preguntas-frecuentes' },
 ];
 

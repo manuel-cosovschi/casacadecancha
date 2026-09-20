@@ -52,6 +52,24 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     subtitle: 'Elegí tu casaca y viví cada partido con tus colores.',
     image_url: '',
   },
+  /**
+   * El bloque de Socio Casaca en la home.
+   *
+   * `image_url` es el fondo del banner y puede quedar vacío: sin imagen el
+   * bloque igual se ve, con el degradado y las rayas de la marca. Así se puede
+   * publicar hoy y ponerle la foto cuando esté, sin tocar código ni deployar.
+   *
+   * El texto NO va quemado en la imagen: se dibuja acá arriba. Una imagen con
+   * el texto adentro se recorta en el celular —justo donde está la mitad de la
+   * gente— y el botón deja de ser un botón de verdad.
+   */
+  socio_block: {
+    active: true,
+    title: 'HACETE SOCIO COMO TE HACÉS DEL CLUB',
+    subtitle:
+      '15% en todo, envío sin cargo en Mar del Plata y las camisetas que llegan, antes que nadie.',
+    image_url: '',
+  },
   whatsapp: {
     active: true,
     number: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5492235383082',
@@ -172,6 +190,7 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     collections: true,
     products: true,
     mundial: true,
+    socio: true,
     how_to_buy: true,
     faq: true,
   },
