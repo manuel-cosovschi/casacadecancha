@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { formatPrice, whatsappLink } from '@/lib/utils';
 import { SOCIO, numeroDeSocio, diasDeCarnet } from '@/lib/socios';
 import { BajaSocioButton } from './BajaSocioButton';
+import { AltaManual } from './AltaManual';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,9 @@ export default async function SociosPage() {
 
   const socios = (data ?? []) as Socio[];
   const activos = socios.filter((s) => !s.baja_el && s.paga_hasta && new Date(s.paga_hasta) > new Date());
+  // El que se anotó y todavía no pagó: si hay uno, el alta manual arranca con
+  // su mail puesto. Es el caso típico — se anotó, no pudo pagar, te escribe.
+  const pendienteDePago = socios.find((s) => !s.baja_el && !s.paga_hasta);
   const porMes = activos.reduce((a, s) => a + Number(s.cuota || 0), 0);
 
   return (
@@ -55,6 +59,7 @@ export default async function SociosPage() {
             ? 'Todavía no hay nadie'
             : `${activos.length} al día · ${formatPrice(porMes)} por mes · ${socios.length} anotados en total`
         }
+        action={<AltaManual sugerido={pendienteDePago?.email} />}
       />
 
       {socios.length === 0 ? (
