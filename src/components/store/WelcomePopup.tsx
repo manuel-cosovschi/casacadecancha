@@ -27,7 +27,7 @@ const KEY = 'cdc_welcome_ok';
  * entra es la forma más rápida de que cierre la pestaña: primero que mire las
  * camisetas, y recién ahí le ofrecemos el descuento.
  */
-const DELAY_MS = 10_000;
+const DELAY_MS = 8_000;
 
 /**
  * Dónde no aparece nunca. Con la espera el popup ya no cae al entrar sino en
