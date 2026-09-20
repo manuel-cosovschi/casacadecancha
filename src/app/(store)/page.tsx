@@ -224,16 +224,43 @@ export default async function HomePage() {
               href="/socio"
               className="group block focus:outline-none focus-visible:ring-4 focus-visible:ring-celeste/60 focus-visible:ring-offset-4 focus-visible:ring-offset-cream"
             >
-              <div className="gradient-hero brand-stripes relative overflow-hidden rounded-[2.5rem] px-6 py-12 text-center text-cream transition group-hover:brightness-110 sm:py-16 lg:py-20">
-                <div className="pitch-pattern absolute inset-0 opacity-60" aria-hidden />
+              {/* Con foto se le sacan las rayas de la marca y la trama de
+                  cancha: son texturas pensadas para que un degradado liso no
+                  quede plano, y encima de una foto solo la ensucian. */}
+              <div
+                className={`relative overflow-hidden rounded-[2.5rem] px-6 py-12 text-center text-cream transition group-hover:brightness-110 sm:py-16 lg:py-20 ${
+                  settings.socio_block.image_url ? 'bg-navy' : 'gradient-hero brand-stripes'
+                }`}
+              >
+                {!settings.socio_block.image_url && (
+                  <div className="pitch-pattern absolute inset-0 opacity-60" aria-hidden />
+                )}
                 {settings.socio_block.image_url && (
-                  <Image
-                    src={settings.socio_block.image_url}
-                    alt=""
-                    fill
-                    sizes="100vw"
-                    className="absolute inset-0 object-cover opacity-25"
-                  />
+                  <>
+                    <Image
+                      src={settings.socio_block.image_url}
+                      alt=""
+                      fill
+                      priority={false}
+                      sizes="100vw"
+                      /* En el celular el bloque es casi cuadrado y una foto
+                         apaisada se recorta al medio — que en esta es la pared
+                         vacía, o sea un rectángulo oscuro y nada más. Anclada a
+                         la izquierda se ven las camisetas colgadas, que es lo
+                         único que hace que el banner valga la pena. En pantalla
+                         grande entra entera y va centrada. */
+                      className="absolute inset-0 object-cover object-left sm:object-center"
+                    />
+                    {/* Velo navy más fuerte en los bordes que en el medio: la
+                        foto está hecha con el centro oscuro y vacío justo donde
+                        cae el texto, así que ahí casi no hace falta taparla, y
+                        en los costados —donde cuelgan las camisetas— sí, o el
+                        texto blanco se pierde contra una manga clara. */}
+                    <div
+                      className="absolute inset-0 bg-gradient-to-r from-navy/75 via-navy/25 to-navy/75"
+                      aria-hidden
+                    />
+                  </>
                 )}
                 <div className="relative">
                   <span className="kicker">🎟️ El carnet de Casaca</span>
