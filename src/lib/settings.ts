@@ -68,7 +68,7 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     title: 'HACETE SOCIO COMO TE HACÉS DEL CLUB',
     subtitle:
       '15% en todo, envío sin cargo en Mar del Plata y las camisetas que llegan, antes que nadie.',
-    image_url: '',
+    image_url: '/banner-socio.webp',
   },
   whatsapp: {
     active: true,
