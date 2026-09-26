@@ -4,6 +4,7 @@ import { AnnouncementBar } from '@/components/store/AnnouncementBar';
 import { Header } from '@/components/store/Header';
 import { Footer } from '@/components/store/Footer';
 import { WhatsAppButton } from '@/components/store/WhatsAppButton';
+import { Goat } from '@/components/store/Goat';
 import { UtmCapture } from '@/components/store/UtmCapture';
 import { TrafficTracker } from '@/components/store/TrafficTracker';
 import { VacationGate, VacationBar } from '@/components/store/VacationGate';
@@ -75,6 +76,7 @@ export default async function StoreLayout({
       <main className="min-h-[60vh]">{children}</main>
       <Footer data={settings.footer} />
       <WhatsAppButton data={settings.whatsapp} />
+      <Goat />
       {!vac.active && <CartDrawer transferDiscount={transferDiscount} />}
       {/* Captación: no se muestra si los pedidos están pausados. */}
       {!vac.active && <WelcomePopup />}

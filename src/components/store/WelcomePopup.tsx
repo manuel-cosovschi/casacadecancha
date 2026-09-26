@@ -63,7 +63,19 @@ export function WelcomePopup() {
       /* ignore */
     }
     if (already) return;
-    const t = setTimeout(() => setOpen(true), DELAY_MS);
+
+    // Si está hablando con Goat, el popup espera. Taparle el chat a alguien
+    // que escribió una pregunta y está esperando la respuesta es la forma más
+    // rápida de que cierre las dos cosas y se vaya.
+    let t: ReturnType<typeof setTimeout>;
+    const intentar = () => {
+      if (document.body.dataset.goatAbierto === '1') {
+        t = setTimeout(intentar, 4000);
+        return;
+      }
+      setOpen(true);
+    };
+    t = setTimeout(intentar, DELAY_MS);
     return () => clearTimeout(t);
   }, []);
 

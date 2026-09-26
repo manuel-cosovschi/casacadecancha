@@ -337,7 +337,41 @@
   70% { opacity: 1; }
   85%, 100% { transform: translateX(120%); opacity: 0; }
 }
+
+/* ---- Goat ---- */
+/* Flota apenas, como si estuviera esperando que le preguntes algo */
+.goat-flota { animation: goat-flota 4s ease-in-out infinite; transform-origin: bottom center; }
+@keyframes goat-flota {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+}
+/* Las orejas se sacuden de a ratos. Cada una con su tiempo: si se mueven
+   las dos igual parece un limpiaparabrisas. */
+.goat-oreja { transform-origin: center; }
+.goat-oreja-izq { animation: goat-oreja-izq 6s ease-in-out infinite; }
+.goat-oreja-der { animation: goat-oreja-der 6s ease-in-out infinite .7s; }
+@keyframes goat-oreja-izq {
+  0%, 88%, 100% { transform: rotate(0deg); }
+  92% { transform: rotate(-9deg); }
+  96% { transform: rotate(4deg); }
+}
+@keyframes goat-oreja-der {
+  0%, 88%, 100% { transform: rotate(0deg); }
+  92% { transform: rotate(9deg); }
+  96% { transform: rotate(-4deg); }
+}
+/* Parpadeo: la clave es que dure poquito y tarde mucho en volver */
+.goat-ojos { animation: goat-parpadeo 5.5s infinite; transform-origin: center 49px; }
+@keyframes goat-parpadeo {
+  0%, 94%, 100% { transform: scaleY(1); }
+  97% { transform: scaleY(.1); }
+}
+/* Los puntitos de "Pensando…" */
+.goat-puntos { animation: goat-puntos 1.4s ease-in-out infinite; }
+@keyframes goat-puntos { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
-  .cc-pop-in, .cc-mascot, .cc-shine { animation: none !important; }
+  .cc-pop-in, .cc-mascot, .cc-shine,
+  .goat-flota, .goat-oreja, .goat-ojos, .goat-puntos { animation: none !important; }
   .cc-shine { opacity: 0; }
 }

@@ -70,6 +70,20 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
       '15% en todo, envío sin cargo en Mar del Plata y las camisetas que llegan, antes que nadie.',
     image_url: '/banner-socio.webp',
   },
+  /**
+   * La comunidad de WhatsApp.
+   *
+   * `link` arranca vacío a propósito. Goat la menciona SOLO si hay un link
+   * cargado: mandar gente a una comunidad que no existe es peor que no
+   * nombrarla, y es el mismo criterio que con el descuento por transferencia.
+   */
+  comunidad: {
+    active: true,
+    nombre: 'La comunidad de Casaca',
+    link: '',
+    descripcion:
+      'Ahí avisamos primero lo que llega, las promos y las camisetas que quedan con un solo talle.',
+  },
   whatsapp: {
     active: true,
     number: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5492235383082',

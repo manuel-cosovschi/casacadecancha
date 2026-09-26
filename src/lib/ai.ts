@@ -127,6 +127,115 @@ export async function pedirJson<T>(p: PedidoJson): Promise<RespuestaJson<T>> {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Conversación                                                        */
+
+export interface Turno {
+  quien: 'persona' | 'goat';
+  texto: string;
+}
+
+export interface PedidoTexto {
+  sistema: string;
+  /** Lo grande y estable (el catálogo, los precios). Se cachea. */
+  contexto?: string;
+  /** La conversación entera, del más viejo al más nuevo. */
+  turnos: Turno[];
+  maxTokens?: number;
+  esfuerzo?: Esfuerzo;
+}
+
+export type RespuestaTexto =
+  | { ok: true; texto: string; via: Proveedor }
+  | { ok: false; motivo: 'sin-ia' | 'rechazo' | 'error'; detalle?: string };
+
+/**
+ * Una respuesta en texto, con memoria de lo que se venía hablando.
+ *
+ * Es el hermano de `pedirJson` para cuando la respuesta la lee una persona y
+ * no el código. Mismas reglas: nunca tira, y si no hay IA configurada vuelve
+ * `sin-ia` para que quien llama muestre otra cosa en vez de romperse.
+ */
+export async function pedirTexto(p: PedidoTexto): Promise<RespuestaTexto> {
+  const prov = proveedor();
+  if (!prov) return { ok: false, motivo: 'sin-ia' };
+  if (p.turnos.length === 0) return { ok: false, motivo: 'error', detalle: 'sin turnos' };
+
+  try {
+    const texto =
+      prov === 'anthropic' ? await charlaClaude(p) : await charlaGpt(p);
+    if (texto === 'rechazo') return { ok: false, motivo: 'rechazo' };
+    if (!texto) return { ok: false, motivo: 'error' };
+    return { ok: true, texto, via: prov };
+  } catch (e) {
+    console.error(`[ia:${prov}] falló la charla:`, e);
+    return { ok: false, motivo: 'error', detalle: String(e).slice(0, 300) };
+  }
+}
+
+async function charlaClaude(p: PedidoTexto): Promise<string | null | 'rechazo'> {
+  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: p.sistema }];
+  if (p.contexto) {
+    // Igual que en `pedirJson`: el breakpoint va acá. En una charla esto rinde
+    // todavía más, porque el catálogo entero se manda de nuevo en cada
+    // mensaje y sin caché se paga entero cada vez.
+    system.push({ type: 'text', text: p.contexto, cache_control: { type: 'ephemeral' } });
+  }
+
+  const res = await clienteAnthropic().messages.create({
+    model: modelo('anthropic'),
+    max_tokens: p.maxTokens ?? 700,
+    system,
+    ...(p.esfuerzo === 'medio' ? { thinking: { type: 'adaptive' as const } } : {}),
+    messages: p.turnos.map((t) => ({
+      role: t.quien === 'persona' ? ('user' as const) : ('assistant' as const),
+      content: t.texto,
+    })),
+  });
+
+  if (res.stop_reason === 'refusal') return 'rechazo';
+  return res.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map((b) => b.text)
+    .join('')
+    .trim();
+}
+
+async function charlaGpt(p: PedidoTexto): Promise<string | null | 'rechazo'> {
+  const model = modelo('openai');
+  const pensador = razona(model);
+
+  const res = await clienteOpenAI().chat.completions.create({
+    model,
+    messages: [
+      { role: 'system', content: p.sistema },
+      ...(p.contexto ? [{ role: 'system' as const, content: p.contexto }] : []),
+      ...p.turnos.map((t) => ({
+        role: t.quien === 'persona' ? ('user' as const) : ('assistant' as const),
+        content: t.texto,
+      })),
+    ],
+    max_completion_tokens: pensador ? (p.maxTokens ?? 700) + 6000 : p.maxTokens ?? 700,
+    ...(pensador
+      ? { reasoning_effort: p.esfuerzo === 'medio' ? ('medium' as const) : ('low' as const) }
+      : {}),
+  });
+
+  const salida = res.choices[0];
+  const msg = salida?.message;
+  if (!msg) return null;
+  if (msg.refusal) return 'rechazo';
+  if (!msg.content) {
+    console.error(
+      `[ia:openai] ${model} devolvió vacío en la charla (finish_reason: ${salida.finish_reason}).`,
+    );
+    return null;
+  }
+  return msg.content.trim();
+}
+
+/* ------------------------------------------------------------------ */
+
 async function conClaude<T>(p: PedidoJson): Promise<T | null | 'rechazo'> {
   const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: p.sistema }];
   if (p.contexto) {
