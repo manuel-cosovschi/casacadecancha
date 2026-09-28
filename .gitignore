@@ -37,3 +37,6 @@ next-env.d.ts
 # UI/UX skill tooling (local)
 .claude/skills/
 __pycache__/
+
+# Los posteos generados: se rehacen con el script, no se versionan
+/posteos/
