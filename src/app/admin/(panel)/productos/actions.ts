@@ -26,7 +26,6 @@ const productSchema = z.object({
   active: z.coerce.boolean(),
   featured: z.coerce.boolean(),
   allow_backorder: z.coerce.boolean(),
-  hide_when_out_of_stock: z.coerce.boolean(),
   transfer_discount: z.coerce.boolean(),
   seo_title: z.string().optional(),
   seo_description: z.string().optional(),
@@ -67,7 +66,6 @@ export async function saveProduct(
     active: formData.get('active') === 'on',
     featured: formData.get('featured') === 'on',
     allow_backorder: formData.get('allow_backorder') === 'on',
-    hide_when_out_of_stock: formData.get('hide_when_out_of_stock') === 'on',
     transfer_discount: formData.get('transfer_discount') === 'on',
     seo_title: clean(formData.get('seo_title')),
     seo_description: clean(formData.get('seo_description')),
@@ -98,7 +96,9 @@ export async function saveProduct(
     active: data.active,
     featured: data.featured,
     allow_backorder: data.allow_backorder,
-    hide_when_out_of_stock: data.hide_when_out_of_stock,
+    // `hide_when_out_of_stock` no se escribe más: lo agotado se esconde solo de
+    // las grillas (ver `vaEnLaVidriera`), así que la casilla no hacía nada y se
+    // sacó del formulario. La columna queda en la base sin que nadie la lea.
     transfer_discount: data.transfer_discount,
     seo_title: data.seo_title ?? null,
     seo_description: data.seo_description ?? null,

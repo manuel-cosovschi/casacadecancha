@@ -1,7 +1,7 @@
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
-import { availableStock } from '@/lib/utils';
+import { estaAgotado, vaEnLaVidriera } from '@/lib/utils';
 import { withSalePricing } from '@/lib/sale';
-import { withPromoLinea } from '@/lib/promo-linea';
+import { withPromoLinea, admiteSaleDelCatalogo } from '@/lib/promo-linea';
 import { compararTalles } from '@/lib/talles';
 import type { Collection, FAQ, Product } from '@/lib/types';
 
@@ -42,6 +42,18 @@ function aProductos(data: unknown): Product[] {
 }
 
 /**
+ * Lo mismo que `aProductos`, pero sacando lo agotado: es lo que va en las
+ * grillas de la tienda (ver `vaEnLaVidriera`).
+ *
+ * `getActiveProducts` a propósito NO pasa por acá. Ese devuelve el catálogo
+ * entero y lo usan el sitemap, el buscador y Goat, que tienen que conocer
+ * también lo que no hay para poder decir "esa está agotada, te la encargo".
+ */
+function aVidriera(data: unknown): Product[] {
+  return aProductos(data).filter(vaEnLaVidriera);
+}
+
+/**
  * Ordena imágenes y talles, y aplica las promos vigentes. Es el único punto por
  * el que el storefront lee productos, así que alcanza con descontar acá para
  * que el precio de promo salga igual en el catálogo, la ficha y el carrito.
@@ -55,7 +67,10 @@ function sortProduct(p: Product): Product {
   // Por el talle y no por `sort_order`: ese número se escribe a mano y una
   // variante creada sin tocarlo se iba al principio de la lista.
   if (p.variants) p.variants.sort((a, b) => compararTalles(a.size, b.size));
-  return withSalePricing(withPromoLinea(p));
+  const conPromo = withPromoLinea(p);
+  // Mismo criterio que usa `createOrder` al cobrar: si la promo está en el piso,
+  // el porcentaje del catálogo no se le apila encima.
+  return admiteSaleDelCatalogo(p.slug) ? withSalePricing(conPromo) : conPromo;
 }
 
 export async function getActiveProducts(limit = 24): Promise<Product[]> {
@@ -82,10 +97,10 @@ export async function getInStockProducts(limit = 100): Promise<Product[]> {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(limit);
-  const products = aProductos(data);
-  return products.filter((p) =>
-    (p.variants ?? []).some((v) => availableStock(v) > 0),
-  );
+  // Acá va `estaAgotado` y no `vaEnLaVidriera`: el home tiene fila propia para
+  // las preventas y otra para las Mystery Box, así que si entraran por las
+  // excepciones de la vidriera saldrían repetidas en "Lo nuevo".
+  return aProductos(data).filter((p) => !estaAgotado(p));
 }
 
 export async function getFeaturedProduct(): Promise<Product | null> {
@@ -99,9 +114,17 @@ export async function getFeaturedProduct(): Promise<Product | null> {
     .order('sort_order', { ascending: true })
     .limit(1)
     .maybeSingle();
-  return data ? sortProduct(data as unknown as Product) : null;
+  if (!data) return null;
+  const p = sortProduct(data as unknown as Product);
+  return vaEnLaVidriera(p) ? p : null;
 }
 
+/**
+ * La ficha de un producto por su slug. A propósito sin el filtro de la vidriera:
+ * aunque esté agotado, el link directo —el de Instagram, el que manda Goat, el
+ * del mail— tiene que seguir abriendo, con el cartel de agotado y la lista de
+ * espera para avisar cuando vuelva.
+ */
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = await createClient();
@@ -129,7 +152,7 @@ export async function getRelatedProducts(
     .limit(limit);
   if (categoryId) q = q.eq('category_id', categoryId);
   const { data } = await q;
-  return aProductos(data);
+  return aVidriera(data);
 }
 
 export async function getProductsByCategorySlug(slug: string): Promise<Product[]> {
@@ -147,7 +170,7 @@ export async function getProductsByCategorySlug(slug: string): Promise<Product[]
     .eq('active', true)
     .eq('category_id', cat.id)
     .order('sort_order', { ascending: true });
-  return aProductos(data);
+  return aVidriera(data);
 }
 
 /** Productos activos en preventa (los que están por llegar). */
@@ -214,7 +237,7 @@ export async function getProductsByCollectionSlug(slug: string): Promise<{
     .in('id', ids);
   return {
     collection: collection as Collection,
-    products: aProductos(data),
+    products: aVidriera(data),
   };
 }
 

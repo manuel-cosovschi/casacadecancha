@@ -4,7 +4,13 @@ import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
-import { motivoSinBaseDescontable, precioPromoLinea, promoLineaVigente } from '@/lib/promo-linea';
+import {
+  admiteSaleDelCatalogo,
+  motivoSinBaseDescontable,
+  precioPromoLinea,
+  promoLineaVigente,
+  promoSinNadaEncima,
+} from '@/lib/promo-linea';
 import { isWelcomeCode, checkWelcomeEligibility, WELCOME } from '@/lib/welcome';
 import { isLoyaltyCode, checkLoyalty, loyaltyForEmail, LOYALTY } from '@/lib/loyalty';
 import { socioParaEmail, numeroDeSocio, SOCIO } from '@/lib/socios';
@@ -247,10 +253,18 @@ async function validateWelcomeCoupon(
     return { valid: false, code, discount: 0, message: 'Cupón inválido o inactivo.' };
   }
   const clean = code.trim().toUpperCase();
-  // Este corre sobre el carrito entero, promos incluidas, así que acá un
-  // subtotal en cero solo puede ser un carrito vacío.
+  // Este corre sobre el carrito entero, promos incluidas, así que un subtotal en
+  // cero normalmente solo puede ser un carrito vacío. La excepción es la
+  // liquidación: ahí pierde ese privilegio (ver `promoSinNadaEncima`) y el
+  // cero significa que todo lo que hay está liquidado, que es otra cosa y se
+  // explica distinto.
   if (!(subtotal > 0)) {
-    return { valid: false, code: clean, discount: 0, message: 'Tu carrito está vacío.' };
+    return {
+      valid: false,
+      code: clean,
+      discount: 0,
+      message: promoSinNadaEncima() ? motivoSinBaseDescontable() : 'Tu carrito está vacío.',
+    };
   }
   const check = await checkWelcomeEligibility(supabase, email || '', clean, phone, dni);
   if (!check.eligible) {
@@ -401,7 +415,11 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     const promoPrice = precioPromoLinea(product.slug, listPrice);
     const trasPromoLinea = promoPrice ?? listPrice;
     promoLineaDiscount += (listPrice - trasPromoLinea) * item.quantity;
-    const basePrice = applyDiscount(trasPromoLinea, salePct);
+    // La del catálogo es un porcentaje y va después, así que sobre un precio que
+    // ya está en el piso lo hunde abajo del costo. En esas promos no corre; en
+    // todo lo demás sí, igual que siempre.
+    const pctDelItem = admiteSaleDelCatalogo(product.slug) ? salePct : 0;
+    const basePrice = applyDiscount(trasPromoLinea, pctDelItem);
     saleDiscount += (trasPromoLinea - basePrice) * item.quantity;
     // Ventas nacionales: recargo por despacho (metido en el precio, no lo ve el cliente como aparte).
     const price = data.shipping_method === 'nacional' ? withNationalMarkup(basePrice) : basePrice;
@@ -446,10 +464,15 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   // del catálogo. Es más chico justamente para poder combinarse.
   const esBienvenida = Boolean(data.coupon_code && isWelcomeCode(data.coupon_code));
   const saleBlocks = !esBienvenida && Boolean(couponBlockedBySale());
-  // El resto corre sobre `discountableSubtotal`, que deja afuera lo que ya está
-  // en promo de línea. Sin promo activa es igual a `subtotal`, así que para el
-  // resto del catálogo nada cambia.
-  const baseCupon = esBienvenida ? subtotal : discountableSubtotal;
+  // Salvo en la liquidación: ahí los precios están en el piso de cada producto
+  // —entre 10% y 28% de margen—, así que un 10% encima es vender abajo del
+  // costo. Durante esa promo el de bienvenida pierde el privilegio y corre sobre
+  // la misma base que los demás.
+  const bienvenidaSobreTodo = esBienvenida && !promoSinNadaEncima();
+  // Esa base es `discountableSubtotal`, que deja afuera lo que ya está en promo
+  // de línea. Sin promo activa es igual a `subtotal`, así que para el resto del
+  // catálogo nada cambia.
+  const baseCupon = bienvenidaSobreTodo ? subtotal : discountableSubtotal;
   let couponResult: CouponResult | null = null;
   if (data.coupon_code && !saleBlocks) {
     couponResult = esBienvenida

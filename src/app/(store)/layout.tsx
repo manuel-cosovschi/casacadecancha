@@ -13,7 +13,12 @@ import { PromoLineaStrip } from '@/components/store/PromoLineaStrip';
 import { WelcomePopup } from '@/components/store/WelcomePopup';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { SITE_SALE, salePercentAt } from '@/lib/sale';
-import { promoLineaVigente, promoLineaHasta, resumenPromo } from '@/lib/promo-linea';
+import {
+  promoLineaVigente,
+  promoLineaHasta,
+  promoSinNadaEncima,
+  resumenPromo,
+} from '@/lib/promo-linea';
 import { MASCOT_URL } from '@/lib/brand';
 
 export default async function StoreLayout({
@@ -69,6 +74,7 @@ export default async function StoreLayout({
           subtitle={promoLinea.subtitle}
           endsAt={promoLinea.ends_at}
           until={promoLineaHasta()}
+          hastaAgotarStock={promoSinNadaEncima()}
           {...resumenPromo(promoLinea)}
         />
       )}

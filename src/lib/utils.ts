@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import type { Product } from '@/lib/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -66,6 +67,41 @@ export function availableStock(v: {
     0,
     (v.stock_physical || 0) - (v.stock_reserved || 0) - (v.encargo_reserved || 0),
   );
+}
+
+/**
+ * ¿Le queda algún talle para comprar?
+ *
+ * Mira solo las variantes activas: un talle apagado en el panel no cuenta,
+ * aunque la base todavía diga que tiene unidades. Un producto sin ninguna
+ * variante activa está agotado por definición.
+ */
+export function estaAgotado(p: Pick<Product, 'variants'>): boolean {
+  const variantes = (p.variants ?? []).filter((v) => v.active);
+  if (variantes.length === 0) return true;
+  return variantes.every((v) => availableStock(v) <= 0);
+}
+
+/**
+ * ¿Este producto va en las grillas de la tienda?
+ *
+ * Lo agotado no se muestra más. Una vidriera con la mitad de los carteles en
+ * "Agotada" espanta al que entra y hace que lo que sí hay se pierda entre lo que
+ * no: el que llega buscando una camiseta ve que no hay nada y se va.
+ *
+ * Ojo con lo que NO hace: la ficha del producto (`getProductBySlug`) no usa este
+ * filtro. El link directo, el que manda Goat, el de Instagram y el del mail
+ * siguen abriendo, con el cartel de agotado y la lista de espera para avisar
+ * cuando vuelva. Lo que desaparece es la vidriera, no el producto.
+ *
+ * Tres cosas se venden justamente sin stock a mano y quedan siempre a la vista:
+ * - `preorder`: preventa, se paga la seña ahora y llega después.
+ * - `allow_backorder`: se puede encargar aunque no haya en el depósito.
+ * - `mystery_box`: se arman a mano con lo que haya, no tienen stock propio.
+ */
+export function vaEnLaVidriera(p: Pick<Product, 'variants' | 'preorder' | 'allow_backorder' | 'mystery_box'>): boolean {
+  if (p.preorder || p.allow_backorder || p.mystery_box) return true;
+  return !estaAgotado(p);
 }
 
 /** Construye un link de WhatsApp con mensaje pre-cargado. */

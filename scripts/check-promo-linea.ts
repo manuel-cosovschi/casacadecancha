@@ -11,6 +11,8 @@ import {
   precioPromoLinea,
   withPromoLinea,
   resumenPromo,
+  promoSinNadaEncima,
+  admiteSaleDelCatalogo,
 } from '../src/lib/promo-linea';
 import { LOYALTY, percentForOrders } from '../src/lib/loyalty';
 import type { Product } from '../src/lib/types';
@@ -144,18 +146,66 @@ for (const p of CALENDARIO) {
 }
 
 console.log('\n--- cada promo se prende y se apaga sola ---');
-const [COPA, TALLE, ICON] = CALENDARIO;
+const [COPA, TALLE, LIQ] = CALENDARIO;
 const EN = (iso: string) => new Date(iso);
 
 check('el 15/9 corre SEMANA DE COPA', promoLineaVigente(EN('2026-09-15T12:00:00-03:00'))?.label, COPA.label);
 check('el 20/9 23:59 todavía corre', promoLineaVigente(EN('2026-09-20T23:59:00-03:00'))?.label, COPA.label);
 check('el 21/9 no corre ninguna', promoLineaVigente(EN('2026-09-21T00:00:01-03:00')), null);
 check('el 24/9 (semana del cupón) no corre ninguna', promoLineaActiva(EN('2026-09-24T12:00:00-03:00')), false);
-check('el 28/9 arranca ÚLTIMO TALLE', promoLineaVigente(EN('2026-09-28T00:00:01-03:00'))?.label, TALLE.label);
-check('el 4/10 23:59 todavía corre', promoLineaVigente(EN('2026-10-04T23:59:00-03:00'))?.label, TALLE.label);
-check('el 5/10 arranca SEMANA ICON', promoLineaVigente(EN('2026-10-05T00:00:01-03:00'))?.label, ICON.label);
-check('el 11/10 23:59 todavía corre', promoLineaVigente(EN('2026-10-11T23:59:00-03:00'))?.label, ICON.label);
-check('el 12/10 no corre ninguna', promoLineaVigente(EN('2026-10-12T00:00:01-03:00')), null);
+check('el 28/9 corre ÚLTIMO TALLE', promoLineaVigente(EN('2026-09-28T12:00:00-03:00'))?.label, TALLE.label);
+check('el 29/9 arranca la LIQUIDACIÓN', promoLineaVigente(EN('2026-09-29T00:00:01-03:00'))?.label, LIQ.label);
+check('el 15/11 sigue la LIQUIDACIÓN', promoLineaVigente(EN('2026-11-15T12:00:00-03:00'))?.label, LIQ.label);
+check('el 31/12 23:59 todavía corre', promoLineaVigente(EN('2026-12-31T23:59:00-03:00'))?.label, LIQ.label);
+check('el 1/1/27 no corre ninguna', promoLineaVigente(EN('2027-01-01T00:00:01-03:00')), null);
+
+console.log('\n--- la liquidación no admite nada encima ---');
+const DUR_LIQ = EN('2026-10-15T12:00:00-03:00');
+// Dos cosas se acumulaban sobre una promo de línea: el cupón de bienvenida y el
+// porcentaje del catálogo. Con la liquidación viva, las dos quedan afuera.
+check('durante la liquidación, nada se apila', promoSinNadaEncima(DUR_LIQ), true);
+check('durante ÚLTIMO TALLE sí se apilaba', promoSinNadaEncima(EN('2026-09-28T12:00:00-03:00')), false);
+check(
+  'un producto liquidado no recibe el % del catálogo',
+  admiteSaleDelCatalogo('camiseta-japon-2006', DUR_LIQ),
+  false,
+);
+check(
+  'uno que quedó afuera sí lo recibe',
+  admiteSaleDelCatalogo('camiseta-japon-titular-26-27-importada', DUR_LIQ),
+  true,
+);
+check(
+  'sin promo al piso, el % corre para todos',
+  admiteSaleDelCatalogo('camiseta-japon-2006', EN('2026-09-15T12:00:00-03:00')),
+  true,
+);
+
+console.log('\n--- la liquidación deja margen en cada unidad ---');
+// El piso: $5.000 de margen y 10% del precio de venta. Los tres productos
+// heredados de ÚLTIMO TALLE son los que raspan ese piso; el resto tiene $7.000 y
+// 16%, que es con lo que se armó la lista.
+for (const i of LIQ.items) {
+  const costo = COSTO[i.slug];
+  if (costo === undefined) continue;
+  const gana = i.price - costo;
+  const pct = Math.round((gana / i.price) * 1000) / 10;
+  check(
+    `${i.slug}: $${gana.toLocaleString('es-AR')} (${pct}%) queda arriba del piso`,
+    gana >= 5_000 && pct >= 10,
+    true,
+  );
+}
+
+console.log('\n--- la liquidación no le sube el precio a nadie ---');
+// Se pisó con ÚLTIMO TALLE, que ya había publicado precios más bajos en tres
+// productos. Cobrar más caro el mismo producto al día siguiente es lo peor que
+// puede pasar acá, así que se chequea uno por uno.
+for (const antes of TALLE.items) {
+  const ahora = LIQ.items.find((i) => i.slug === antes.slug);
+  if (!ahora) continue;
+  check(`${antes.slug} no salió más caro que en ÚLTIMO TALLE`, ahora.price <= antes.price, true);
+}
 
 console.log('\n--- la Japón Titular 26/27 nunca entra en promo ---');
 // Cuesta $52.468 y se vende a $61.500: cualquier descuento se come el margen.
@@ -168,7 +218,9 @@ for (const p of CALENDARIO) {
 }
 
 console.log('\n--- precio por producto ---');
-const DUR_TALLE = EN('2026-10-01T12:00:00-03:00');
+const DUR_TALLE = EN('2026-09-28T12:00:00-03:00');
+// Una fecha después de que se apaga todo, para los casos de "no toca nada".
+const NUNCA = EN('2027-02-01T12:00:00-03:00');
 check('la Messi 2006 baja a $29.000', precioPromoLinea('camiseta-argentina-2006-messi', 35_000, DUR_TALLE), 29_000);
 check('la Japón 2006 baja a $51.000', precioPromoLinea('camiseta-japon-2006', 57_000, DUR_TALLE), 51_000);
 check('la Juventus baja a $47.000', precioPromoLinea('camiseta-juventus-icon-adidas', 57_000, DUR_TALLE), 47_000);
@@ -176,11 +228,27 @@ check('un producto fuera de la promo no se toca', precioPromoLinea('camiseta-che
 // Nunca se sube un precio por aplicar una promo.
 check('si ya cuesta menos, no se toca', precioPromoLinea('camiseta-japon-2006', 45_000, DUR_TALLE), null);
 check('si cuesta justo lo mismo, no se toca', precioPromoLinea('camiseta-japon-2006', 51_000, DUR_TALLE), null);
-check('fuera de fecha, no toca el precio', precioPromoLinea('camiseta-japon-2006', 57_000, EN('2026-10-20T12:00:00-03:00')), null);
+check('fuera de fecha, no toca el precio', precioPromoLinea('camiseta-japon-2006', 57_000, NUNCA), null);
+
+console.log('\n--- precios de la liquidación ---');
+check('la línea Icon baja a $39.900', precioPromoLinea('camiseta-ajax-icon-importada', 57_000, DUR_LIQ), 39_900);
+check('la Messi 2006 baja a $27.900', precioPromoLinea('camiseta-argentina-2006-messi', 35_000, DUR_LIQ), 27_900);
+check('la Argentina Titular importada baja a $37.900', precioPromoLinea('camiseta-argentina-titular-2026-g5', 42_500, DUR_LIQ), 37_900);
+check('la Racing 2000/01 no entra', precioPromoLinea('camiseta-racing-2000-01-titular-milito-importada', 58_500, DUR_LIQ), null);
+check('la Japón Titular 26/27 tampoco', precioPromoLinea('camiseta-japon-titular-26-27-importada', 61_500, DUR_LIQ), null);
+check('las Mystery Box quedan a precio de lista', precioPromoLinea('mistery-box-goat', 61_500, DUR_LIQ), null);
 
 console.log('\n--- el cartel de arriba ---');
-const rIcon = resumenPromo(ICON);
-check('SEMANA ICON: todos valen igual, anuncia $49.000', [rIcon.price, rIcon.desde], [49_000, false]);
+const rLiq = resumenPromo(LIQ);
+check('LIQUIDACIÓN: precios distintos, anuncia "desde $27.900"', [rLiq.price, rLiq.desde], [27_900, true]);
+check('LIQUIDACIÓN: tacha el precio del más barato', rLiq.comparePrice, 35_000);
+// El más barato tiene que ser algo que se pueda comprar: si entrara un producto
+// inactivo, la franja anunciaría un precio que nadie puede pagar.
+check(
+  'LIQUIDACIÓN: el más barato no es la pelota inactiva',
+  LIQ.items.some((i) => i.slug === 'pelota-mundial-2026-trionda'),
+  false,
+);
 const rTalle = resumenPromo(TALLE);
 check('ÚLTIMO TALLE: precios distintos, anuncia "desde $29.000"', [rTalle.price, rTalle.desde], [29_000, true]);
 check('ÚLTIMO TALLE: tacha el precio del más barato', rTalle.comparePrice, 35_000);
@@ -199,7 +267,7 @@ check('lleva el cartel de la promo', conPromo.promo_label, 'ÚLTIMO TALLE');
 check('un talle más caro también baja', conPromo.variants?.[1]?.variant_price, 51_000);
 check('un talle más barato NO sube', conPromo.variants?.[2]?.variant_price, 40_000);
 check('un talle sin precio propio queda igual', conPromo.variants?.[0]?.variant_price, null);
-const fuera = withPromoLinea(base, EN('2026-10-20T12:00:00-03:00'));
+const fuera = withPromoLinea(base, NUNCA);
 check('fuera de fecha, el producto sale intacto', fuera.price, 57_000);
 check('fuera de fecha, sin cartel', fuera.promo_label, undefined);
 
