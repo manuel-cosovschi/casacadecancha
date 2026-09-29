@@ -1,6 +1,5 @@
 import 'server-only';
 import { getActiveProducts } from '@/lib/queries';
-import { availableStock } from '@/lib/utils';
 import type { Product } from '@/lib/types';
 
 /**
@@ -62,11 +61,4 @@ export async function buildCatalogSnapshot(): Promise<CatalogSnapshot> {
     products,
     bySlug: new Map(products.map((p) => [p.slug, p])),
   };
-}
-
-/** ¿Le queda algún talle con stock? Se calcula aparte del texto cacheado. */
-export function estaAgotado(p: Product): boolean {
-  const variantes = (p.variants ?? []).filter((v) => v.active);
-  if (variantes.length === 0) return true;
-  return variantes.every((v) => availableStock(v) <= 0);
 }

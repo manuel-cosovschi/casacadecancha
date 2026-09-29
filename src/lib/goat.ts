@@ -4,7 +4,7 @@ import { getAllSettings } from '@/lib/settings';
 import { getActiveProducts } from '@/lib/queries';
 import { availableStock, formatPrice } from '@/lib/utils';
 import { compararTalles } from '@/lib/talles';
-import { promoLineaVigente } from '@/lib/promo-linea';
+import { promoLineaVigente, promoSinNadaEncima } from '@/lib/promo-linea';
 import { salePercentAt } from '@/lib/sale';
 import { LOYALTY } from '@/lib/loyalty-tiers';
 import { SOCIO } from '@/lib/socios';
@@ -145,8 +145,18 @@ ${s.comunidad.nombre}: ${s.comunidad.descripcion} Si a la persona le interesa en
 
   const promo = promoLineaVigente();
   const salePct = salePercentAt();
-  if (promo) {
-    bloques.push(`PROMO DE ESTA SEMANA: ${promo.label} — ${promo.subtitle}. Termina el ${new Date(promo.ends_at).toLocaleDateString('es-AR')}. Los precios del catálogo de arriba YA la tienen aplicada.`);
+  if (promo && promoSinNadaEncima()) {
+    // La liquidación se cuenta distinto: no tiene fecha de fin útil (termina
+    // cuando se acaba el stock) y encima no admite cupones, que es la primera
+    // cosa que alguien le va a preguntar a Goat cuando vea los precios.
+    bloques.push(`LIQUIDACIÓN VIGENTE: ${promo.label} — ${promo.subtitle}. Los precios del catálogo de arriba YA la tienen aplicada y son los finales. Sobre esos productos NO corre ningún cupón ni descuento: ya están al mínimo. Si la persona tiene un cupón, decile que no se lo vas a poder aplicar a lo liquidado pero que el código no se le quema y le sirve para otra cosa. No prometas hasta cuándo dura: dura hasta que se agote, y cuando algo se agota desaparece de la página.`);
+  } else if (promo) {
+    // La fecha con el huso de Argentina: sin eso, una promo que termina a las
+    // 23:59 de acá se lee como si terminara al día siguiente.
+    const hasta = new Date(promo.ends_at).toLocaleDateString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+    });
+    bloques.push(`PROMO DE ESTA SEMANA: ${promo.label} — ${promo.subtitle}. Termina el ${hasta}. Los precios del catálogo de arriba YA la tienen aplicada.`);
   } else if (salePct > 0) {
     bloques.push(`PROMO VIGENTE: ${salePct}% OFF en el catálogo. Los precios de arriba ya lo tienen aplicado.`);
   } else {

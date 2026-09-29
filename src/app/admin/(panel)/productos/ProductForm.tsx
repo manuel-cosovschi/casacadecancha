@@ -117,9 +117,13 @@ export function ProductForm({
           <Check name="active" label="Activo (visible en la tienda)" defaultChecked={product ? product.active : true} />
           <Check name="featured" label="Producto destacado" defaultChecked={product?.featured ?? false} />
           <Check name="allow_backorder" label="Aceptar pedidos sin stock" defaultChecked={product?.allow_backorder ?? false} />
-          <Check name="hide_when_out_of_stock" label="Ocultar si está agotado" defaultChecked={product?.hide_when_out_of_stock ?? false} />
           <Check name="transfer_discount" label="Aplica descuento por transferencia" defaultChecked={product ? product.transfer_discount !== false : true} />
         </div>
+        <p className="mt-3 text-xs text-navy/60">
+          Cuando se agota, sale solo de las grillas de la tienda: no hay que tocar nada. La ficha
+          sigue abriendo por link con el cartel de agotado y la lista de espera. Si aceptás pedidos
+          sin stock, queda a la vista igual.
+        </p>
       </div>
 
       {state.error && (

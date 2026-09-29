@@ -30,6 +30,7 @@ export function PromoLineaStrip({
   desde = false,
   endsAt,
   until,
+  hastaAgotarStock = false,
   href = '/camisetas',
 }: {
   label: string;
@@ -41,18 +42,24 @@ export function PromoLineaStrip({
   desde?: boolean;
   endsAt: string;
   until: string;
+  /**
+   * La liquidación no termina un día, termina cuando no queda nada. Con esto en
+   * true se calla la cuenta regresiva: un "Termina en 93d 5h" no apura a nadie y
+   * encima es mentira, porque la fecha del calendario es solo el tope.
+   */
+  hastaAgotarStock?: boolean;
   href?: string;
 }) {
   const ends = Date.parse(endsAt);
   const [left, setLeft] = useState<string | null>(null);
 
   useEffect(() => {
-    if (Number.isNaN(ends)) return;
+    if (hastaAgotarStock || Number.isNaN(ends)) return;
     const tick = () => setLeft(faltan(ends));
     tick();
     const id = setInterval(tick, 60000);
     return () => clearInterval(id);
-  }, [ends]);
+  }, [ends, hastaAgotarStock]);
 
   const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`;
 
@@ -74,7 +81,11 @@ export function PromoLineaStrip({
           </span>
         </span>
         <span className="rounded-full bg-cream/15 px-3 py-1 text-xs font-bold uppercase tracking-wide">
-          {left ? `Termina en ${left}` : `Hasta el ${until}`}
+          {hastaAgotarStock
+            ? 'Hasta agotar stock'
+            : left
+              ? `Termina en ${left}`
+              : `Hasta el ${until}`}
         </span>
       </div>
     </Link>

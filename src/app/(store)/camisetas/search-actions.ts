@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { smartSearch } from '@/lib/smart-search';
-import { estaAgotado } from '@/lib/catalog-index';
+import { estaAgotado } from '@/lib/utils';
 import { isAiEnabled } from '@/lib/ai';
 import type { Product } from '@/lib/types';
 

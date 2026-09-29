@@ -22,7 +22,7 @@
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
-import { promoLineaVigente } from '../src/lib/promo-linea';
+import { promoLineaVigente, promoSinNadaEncima } from '../src/lib/promo-linea';
 
 const NAVY = '#0B1F3A';
 const CREMA = '#F6F1E8';
@@ -115,43 +115,75 @@ interface Camiseta {
   foto: string;
 }
 
+/** Lo que dice la tapa. Lo mismo sirve para la historia vertical. */
+interface Tapa {
+  label: string;
+  subtitle: string;
+  cuantas: number;
+  /** Frase de vigencia ya armada: "Hasta el 4 de octubre" o "Hasta agotar stock". */
+  hasta: string;
+  /**
+   * Si es una liquidación. Cambia tres frases que en una promo de semana son
+   * ciertas y acá no: de varias camisetas queda más de una unidad, no hay una
+   * fecha de fin que valga la pena prometer, y lo que vende no es la rareza sino
+   * el descuento.
+   */
+  alPiso: boolean;
+  /** El mayor descuento de la lista, para anunciarlo en la tapa. */
+  maxOff: number;
+}
+
+/**
+ * Cuánto mide el título para que entre en el cuadro.
+ *
+ * A 190 px fijos, "LIQUIDACIÓN FINAL" se salía por los dos costados y quedaba
+ * "IQUIDACIÓN FINA": el posteo se veía roto y ni siquiera se leía el nombre de
+ * la promo. El 0.38 es lo que mide cada carácter de la tipografía condensada
+ * por cada punto de tamaño, medido sobre ese mismo render.
+ */
+function tamanoLabel(label: string): number {
+  return Math.min(190, Math.floor(980 / Math.max(1, label.length * 0.38)));
+}
+
 /** La tapa del carrusel y, en vertical, la historia. */
-function portada(p: { label: string; subtitle: string; cuantas: number; hasta: string }, alto: number): string {
+function portada(p: Tapa, alto: number): string {
   const historia = alto > LADO;
   const cy = alto / 2;
+  const fsLabel = tamanoLabel(p.label);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${alto}">
   ${fondo(LADO, alto)}
   ${barras(LADO / 2 - 46, cy - (historia ? 430 : 330), 74)}
 
   <text x="${LADO / 2}" y="${cy - (historia ? 300 : 200)}" font-family="${FUENTE_TX}" font-weight="500" font-size="34" fill="${CELESTE}" text-anchor="middle" letter-spacing="10">CASACA DE CANCHA</text>
 
-  <text x="${LADO / 2}" y="${cy - (historia ? 130 : 30)}" font-family="${FUENTE}" font-weight="800" font-size="190" fill="${CREMA}" text-anchor="middle" letter-spacing="-2">${esc(p.label)}</text>
+  <text x="${LADO / 2}" y="${cy - (historia ? 130 : 30)}" font-family="${FUENTE}" font-weight="800" font-size="${fsLabel}" fill="${CREMA}" text-anchor="middle" letter-spacing="-2">${esc(p.label)}</text>
 
   <rect x="${LADO / 2 - 330}" y="${cy - (historia ? 90 : 10) + 20}" width="660" height="4" fill="${ORO}"/>
 
   <text x="${LADO / 2}" y="${cy + (historia ? 30 : 110)}" font-family="${FUENTE_TX}" font-weight="500" font-size="46" fill="${CREMA}" text-anchor="middle" opacity="0.9">${esc(p.subtitle)}</text>
 
-  <text x="${LADO / 2}" y="${cy + (historia ? 140 : 210)}" font-family="${FUENTE}" font-weight="700" font-size="58" fill="${ORO}" text-anchor="middle">${p.cuantas} CAMISETAS · UNA DE CADA UNA</text>
+  <text x="${LADO / 2}" y="${cy + (historia ? 140 : 210)}" font-family="${FUENTE}" font-weight="700" font-size="58" fill="${ORO}" text-anchor="middle">${p.cuantas} CAMISETAS · ${p.alPiso ? `HASTA ${p.maxOff}% OFF` : 'UNA DE CADA UNA'}</text>
 
-  <text x="${LADO / 2}" y="${cy + (historia ? 220 : 285)}" font-family="${FUENTE_TX}" font-weight="500" font-size="36" fill="${CELESTE}" text-anchor="middle">Hasta el ${esc(p.hasta)}</text>
+  <text x="${LADO / 2}" y="${cy + (historia ? 220 : 285)}" font-family="${FUENTE_TX}" font-weight="500" font-size="36" fill="${CELESTE}" text-anchor="middle">${esc(p.hasta)}</text>
 
   <text x="${LADO / 2}" y="${alto - (historia ? 300 : 90)}" font-family="${FUENTE}" font-weight="700" font-size="44" fill="${CREMA}" text-anchor="middle" opacity="0.65">${historia ? 'MIRÁ EL LINK ↑' : 'DESLIZÁ →'}</text>
 </svg>`;
 }
 
 /** El cierre del carrusel. */
-function cierre(hasta: string): string {
+function cierre(hasta: string, alPiso: boolean): string {
   const cy = LADO / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}">
   ${fondo(LADO, LADO)}
-  ${barras(LADO / 2 - 46, cy - 300, 74)}
+  ${/* a cy-300 las barras le pisaban la tilde de la Ú del título */ ''}
+  ${barras(LADO / 2 - 46, cy - 370, 74)}
   <text x="${LADO / 2}" y="${cy - 130}" font-family="${FUENTE}" font-weight="800" font-size="120" fill="${CREMA}" text-anchor="middle">SON ÚNICAS</text>
-  <text x="${LADO / 2}" y="${cy - 40}" font-family="${FUENTE_TX}" font-weight="500" font-size="42" fill="${CREMA}" text-anchor="middle" opacity="0.85">De cada una queda un solo talle.</text>
+  <text x="${LADO / 2}" y="${cy - 40}" font-family="${FUENTE_TX}" font-weight="500" font-size="42" fill="${CREMA}" text-anchor="middle" opacity="0.85">${alPiso ? 'Lo que queda no se repone.' : 'De cada una queda un solo talle.'}</text>
   <text x="${LADO / 2}" y="${cy + 20}" font-family="${FUENTE_TX}" font-weight="500" font-size="42" fill="${CREMA}" text-anchor="middle" opacity="0.85">Cuando se va, se fue.</text>
   <rect x="${LADO / 2 - 300}" y="${cy + 90}" width="600" height="96" rx="48" fill="${CELESTE}"/>
   <text x="${LADO / 2}" y="${cy + 155}" font-family="${FUENTE}" font-weight="800" font-size="52" fill="${NAVY}" text-anchor="middle">CASACADECANCHA.SHOP</text>
   <text x="${LADO / 2}" y="${cy + 265}" font-family="${FUENTE_TX}" font-weight="500" font-size="34" fill="${CELESTE}" text-anchor="middle">Envíos a todo el país · Entrega en Mar del Plata</text>
-  <text x="${LADO / 2}" y="${LADO - 70}" font-family="${FUENTE_TX}" font-weight="500" font-size="30" fill="${CREMA}" text-anchor="middle" opacity="0.5">Hasta el ${esc(hasta)} · Producto no oficial</text>
+  <text x="${LADO / 2}" y="${LADO - 70}" font-family="${FUENTE_TX}" font-weight="500" font-size="30" fill="${CREMA}" text-anchor="middle" opacity="0.5">${esc(hasta)} · Producto no oficial</text>
 </svg>`;
 }
 
@@ -163,35 +195,53 @@ function cierre(hasta: string): string {
  * nadie qué es lo que está en oferta: se pasa de largo en dos segundos.
  */
 async function historia(
-  p: { label: string; subtitle: string; cuantas: number; hasta: string },
+  p: Tapa,
   camisetas: Camiseta[],
   destino: string,
 ) {
-  const MINI = 168;
+  // Una sola fila de miniaturas alcanzaba para cinco camisetas. Con once, la
+  // fila medía 2.008 px sobre un lienzo de 1.080 y las de las puntas quedaban
+  // cortadas por la mitad. Ahora se parten en dos filas y el tamaño se calcula
+  // para que la más ancha entre con aire a los costados.
   const SEP = 16;
-  const fila = camisetas.length * MINI + (camisetas.length - 1) * SEP;
-  const x0 = (LADO - fila) / 2;
-  const yMini = 1275;
+  const ANCHO_UTIL = 1000;
+  const porFila = camisetas.length > 6 ? Math.ceil(camisetas.length / 2) : camisetas.length;
+  const filas: Camiseta[][] = [];
+  for (let i = 0; i < camisetas.length; i += porFila) filas.push(camisetas.slice(i, i + porFila));
+  const MINI = Math.min(168, Math.floor((ANCHO_UTIL - (porFila - 1) * SEP) / porFila));
+  // Con dos filas el bloque se sube, si no la de abajo le pisa el "MIRÁ EL LINK"
+  // que va a la altura de 1.620. El 1.540 es donde tiene que terminar.
+  const altoBloque = filas.length * MINI + (filas.length - 1) * SEP;
+  const yMini = filas.length === 1 ? 1275 : 1540 - altoBloque;
 
   const minis = await Promise.all(
-    camisetas.map(async (c) => ({
-      input: await sharp(c.foto)
-        .resize(MINI, MINI, { fit: 'cover' })
-        .composite([
-          {
-            input: Buffer.from(
-              `<svg width="${MINI}" height="${MINI}"><rect width="${MINI}" height="${MINI}" rx="20" fill="#fff"/></svg>`,
-            ),
-            blend: 'dest-in',
-          },
-        ])
-        .png()
-        .toBuffer(),
-    })),
+    filas.map((fila, f) =>
+      Promise.all(
+        fila.map(async (c, i) => {
+          const ancho = fila.length * MINI + (fila.length - 1) * SEP;
+          return {
+            input: await sharp(c.foto)
+              .resize(MINI, MINI, { fit: 'cover' })
+              .composite([
+                {
+                  input: Buffer.from(
+                    `<svg width="${MINI}" height="${MINI}"><rect width="${MINI}" height="${MINI}" rx="20" fill="#fff"/></svg>`,
+                  ),
+                  blend: 'dest-in',
+                },
+              ])
+              .png()
+              .toBuffer(),
+            left: Math.round((LADO - ancho) / 2 + i * (MINI + SEP)),
+            top: yMini + f * (MINI + SEP),
+          };
+        }),
+      ),
+    ),
   );
 
   await sharp(Buffer.from(portada(p, ALTO_HISTORIA)))
-    .composite(minis.map((m, i) => ({ ...m, left: Math.round(x0 + i * (MINI + SEP)), top: yMini })))
+    .composite(minis.flat())
     .jpeg({ quality: 92, chromaSubsampling: '4:4:4' })
     .toFile(destino);
 }
@@ -231,16 +281,23 @@ async function slideCamiseta(c: Camiseta, destino: string) {
   const antesTxt = pesos(c.antes);
   const anchoAntes = antesTxt.length * 44 * 0.42;
 
+  // El cartelito de arriba dice el descuento de ESTA camiseta. Antes decía
+  // "ÚLTIMO TALLE" fijo, escrito para una promo donde eso era cierto en las
+  // cinco: en la liquidación hay varias con dos talles y el cartel mentía.
+  const off = Math.round((1 - c.ahora / c.antes) * 100);
+  // "SOLO M/L" tampoco: solo es "solo" cuando queda uno.
+  const talles = c.talles.includes('/') ? `TALLES ${c.talles}` : `SOLO ${c.talles}`;
+
   const capa = `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}">
   ${fondo(LADO, LADO)}
   <rect x="${LADO / 2 - 150}" y="58" width="300" height="56" rx="28" fill="${ORO}"/>
-  <text x="${LADO / 2}" y="97" font-family="${FUENTE}" font-weight="800" font-size="36" fill="${NAVY}" text-anchor="middle" letter-spacing="2">ÚLTIMO TALLE</text>
+  <text x="${LADO / 2}" y="97" font-family="${FUENTE}" font-weight="800" font-size="36" fill="${NAVY}" text-anchor="middle" letter-spacing="2">${off}% OFF</text>
   ${nombreSvg}
   <text x="${LADO / 2 - 150}" y="${yPrecio + 42}" font-family="${FUENTE}" font-weight="700" font-size="44" fill="${GRIS}" text-anchor="middle">${esc(antesTxt)}</text>
   <rect x="${LADO / 2 - 150 - anchoAntes / 2}" y="${yPrecio + 26}" width="${anchoAntes}" height="3.5" fill="${GRIS}"/>
   <text x="${LADO / 2 + 110}" y="${yPrecio + 52}" font-family="${FUENTE}" font-weight="800" font-size="88" fill="${ORO}" text-anchor="middle">${esc(pesos(c.ahora))}</text>
   <rect x="${LADO / 2 - 118}" y="948" width="236" height="56" rx="28" fill="none" stroke="${CELESTE}" stroke-width="3"/>
-  <text x="${LADO / 2}" y="987" font-family="${FUENTE}" font-weight="800" font-size="36" fill="${CELESTE}" text-anchor="middle" letter-spacing="3">SOLO ${esc(c.talles)}</text>
+  <text x="${LADO / 2}" y="987" font-family="${FUENTE}" font-weight="800" font-size="36" fill="${CELESTE}" text-anchor="middle" letter-spacing="3">${esc(talles)}</text>
   <text x="${LADO / 2}" y="1046" font-family="${FUENTE_TX}" font-weight="500" font-size="26" fill="${CREMA}" text-anchor="middle" opacity="0.4">casacadecancha.shop</text>
 </svg>`;
 
@@ -346,22 +403,35 @@ async function main() {
   // en UTC ya es el día siguiente: sin esto el posteo decía "hasta el 5" para
   // una promo que se corta el 4, y el que entra el 5 se encuentra los precios
   // de lista.
-  const hasta = new Date(promo.ends_at).toLocaleDateString('es-AR', {
+  const fecha = new Date(promo.ends_at).toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'long',
     timeZone: 'America/Argentina/Buenos_Aires',
   });
-  const tapa = { label: promo.label, subtitle: promo.subtitle, cuantas: camisetas.length, hasta };
+  // La liquidación no termina un día: termina cuando no queda nada. La fecha del
+  // calendario es solo el tope, y ponerla en el posteo sería prometer stock hasta
+  // fin de año.
+  const alPiso = promoSinNadaEncima(cuando);
+  const hasta = alPiso ? 'Hasta agotar stock' : `Hasta el ${fecha}`;
+  const maxOff = Math.max(...camisetas.map((c) => Math.round((1 - c.ahora / c.antes) * 100)));
+  const tapa: Tapa = {
+    label: promo.label,
+    subtitle: promo.subtitle,
+    cuantas: camisetas.length,
+    hasta,
+    alPiso,
+    maxOff,
+  };
 
   await svgAJpg(portada(tapa, LADO), `${SALIDA}/1-portada.jpg`);
   for (let i = 0; i < camisetas.length; i++) {
     await slideCamiseta(camisetas[i], `${SALIDA}/${i + 2}-${camisetas[i].slug}.jpg`);
   }
-  await svgAJpg(cierre(hasta), `${SALIDA}/${camisetas.length + 2}-cierre.jpg`);
+  await svgAJpg(cierre(hasta, alPiso), `${SALIDA}/${camisetas.length + 2}-cierre.jpg`);
   await historia(tapa, camisetas, `${SALIDA}/historia.jpg`);
 
   console.log(`\n${promo.label} — ${promo.subtitle}`);
-  console.log(`Hasta el ${hasta}\n`);
+  console.log(`${hasta}\n`);
   console.log(`${camisetas.length + 2} imágenes del carrusel + 1 historia, en ${SALIDA}/\n`);
   for (const c of camisetas) {
     console.log(`  ${nombreCorto(c.nombre).padEnd(30)} ${pesos(c.antes)} → ${pesos(c.ahora)}  (${c.talles})`);

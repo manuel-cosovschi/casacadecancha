@@ -18,7 +18,7 @@ import {
 import { isWelcomeCode, looksLikeDni } from '@/lib/welcome';
 import { sugerirEmail } from '@/lib/email-typos';
 import { isLoyaltyCode } from '@/lib/loyalty';
-import { estaEnPromoLinea } from '@/lib/promo-linea';
+import { estaEnPromoLinea, promoSinNadaEncima } from '@/lib/promo-linea';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
 import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT, preorderDeposit } from '@/lib/utils';
@@ -134,8 +134,11 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const hayPromoLinea = promoLineaSubtotal > 0;
 
   // El de bienvenida es la excepción: se acumula, así que corre sobre el
-  // carrito entero. Misma cuenta que hace el servidor en `createOrder`.
-  const baseCupon = isWelcomeCode(couponCode) ? displaySubtotal : discountableSubtotal;
+  // carrito entero. Menos en la liquidación, donde pierde ese privilegio porque
+  // los precios ya están en el piso. Misma cuenta que hace el servidor en
+  // `createOrder`.
+  const bienvenidaSobreTodo = isWelcomeCode(couponCode) && !promoSinNadaEncima();
+  const baseCupon = bienvenidaSobreTodo ? displaySubtotal : discountableSubtotal;
 
   // El DNI se pide SOLO para el descuento de primera compra: quien paga
   // precio normal no lo completa nunca. Sin él, cambiar de mail y de
@@ -153,8 +156,9 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const bestDiscount = Math.max(couponDiscount, loyaltyDiscount);
   const loyaltyWins = loyaltyDiscount > couponDiscount;
   // El de bienvenida es el único que cubre también lo que está en promo, así
-  // que cuando es el que se aplica no hay que aclarar que deja algo afuera.
-  const descuentoCubreTodo = usaBienvenida && couponOk && !loyaltyWins;
+  // que cuando es el que se aplica no hay que aclarar que deja algo afuera. En
+  // la liquidación no cubre nada de eso, así que la aclaración vuelve.
+  const descuentoCubreTodo = bienvenidaSobreTodo && couponOk && !loyaltyWins;
   const discount = transferDisc + bestDiscount;
 
   // Preventa: de los ítems en preventa se paga ahora la seña (50%); el resto al recibir.
