@@ -172,7 +172,7 @@ check(
 );
 check(
   'uno que quedó afuera sí lo recibe',
-  admiteSaleDelCatalogo('camiseta-japon-titular-26-27-importada', DUR_LIQ),
+  admiteSaleDelCatalogo('mistery-box-goat', DUR_LIQ),
   true,
 );
 check(
@@ -182,9 +182,14 @@ check(
 );
 
 console.log('\n--- la liquidación deja margen en cada unidad ---');
-// El piso: $5.000 de margen y 10% del precio de venta. Los tres productos
-// heredados de ÚLTIMO TALLE son los que raspan ese piso; el resto tiene $7.000 y
-// 16%, que es con lo que se armó la lista.
+// El piso de abajo de todo: $5.000 de margen Y un 9% del precio de venta. Con
+// eso se armaron las cinco que no llegaban al piso normal ($7.000 y 16%): las
+// tres heredadas de ÚLTIMO TALLE, más la Racing y la Japón Titular, que se
+// compraron caras. El resto de la lista está bastante arriba.
+//
+// Este chequeo es el que importa de verdad: si algún día alguien mueve un precio
+// de acá para abajo, se entera antes de publicarlo y no cuando mira las cuentas
+// a fin de mes.
 for (const i of LIQ.items) {
   const costo = COSTO[i.slug];
   if (costo === undefined) continue;
@@ -192,7 +197,7 @@ for (const i of LIQ.items) {
   const pct = Math.round((gana / i.price) * 1000) / 10;
   check(
     `${i.slug}: $${gana.toLocaleString('es-AR')} (${pct}%) queda arriba del piso`,
-    gana >= 5_000 && pct >= 10,
+    gana >= 5_000 && pct >= 9,
     true,
   );
 }
@@ -207,14 +212,31 @@ for (const antes of TALLE.items) {
   check(`${antes.slug} no salió más caro que en ÚLTIMO TALLE`, ahora.price <= antes.price, true);
 }
 
-console.log('\n--- la Japón Titular 26/27 nunca entra en promo ---');
-// Cuesta $52.468 y se vende a $61.500: cualquier descuento se come el margen.
-for (const p of CALENDARIO) {
-  check(
-    `${p.label} no la incluye`,
-    p.items.some((i) => i.slug === 'camiseta-japon-titular-26-27-importada'),
-    false,
-  );
+console.log('\n--- en la liquidación está TODO el stock que se ve ---');
+// El pedido fue liquidar todo hasta agotarlo. Esta lista son los productos
+// activos con stock al 30/9; si mañana entra uno nuevo, este chequeo no lo sabe
+// —el script no habla con la base— pero sí protege contra sacar uno sin querer.
+const CON_STOCK = [
+  'camiseta-ajax-icon-importada',
+  'camiseta-argentina-2006-messi',
+  'camiseta-argentina-titular-2026-g5',
+  'camiseta-barcelona-2009-roma',
+  'camiseta-barcelona-edicion-especial-25-26-importada',
+  'camiseta-brasil-2002-ronaldo-importada',
+  'camiseta-japon-2006',
+  'camiseta-japon-titular-26-27-importada',
+  'camiseta-juventus-icon-adidas',
+  'camiseta-liverpool-icon-negra-importada',
+  'camiseta-liverpool-icon-verde-importada',
+  'camiseta-newcastle-icon-importada',
+  'camiseta-racing-2000-01-titular-milito-importada',
+];
+for (const slug of CON_STOCK) {
+  check(`${slug} está en la liquidación`, LIQ.items.some((i) => i.slug === slug), true);
+}
+// Las Mystery Box NO: no tienen costo propio, se arman con lo que haya.
+for (const box of ['mistery-box-goat', 'mistery-box-champ', 'mistery-box-leyend']) {
+  check(`${box} queda afuera`, LIQ.items.some((i) => i.slug === box), false);
 }
 
 console.log('\n--- precio por producto ---');
@@ -234,8 +256,8 @@ console.log('\n--- precios de la liquidación ---');
 check('la línea Icon baja a $39.900', precioPromoLinea('camiseta-ajax-icon-importada', 57_000, DUR_LIQ), 39_900);
 check('la Messi 2006 baja a $27.900', precioPromoLinea('camiseta-argentina-2006-messi', 35_000, DUR_LIQ), 27_900);
 check('la Argentina Titular importada baja a $37.900', precioPromoLinea('camiseta-argentina-titular-2026-g5', 42_500, DUR_LIQ), 37_900);
-check('la Racing 2000/01 no entra', precioPromoLinea('camiseta-racing-2000-01-titular-milito-importada', 58_500, DUR_LIQ), null);
-check('la Japón Titular 26/27 tampoco', precioPromoLinea('camiseta-japon-titular-26-27-importada', 61_500, DUR_LIQ), null);
+check('la Racing 2000/01 baja a $53.900', precioPromoLinea('camiseta-racing-2000-01-titular-milito-importada', 58_500, DUR_LIQ), 53_900);
+check('la Japón Titular 26/27 baja a $57.900', precioPromoLinea('camiseta-japon-titular-26-27-importada', 61_500, DUR_LIQ), 57_900);
 check('las Mystery Box quedan a precio de lista', precioPromoLinea('mistery-box-goat', 61_500, DUR_LIQ), null);
 
 console.log('\n--- el cartel de arriba ---');

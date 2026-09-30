@@ -23,6 +23,7 @@ import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { promoLineaVigente, promoSinNadaEncima } from '../src/lib/promo-linea';
+import { compararTalles } from '../src/lib/talles';
 
 const NAVY = '#0B1F3A';
 const CREMA = '#F6F1E8';
@@ -287,6 +288,10 @@ async function slideCamiseta(c: Camiseta, destino: string) {
   const off = Math.round((1 - c.ahora / c.antes) * 100);
   // "SOLO M/L" tampoco: solo es "solo" cuando queda uno.
   const talles = c.talles.includes('/') ? `TALLES ${c.talles}` : `SOLO ${c.talles}`;
+  // El óvalo se estira con el texto: a ancho fijo, "TALLES XL/L/M" se salía por
+  // los costados. Barlow Condensed a 36px mide ~0.42 del tamaño por carácter, y
+  // el letter-spacing de 3 suma aparte.
+  const anchoTalles = Math.max(236, Math.round(talles.length * (36 * 0.42 + 3)) + 56);
 
   const capa = `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}">
   ${fondo(LADO, LADO)}
@@ -296,7 +301,7 @@ async function slideCamiseta(c: Camiseta, destino: string) {
   <text x="${LADO / 2 - 150}" y="${yPrecio + 42}" font-family="${FUENTE}" font-weight="700" font-size="44" fill="${GRIS}" text-anchor="middle">${esc(antesTxt)}</text>
   <rect x="${LADO / 2 - 150 - anchoAntes / 2}" y="${yPrecio + 26}" width="${anchoAntes}" height="3.5" fill="${GRIS}"/>
   <text x="${LADO / 2 + 110}" y="${yPrecio + 52}" font-family="${FUENTE}" font-weight="800" font-size="88" fill="${ORO}" text-anchor="middle">${esc(pesos(c.ahora))}</text>
-  <rect x="${LADO / 2 - 118}" y="948" width="236" height="56" rx="28" fill="none" stroke="${CELESTE}" stroke-width="3"/>
+  <rect x="${LADO / 2 - anchoTalles / 2}" y="948" width="${anchoTalles}" height="56" rx="28" fill="none" stroke="${CELESTE}" stroke-width="3"/>
   <text x="${LADO / 2}" y="987" font-family="${FUENTE}" font-weight="800" font-size="36" fill="${CELESTE}" text-anchor="middle" letter-spacing="3">${esc(talles)}</text>
   <text x="${LADO / 2}" y="1046" font-family="${FUENTE_TX}" font-weight="500" font-size="26" fill="${CREMA}" text-anchor="middle" opacity="0.4">casacadecancha.shop</text>
 </svg>`;
@@ -354,7 +359,10 @@ async function main() {
         (v: { active: boolean; stock_physical: number; stock_reserved: number; encargo_reserved: number | null }) =>
           v.active && v.stock_physical - v.stock_reserved - (v.encargo_reserved ?? 0) > 0,
       )
-      .map((v: { size: string }) => v.size);
+      .map((v: { size: string }) => v.size)
+      // Ordenados de chico a grande. Sin esto salen como los devuelve la base y
+      // la Japón Titular quedó anunciada como "TALLES XL/L/M".
+      .sort(compararTalles);
 
     if (disp.length === 0) {
       problemas.push(`${p.name}: SE AGOTÓ — no va al posteo`);
