@@ -202,10 +202,15 @@ export const CALENDARIO: PromoLinea[] = [
       { slug: 'camiseta-japon-2006', price: 51_000, compare_price: 57_000 },
       // Las dos que se compraron caras. Bajan lo único que aguantan: acá manda
       // el piso de abajo de todo ($5.000 y 9%), no el de $7.000 y 16%.
-      // costo $48.500 → margen $5.400 (10%), 8% de descuento.
+      //
+      // La Racing va más abajo todavía, a $50.000, por decisión del dueño: cuesta
+      // $48.500, así que deja $1.500 (3%). No es un error de tipeo ni un precio
+      // calculado, es él eligiendo recuperar el capital de la única unidad que
+      // queda antes que el margen. Por eso está exceptuada del piso en
+      // `check-promo-linea.ts`, que si no la marca como falla.
       {
         slug: 'camiseta-racing-2000-01-titular-milito-importada',
-        price: 53_900,
+        price: 50_000,
         compare_price: 58_500,
       },
       // costo $52.468 → margen $5.432 (9%), 6% de descuento. Cuatro unidades:

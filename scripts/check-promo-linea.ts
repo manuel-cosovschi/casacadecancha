@@ -190,11 +190,25 @@ console.log('\n--- la liquidación deja margen en cada unidad ---');
 // Este chequeo es el que importa de verdad: si algún día alguien mueve un precio
 // de acá para abajo, se entera antes de publicarlo y no cuando mira las cuentas
 // a fin de mes.
+//
+// Excepción: los precios que puso el dueño a mano, contra el consejo de dejar
+// margen. Esos no pasan por el piso —justamente los eligió para recuperar el
+// capital, no para ganar— pero sí por la regla que no se negocia: no se vende
+// abajo del costo.
+const PRECIO_DEL_DUENO = new Set(['camiseta-racing-2000-01-titular-milito-importada']);
 for (const i of LIQ.items) {
   const costo = COSTO[i.slug];
   if (costo === undefined) continue;
   const gana = i.price - costo;
   const pct = Math.round((gana / i.price) * 1000) / 10;
+  if (PRECIO_DEL_DUENO.has(i.slug)) {
+    check(
+      `${i.slug}: precio puesto a mano, $${gana.toLocaleString('es-AR')} (${pct}%), al menos no pierde`,
+      gana > 0,
+      true,
+    );
+    continue;
+  }
   check(
     `${i.slug}: $${gana.toLocaleString('es-AR')} (${pct}%) queda arriba del piso`,
     gana >= 5_000 && pct >= 9,
@@ -256,7 +270,7 @@ console.log('\n--- precios de la liquidación ---');
 check('la línea Icon baja a $39.900', precioPromoLinea('camiseta-ajax-icon-importada', 57_000, DUR_LIQ), 39_900);
 check('la Messi 2006 baja a $27.900', precioPromoLinea('camiseta-argentina-2006-messi', 35_000, DUR_LIQ), 27_900);
 check('la Argentina Titular importada baja a $37.900', precioPromoLinea('camiseta-argentina-titular-2026-g5', 42_500, DUR_LIQ), 37_900);
-check('la Racing 2000/01 baja a $53.900', precioPromoLinea('camiseta-racing-2000-01-titular-milito-importada', 58_500, DUR_LIQ), 53_900);
+check('la Racing 2000/01 baja a $50.000', precioPromoLinea('camiseta-racing-2000-01-titular-milito-importada', 58_500, DUR_LIQ), 50_000);
 check('la Japón Titular 26/27 baja a $57.900', precioPromoLinea('camiseta-japon-titular-26-27-importada', 61_500, DUR_LIQ), 57_900);
 check('las Mystery Box quedan a precio de lista', precioPromoLinea('mistery-box-goat', 61_500, DUR_LIQ), null);
 
