@@ -15,6 +15,7 @@ import {
   admiteSaleDelCatalogo,
 } from '../src/lib/promo-linea';
 import { LOYALTY, percentForOrders } from '../src/lib/loyalty';
+import { validateCoupon } from '../src/lib/coupons';
 import type { Product } from '../src/lib/types';
 
 let fail = 0;
@@ -343,5 +344,46 @@ check(
   true,
 );
 
-console.log(fail === 0 ? '\nTodo OK ✅' : `\n${fail} fallas ❌`);
-process.exit(fail === 0 ? 0 : 1);
+// Va adentro de una función porque el script corre como CommonJS y ahí el
+// `await` suelto al final del archivo no está permitido.
+async function chequearEnvioGratis() {
+  console.log('\n--- el cupón de envío gratis tampoco se cuela ---');
+  /*
+   * El de envío gratis es el único que NO descuenta del subtotal, así que la
+   * regla de "sin base no hay descuento" lo dejaba pasar: en un carrito todo
+   * liquidado validaba igual y la tienda regalaba el envío de una camiseta que
+   * deja $5.000.
+   *
+   * No hay ninguno creado en la tienda hoy, así que se prueba contra un cupón
+   * simulado: `validateCoupon` resuelve el código con un RPC y nada más, y acá
+   * se le pasa la respuesta a mano. Es la única forma de probar el caso antes de
+   * que exista, que es justamente cuando conviene tenerlo probado.
+   *
+   * Las dos pruebas corren con la liquidación viva (es hoy). La tercera —que sin
+   * promo al piso el envío gratis siga valiendo con base cero— no se puede fijar
+   * acá porque la fecha sale del reloj; queda cubierta por el `if` del código,
+   * que solo cambia de comportamiento cuando `promoSinNadaEncima()` es true.
+   */
+  const supabaseFalso = {
+    rpc: async () => ({
+      data: { code: 'ENVIOGRATIS', type: 'free_shipping', percentage: null, fixed_amount: null },
+    }),
+  } as unknown as Parameters<typeof validateCoupon>[0];
+
+  const todoLiquidado = await validateCoupon(supabaseFalso, 'ENVIOGRATIS', 0);
+  check('carrito todo liquidado: el envío gratis se rechaza', todoLiquidado.valid, false);
+  check(
+    'y explica por qué, sin quemar el código',
+    /no se combina/.test(todoLiquidado.message) && /intacto/.test(todoLiquidado.message),
+    true,
+  );
+
+  const mixto = await validateCoupon(supabaseFalso, 'ENVIOGRATIS', 61_500);
+  check('carrito con algo fuera de la liquidación: sí vale', mixto.valid, true);
+  check('y pone el envío en cero', mixto.freeShipping, true);
+}
+
+chequearEnvioGratis().then(() => {
+  console.log(fail === 0 ? '\nTodo OK ✅' : `\n${fail} fallas ❌`);
+  process.exit(fail === 0 ? 0 : 1);
+});

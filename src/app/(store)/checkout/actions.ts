@@ -6,6 +6,7 @@ import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
 import {
   admiteSaleDelCatalogo,
+  estaEnPromoLinea,
   motivoSinBaseDescontable,
   precioPromoLinea,
   promoLineaVigente,
@@ -428,7 +429,14 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     // Lo que está en promo de línea no recibe ningún otro descuento encima:
     // queda fuera de la base del cupón, del descuento de cliente y del de
     // transferencia. Un carrito mixto sí los recibe, sobre el resto.
-    const enPromoLinea = promoPrice !== null;
+    //
+    // Se mira si el producto ESTÁ en la promo, no si le bajó el precio. Son
+    // distintos cuando el precio de lista ya quedó igual o abajo del de promo:
+    // ahí `precioPromoLinea` devuelve null —para no subirle el precio a nadie—
+    // pero el producto sigue estando en la liquidación y no tiene que recibir
+    // descuentos encima. El checkout del navegador ya lo calculaba así, con lo
+    // cual los dos lados llegaban a totales distintos en ese caso.
+    const enPromoLinea = estaEnPromoLinea(product.slug);
     if (!enPromoLinea) discountableSubtotal += lineSubtotal;
     if (product?.transfer_discount !== false && !enPromoLinea) eligibleSubtotal += lineSubtotal;
     // Preventa: solo se cobra ahora la seña (50%); el resto queda como saldo a pagar al recibir.
