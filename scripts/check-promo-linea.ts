@@ -15,6 +15,7 @@ import {
   admiteSaleDelCatalogo,
 } from '../src/lib/promo-linea';
 import { LOYALTY, percentForOrders } from '../src/lib/loyalty';
+import { validateCoupon } from '../src/lib/coupons';
 import type { Product } from '../src/lib/types';
 
 let fail = 0;
@@ -172,7 +173,7 @@ check(
 );
 check(
   'uno que quedó afuera sí lo recibe',
-  admiteSaleDelCatalogo('camiseta-japon-titular-26-27-importada', DUR_LIQ),
+  admiteSaleDelCatalogo('mistery-box-goat', DUR_LIQ),
   true,
 );
 check(
@@ -182,17 +183,36 @@ check(
 );
 
 console.log('\n--- la liquidación deja margen en cada unidad ---');
-// El piso: $5.000 de margen y 10% del precio de venta. Los tres productos
-// heredados de ÚLTIMO TALLE son los que raspan ese piso; el resto tiene $7.000 y
-// 16%, que es con lo que se armó la lista.
+// El piso de abajo de todo: $5.000 de margen Y un 9% del precio de venta. Con
+// eso se armaron las cinco que no llegaban al piso normal ($7.000 y 16%): las
+// tres heredadas de ÚLTIMO TALLE, más la Racing y la Japón Titular, que se
+// compraron caras. El resto de la lista está bastante arriba.
+//
+// Este chequeo es el que importa de verdad: si algún día alguien mueve un precio
+// de acá para abajo, se entera antes de publicarlo y no cuando mira las cuentas
+// a fin de mes.
+//
+// Excepción: los precios que puso el dueño a mano, contra el consejo de dejar
+// margen. Esos no pasan por el piso —justamente los eligió para recuperar el
+// capital, no para ganar— pero sí por la regla que no se negocia: no se vende
+// abajo del costo.
+const PRECIO_DEL_DUENO = new Set(['camiseta-racing-2000-01-titular-milito-importada']);
 for (const i of LIQ.items) {
   const costo = COSTO[i.slug];
   if (costo === undefined) continue;
   const gana = i.price - costo;
   const pct = Math.round((gana / i.price) * 1000) / 10;
+  if (PRECIO_DEL_DUENO.has(i.slug)) {
+    check(
+      `${i.slug}: precio puesto a mano, $${gana.toLocaleString('es-AR')} (${pct}%), al menos no pierde`,
+      gana > 0,
+      true,
+    );
+    continue;
+  }
   check(
     `${i.slug}: $${gana.toLocaleString('es-AR')} (${pct}%) queda arriba del piso`,
-    gana >= 5_000 && pct >= 10,
+    gana >= 5_000 && pct >= 9,
     true,
   );
 }
@@ -207,14 +227,31 @@ for (const antes of TALLE.items) {
   check(`${antes.slug} no salió más caro que en ÚLTIMO TALLE`, ahora.price <= antes.price, true);
 }
 
-console.log('\n--- la Japón Titular 26/27 nunca entra en promo ---');
-// Cuesta $52.468 y se vende a $61.500: cualquier descuento se come el margen.
-for (const p of CALENDARIO) {
-  check(
-    `${p.label} no la incluye`,
-    p.items.some((i) => i.slug === 'camiseta-japon-titular-26-27-importada'),
-    false,
-  );
+console.log('\n--- en la liquidación está TODO el stock que se ve ---');
+// El pedido fue liquidar todo hasta agotarlo. Esta lista son los productos
+// activos con stock al 30/9; si mañana entra uno nuevo, este chequeo no lo sabe
+// —el script no habla con la base— pero sí protege contra sacar uno sin querer.
+const CON_STOCK = [
+  'camiseta-ajax-icon-importada',
+  'camiseta-argentina-2006-messi',
+  'camiseta-argentina-titular-2026-g5',
+  'camiseta-barcelona-2009-roma',
+  'camiseta-barcelona-edicion-especial-25-26-importada',
+  'camiseta-brasil-2002-ronaldo-importada',
+  'camiseta-japon-2006',
+  'camiseta-japon-titular-26-27-importada',
+  'camiseta-juventus-icon-adidas',
+  'camiseta-liverpool-icon-negra-importada',
+  'camiseta-liverpool-icon-verde-importada',
+  'camiseta-newcastle-icon-importada',
+  'camiseta-racing-2000-01-titular-milito-importada',
+];
+for (const slug of CON_STOCK) {
+  check(`${slug} está en la liquidación`, LIQ.items.some((i) => i.slug === slug), true);
+}
+// Las Mystery Box NO: no tienen costo propio, se arman con lo que haya.
+for (const box of ['mistery-box-goat', 'mistery-box-champ', 'mistery-box-leyend']) {
+  check(`${box} queda afuera`, LIQ.items.some((i) => i.slug === box), false);
 }
 
 console.log('\n--- precio por producto ---');
@@ -234,8 +271,8 @@ console.log('\n--- precios de la liquidación ---');
 check('la línea Icon baja a $39.900', precioPromoLinea('camiseta-ajax-icon-importada', 57_000, DUR_LIQ), 39_900);
 check('la Messi 2006 baja a $27.900', precioPromoLinea('camiseta-argentina-2006-messi', 35_000, DUR_LIQ), 27_900);
 check('la Argentina Titular importada baja a $37.900', precioPromoLinea('camiseta-argentina-titular-2026-g5', 42_500, DUR_LIQ), 37_900);
-check('la Racing 2000/01 no entra', precioPromoLinea('camiseta-racing-2000-01-titular-milito-importada', 58_500, DUR_LIQ), null);
-check('la Japón Titular 26/27 tampoco', precioPromoLinea('camiseta-japon-titular-26-27-importada', 61_500, DUR_LIQ), null);
+check('la Racing 2000/01 baja a $50.000', precioPromoLinea('camiseta-racing-2000-01-titular-milito-importada', 58_500, DUR_LIQ), 50_000);
+check('la Japón Titular 26/27 baja a $57.900', precioPromoLinea('camiseta-japon-titular-26-27-importada', 61_500, DUR_LIQ), 57_900);
 check('las Mystery Box quedan a precio de lista', precioPromoLinea('mistery-box-goat', 61_500, DUR_LIQ), null);
 
 console.log('\n--- el cartel de arriba ---');
@@ -307,5 +344,46 @@ check(
   true,
 );
 
-console.log(fail === 0 ? '\nTodo OK ✅' : `\n${fail} fallas ❌`);
-process.exit(fail === 0 ? 0 : 1);
+// Va adentro de una función porque el script corre como CommonJS y ahí el
+// `await` suelto al final del archivo no está permitido.
+async function chequearEnvioGratis() {
+  console.log('\n--- el cupón de envío gratis tampoco se cuela ---');
+  /*
+   * El de envío gratis es el único que NO descuenta del subtotal, así que la
+   * regla de "sin base no hay descuento" lo dejaba pasar: en un carrito todo
+   * liquidado validaba igual y la tienda regalaba el envío de una camiseta que
+   * deja $5.000.
+   *
+   * No hay ninguno creado en la tienda hoy, así que se prueba contra un cupón
+   * simulado: `validateCoupon` resuelve el código con un RPC y nada más, y acá
+   * se le pasa la respuesta a mano. Es la única forma de probar el caso antes de
+   * que exista, que es justamente cuando conviene tenerlo probado.
+   *
+   * Las dos pruebas corren con la liquidación viva (es hoy). La tercera —que sin
+   * promo al piso el envío gratis siga valiendo con base cero— no se puede fijar
+   * acá porque la fecha sale del reloj; queda cubierta por el `if` del código,
+   * que solo cambia de comportamiento cuando `promoSinNadaEncima()` es true.
+   */
+  const supabaseFalso = {
+    rpc: async () => ({
+      data: { code: 'ENVIOGRATIS', type: 'free_shipping', percentage: null, fixed_amount: null },
+    }),
+  } as unknown as Parameters<typeof validateCoupon>[0];
+
+  const todoLiquidado = await validateCoupon(supabaseFalso, 'ENVIOGRATIS', 0);
+  check('carrito todo liquidado: el envío gratis se rechaza', todoLiquidado.valid, false);
+  check(
+    'y explica por qué, sin quemar el código',
+    /no se combina/.test(todoLiquidado.message) && /intacto/.test(todoLiquidado.message),
+    true,
+  );
+
+  const mixto = await validateCoupon(supabaseFalso, 'ENVIOGRATIS', 61_500);
+  check('carrito con algo fuera de la liquidación: sí vale', mixto.valid, true);
+  check('y pone el envío en cero', mixto.freeShipping, true);
+}
+
+chequearEnvioGratis().then(() => {
+  console.log(fail === 0 ? '\nTodo OK ✅' : `\n${fail} fallas ❌`);
+  process.exit(fail === 0 ? 0 : 1);
+});

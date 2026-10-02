@@ -79,10 +79,9 @@ export interface PromoLinea {
  * circula y no se toca al renombrar.
  *
  * Los precios salen del costo real de cada camiseta (`unit_cost` +
- * `packaging_cost`), no de un porcentaje parejo. La Japón Titular 26/27 no
- * aparece en ninguna promo a propósito: cuesta $53.268 y se vende a $61.500,
- * así que cualquier descuento se come el margen entero. Ese producto no
- * necesita una promo, necesita otro precio de lista.
+ * `packaging_cost`), no de un porcentaje parejo: es la única forma de que dos
+ * camisetas que se venden al mismo precio pero costaron $32.000 y $46.000 no
+ * terminen una regalada y la otra sin descuento real.
  */
 export const CALENDARIO: PromoLinea[] = [
   {
@@ -146,17 +145,21 @@ export const CALENDARIO: PromoLinea[] = [
      * $32.000 y se vendía a $57.000) y la Argentina Titular importada baja 11%
      * (cuesta $30.821): el que tiene más aire baja más.
      *
-     * TRES PRECIOS ESTÁN POR DEBAJO DE ESE PISO, a propósito: Brasil 2002,
-     * Barcelona 2009 y Japón 2006 ya estaban prometidas más baratas en la promo
-     * ÚLTIMO TALLE de esta semana. Subirles el precio para "liquidarlas" sería
-     * una burla, así que se respeta el precio que ya se publicó.
+     * CINCO ESTÁN POR DEBAJO DE ESE PISO, y entran igual. Tres porque ya estaban
+     * prometidas más baratas en ÚLTIMO TALLE —Brasil 2002, Barcelona 2009 y
+     * Japón 2006—: subirles el precio para "liquidarlas" sería una burla, así
+     * que se respeta el que ya se publicó. Las otras dos, la Racing 2000/01 y la
+     * Japón Titular 26/27, se compraron caras y se venden con 17% y 15% de
+     * margen, o sea que ya estaban abajo del piso ANTES de tocarlas: el dueño
+     * las quiere liquidar igual, y son 5 unidades con $258.372 de plata
+     * inmovilizada.
      *
-     * DOS PRODUCTOS NO ENTRAN. La Racing 2000/01 (cuesta $48.500 y se vende a
-     * $58.500) y la Japón Titular 26/27 (cuesta $52.468 y se vende a $61.500)
-     * ya se venden con 17% y 15% de margen: están por debajo del piso ANTES de
-     * tocarlas. No tienen un problema de promoción, tienen un problema de
-     * precio de compra, y meterlas acá con un 4% de descuento simulado solo
-     * ensucia la liquidación.
+     * A esas cinco las rige el piso de abajo de todo, el que marcó la Barcelona
+     * 2009: $5.000 de margen Y un 9% del precio de venta. Es lo que hace que la
+     * Japón Titular pueda bajar apenas 6% ($57.900) y la Racing 8% ($53.900).
+     * Descuentos flacos, sí, y son los únicos que esos dos productos aguantan:
+     * no tienen un problema de promoción, tienen un problema de precio de
+     * compra.
      *
      * La fecha de fin es lejana porque termina cuando se acaba el stock, no un
      * domingo. Si sobra algo, se corta cambiando `active` a false.
@@ -197,6 +200,26 @@ export const CALENDARIO: PromoLinea[] = [
       // costo $45.839 → margen $5.161 (10%). Precio heredado de ÚLTIMO TALLE.
       { slug: 'camiseta-barcelona-2009-roma', price: 51_000, compare_price: 57_000 },
       { slug: 'camiseta-japon-2006', price: 51_000, compare_price: 57_000 },
+      // Las dos que se compraron caras. Bajan lo único que aguantan: acá manda
+      // el piso de abajo de todo ($5.000 y 9%), no el de $7.000 y 16%.
+      //
+      // La Racing va más abajo todavía, a $50.000, por decisión del dueño: cuesta
+      // $48.500, así que deja $1.500 (3%). No es un error de tipeo ni un precio
+      // calculado, es él eligiendo recuperar el capital de la única unidad que
+      // queda antes que el margen. Por eso está exceptuada del piso en
+      // `check-promo-linea.ts`, que si no la marca como falla.
+      {
+        slug: 'camiseta-racing-2000-01-titular-milito-importada',
+        price: 50_000,
+        compare_price: 58_500,
+      },
+      // costo $52.468 → margen $5.432 (9%), 6% de descuento. Cuatro unidades:
+      // es la que más plata tiene inmovilizada de todo el depósito ($209.872).
+      {
+        slug: 'camiseta-japon-titular-26-27-importada',
+        price: 57_900,
+        compare_price: 61_500,
+      },
     ],
   },
 ];

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { motivoSinBaseDescontable } from '@/lib/promo-linea';
+import { motivoSinBaseDescontable, promoSinNadaEncima } from '@/lib/promo-linea';
 
 export interface CouponResult {
   valid: boolean;
@@ -58,9 +58,14 @@ export async function validateCoupon(
     return { valid: false, code, discount: 0, message: 'El cupón alcanzó su límite de usos.' };
   }
 
-  // El de envío gratis no toca el subtotal, así que vale aunque la base sea
-  // cero. Los que descuentan plata, no: sin base no descuentan nada.
-  if (promo.type !== 'free_shipping' && !(subtotal > 0)) {
+  // El de envío gratis no toca el subtotal, así que normalmente vale aunque la
+  // base sea cero. Durante una promo al piso, no: regalar el envío de una
+  // camiseta que deja $5.000 se come el margen entero, y el pedido fue que
+  // ningún código corra sobre esos precios. El envío gratis es todo o nada —no
+  // se puede aplicar "a la mitad del carrito"— así que la regla es la misma que
+  // para los demás: tiene que haber algo que NO esté liquidado.
+  const envioGratisLibre = promo.type === 'free_shipping' && !promoSinNadaEncima();
+  if (!envioGratisLibre && !(subtotal > 0)) {
     return { valid: false, code, discount: 0, message: motivoSinBaseDescontable() };
   }
 
