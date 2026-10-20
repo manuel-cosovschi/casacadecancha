@@ -135,6 +135,14 @@ for (let a = 0; a < CALENDARIO.length; a++) {
 }
 
 console.log('\n--- nada se vende por debajo del costo, ni pagando por transferencia ---');
+/**
+ * Las que el dueño eligió vender abajo del costo, sabiéndolo (PRECIOS NUEVOS,
+ * 20/10). No fallan: se listan aparte para que la pérdida quede a la vista.
+ */
+const ABAJO_DEL_COSTO_A_PROPOSITO = new Set([
+  'PRECIOS NUEVOS|camiseta-japon-titular-26-27-importada',
+  'PRECIOS NUEVOS|camiseta-racing-2000-01-titular-milito-importada',
+]);
 for (const p of CALENDARIO) {
   for (const i of p.items) {
     const costo = COSTO[i.slug];
@@ -147,6 +155,12 @@ for (const p of CALENDARIO) {
     const pctT = i.transfer_percent ?? p.transfer_percent ?? 0;
     const precio = Math.round(i.price * (1 - pctT / 100));
     const gana = precio - costo;
+    if (ABAJO_DEL_COSTO_A_PROPOSITO.has(`${p.label}|${i.slug}`)) {
+      console.log(
+        `  ⚠  ${p.label}: ${i.slug} a $${precio.toLocaleString('es-AR')} deja $${gana.toLocaleString('es-AR')} (a propósito)`,
+      );
+      continue;
+    }
     check(
       `${p.label}: ${i.slug} a $${precio.toLocaleString('es-AR')} deja $${gana.toLocaleString('es-AR')}`,
       gana > 0,
@@ -184,7 +198,7 @@ check(
 );
 check(
   'uno que quedó afuera sí lo recibe',
-  admiteSaleDelCatalogo('camiseta-japon-titular-26-27-importada', DUR_NUEVOS),
+  admiteSaleDelCatalogo('mistery-box-goat', DUR_NUEVOS),
   true,
 );
 check(
@@ -219,9 +233,10 @@ for (const antes of TALLE.items) {
   check(`${antes.slug} no salió más caro que en ÚLTIMO TALLE`, ahora.price <= antes.price, true);
 }
 
-console.log('\n--- la Japón Titular 26/27 nunca entra en promo ---');
+console.log('\n--- la Japón Titular 26/27 no entró en las promos viejas ---');
 // Cuesta $52.468 y se vende a $61.500: cualquier descuento se come el margen.
-for (const p of CALENDARIO) {
+// En PRECIOS NUEVOS entra igual, por decisión del dueño (ver arriba).
+for (const p of CALENDARIO.filter((x) => x.label !== 'PRECIOS NUEVOS')) {
   check(
     `${p.label} no la incluye`,
     p.items.some((i) => i.slug === 'camiseta-japon-titular-26-27-importada'),
@@ -247,12 +262,13 @@ console.log('\n--- precios nuevos ---');
 check('una importada baja a $50.000', precioPromoLinea('camiseta-ajax-icon-importada', 57_000, DUR_NUEVOS), 50_000);
 check('la Chelsea también', precioPromoLinea('camiseta-chelsea-importada', 52_000, DUR_NUEVOS), 50_000);
 check('la Racing 2000/01 también', precioPromoLinea('camiseta-racing-2000-01-titular-milito-importada', 58_500, DUR_NUEVOS), 50_000);
-check('la Brasil 2002 ($47.500) no sube', precioPromoLinea('camiseta-brasil-2002-ronaldo-importada', 47_500, DUR_NUEVOS), null);
+check('la Brasil 2002 sigue a precio de liquidación', precioPromoLinea('camiseta-brasil-2002-ronaldo-importada', 47_500, DUR_NUEVOS), 41_000);
 check('la Argentina Titular importada baja a $40.000', precioPromoLinea('camiseta-argentina-titular-2026-g5', 42_500, DUR_NUEVOS), 40_000);
-check('la Argentina Suplente importada también', precioPromoLinea('camiseta-argentina-suplente-2026-g5', 42_500, DUR_NUEVOS), 40_000);
+check('la Argentina Suplente importada ($42.500) no sube', precioPromoLinea('camiseta-argentina-suplente-2026-g5', 42_500, DUR_NUEVOS), null);
+check('la Noruega (vendida) no está', precioPromoLinea('camiseta-noruega-suplente-importada', 47_500, DUR_NUEVOS), null);
 check('la Messi 2006 nacional queda en $35.000', precioPromoLinea('camiseta-argentina-2006-messi', 35_000, DUR_NUEVOS), null);
 check('la nacional de $29.500 no sube', precioPromoLinea('camiseta-argentina-titular-2026', 29_500, DUR_NUEVOS), null);
-check('la Japón Titular 26/27 no entra', precioPromoLinea('camiseta-japon-titular-26-27-importada', 61_500, DUR_NUEVOS), null);
+check('la Japón Titular 26/27 baja a $50.000', precioPromoLinea('camiseta-japon-titular-26-27-importada', 61_500, DUR_NUEVOS), 50_000);
 check('las Mystery Box quedan a precio de lista', precioPromoLinea('mistery-box-goat', 61_500, DUR_NUEVOS), null);
 
 console.log('\n--- descuento por transferencia de los precios nuevos ---');
@@ -261,12 +277,13 @@ const T = (slug: string, elegible = false, general = 0) =>
   porcentajeTransferencia(slug, elegible, general, DUR_NUEVOS);
 check('importada: 5%', T('camiseta-ajax-icon-importada'), 5);
 check('importada con la casilla apagada en el panel: 5% igual', T('camiseta-chelsea-importada', false), 5);
-check('importada que no baja de precio: 5% igual', T('camiseta-noruega-suplente-importada'), 5);
+check('importada que no baja de precio: 5% igual', T('camiseta-argentina-suplente-2026-g5'), 5);
+check('Brasil 2002: 5%', T('camiseta-brasil-2002-ronaldo-importada'), 5);
 check('nacional: 5%', T('camiseta-argentina-2006-messi'), 5);
 check('nacional de $29.500: 5%', T('camiseta-argentina-titular-2026'), 5);
-check('Argentina importada: 10%', T('camiseta-argentina-titular-2026-g5'), 10);
-check('Racing 2000/01: sin descuento (quedaría abajo del costo)', T('camiseta-racing-2000-01-titular-milito-importada', true, 10), 0);
-check('Japón Titular 26/27 (fuera de la promo): el general del panel', T('camiseta-japon-titular-26-27-importada', true, 0), 0);
+check('Argentina Titular importada: 10%', T('camiseta-argentina-titular-2026-g5'), 10);
+check('Racing 2000/01: 5%', T('camiseta-racing-2000-01-titular-milito-importada'), 5);
+check('Japón Titular 26/27: 5%', T('camiseta-japon-titular-26-27-importada'), 5);
 check('Mystery Box (fuera de la promo) con general 10%: 10%', T('mistery-box-goat', true, 10), 10);
 check('Mystery Box con la casilla apagada: 0', T('mistery-box-goat', false, 10), 0);
 check('fuera de la promo, nada fijado', transferPromoLinea('mistery-box-goat', DUR_NUEVOS), null);

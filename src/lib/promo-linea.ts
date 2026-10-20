@@ -236,8 +236,9 @@ export const CALENDARIO: PromoLinea[] = [
      *
      *  - Camisetas y remeras IMPORTADAS: $50.000, y 5% más por transferencia.
      *  - NACIONALES: $35.000, y 5% más por transferencia.
-     *  - ARGENTINA IMPORTADA (colección mundialista): $40.000, y 10% más por
-     *    transferencia.
+     *  - ARGENTINA TITULAR 2026 IMPORTADA (colección mundialista): $40.000, y
+     *    10% más por transferencia. Solo la titular: la suplente va con las
+     *    importadas.
      *
      * Importada es todo lo que no dice lo contrario (ver CLAUDE.md). Las
      * nacionales son la Messi 2006 y las Argentina 2026 sin "G5". Ninguna de las
@@ -245,15 +246,17 @@ export const CALENDARIO: PromoLinea[] = [
      * sube un precio, ver `precioPromoLinea`—, pero están en la lista para
      * llevarse el 5% por transferencia.
      *
-     * LA JAPÓN TITULAR 26/27 NO ENTRA, igual que en la liquidación: cuesta
-     * $52.468, así que a $50.000 se pierde plata en cada una, y con el 5% de
-     * transferencia ($47.500) se pierden casi $5.000. Si igual se la quiere a
-     * $50.000, se agrega a la lista de importadas y se borra el chequeo que la
-     * deja afuera en `scripts/check-promo-linea.ts`.
+     * DOS SE VENDEN ABAJO DEL COSTO, POR DECISIÓN DEL DUEÑO: la Japón Titular
+     * 26/27 (cuesta $52.468 → con transferencia, $47.500, pierde $4.968) y la
+     * Racing 2000/01 (cuesta $48.500 → pierde $1.000 pagando por
+     * transferencia). Se avisó y se eligió sacarlas igual a este precio. El
+     * chequeo de costos las tiene anotadas como excepción a propósito.
      *
-     * Las Mystery Box no son camisetas sueltas y quedan a precio de lista.
+     * LA BRASIL 2002 SIGUE A PRECIO DE LIQUIDACIÓN ($41.000), por pedido del
+     * dueño, con el 5% por transferencia como el resto.
      *
-     * LA RACING 2000/01 ENTRA SIN EL 5% POR TRANSFERENCIA: ver abajo.
+     * Afuera: las Mystery Box (no son camisetas sueltas) y la Noruega Suplente
+     * (vendida).
      *
      * Como en la liquidación, encima no se apila ningún cupón ni el % del
      * catálogo: hay precios que quedan cerca del costo (la Racing 2000/01 y las
@@ -269,7 +272,7 @@ export const CALENDARIO: PromoLinea[] = [
     subtitle: 'Camisetas importadas',
     sinDescuentosEncima: true,
     sinFechaDeFin: true,
-    nota: '+5% OFF por transferencia · 10% en la Argentina importada',
+    nota: '+5% OFF por transferencia · 10% en la Argentina titular',
     transfer_percent: 5,
     items: [
       // Importadas: $50.000 + 5% por transferencia. El segundo número es el
@@ -285,28 +288,23 @@ export const CALENDARIO: PromoLinea[] = [
           ['camiseta-boca-titular-25-26-paredes-importada', 58_500],
           ['camiseta-chelsea-importada', 52_000],
           ['camiseta-japon-2006', 57_000],
+          ['camiseta-japon-titular-26-27-importada', 61_500],
           ['camiseta-juventus-icon-adidas', 57_000],
           ['camiseta-liverpool-icon-adidas', 57_000],
           ['camiseta-liverpool-icon-negra-importada', 57_000],
           ['camiseta-liverpool-icon-verde-importada', 57_000],
           ['camiseta-milan-2009-ronaldinho-importada', 57_000],
           ['camiseta-newcastle-icon-importada', 57_000],
+          ['camiseta-racing-2000-01-titular-milito-importada', 58_500],
           ['musculosa-argentina-importada', 57_000],
-          // Estas dos ya valen menos de $50.000 ($47.500): quedan a su precio
-          // de lista y se llevan solo el 5% por transferencia.
-          ['camiseta-brasil-2002-ronaldo-importada', 50_000],
-          ['camiseta-noruega-suplente-importada', 50_000],
+          // Ya vale menos de $50.000 ($42.500): queda a su precio de lista y se
+          // lleva solo el 5% por transferencia.
+          ['camiseta-argentina-suplente-2026-g5', 50_000],
         ] as const
       ).map(([slug, lista]) => ({ slug, price: 50_000, compare_price: lista })),
-      // La Racing 2000/01 entra a $50.000 pero SIN el 5% por transferencia:
-      // cuesta $48.500, así que con el 5% ($47.500) se pierden $1.000 por cada
-      // una. A $50.000 deja $1.500.
-      {
-        slug: 'camiseta-racing-2000-01-titular-milito-importada',
-        price: 50_000,
-        compare_price: 58_500,
-        transfer_percent: 0,
-      },
+      // La Brasil 2002 se queda con el precio de la liquidación. Costo $35.650 →
+      // con el 5% por transferencia ($38.950) deja $3.300.
+      { slug: 'camiseta-brasil-2002-ronaldo-importada', price: 41_000, compare_price: 47_500 },
       // Nacionales: $35.000 + 5% por transferencia. Hoy ya están en $35.000 o
       // menos, así que lo único que cambia es el descuento por transferencia.
       ...[
@@ -314,17 +312,15 @@ export const CALENDARIO: PromoLinea[] = [
         'camiseta-argentina-titular-2026',
         'camiseta-argentina-suplente-2026',
       ].map((slug) => ({ slug, price: 35_000, compare_price: 35_000 })),
-      // Argentina importada, colección mundialista: $40.000 + 10% por
+      // Argentina Titular importada, colección mundialista: $40.000 + 10% por
       // transferencia ($36.000). Costo $30.821 → margen $5.179 pagando así.
-      ...['camiseta-argentina-titular-2026-g5', 'camiseta-argentina-suplente-2026-g5'].map(
-        (slug) => ({
-          slug,
-          price: 40_000,
-          compare_price: 42_500,
-          transfer_percent: 10,
-          badge: 'MUNDIALISTA',
-        }),
-      ),
+      {
+        slug: 'camiseta-argentina-titular-2026-g5',
+        price: 40_000,
+        compare_price: 42_500,
+        transfer_percent: 10,
+        badge: 'MUNDIALISTA',
+      },
     ],
   },
 ];
