@@ -103,11 +103,20 @@ ${calc.mdp_free_km ? `- Dentro de unos ${calc.mdp_free_km} km del local el enví
   const transferPct = s.payments_transfer?.active
     ? Number(s.payments_transfer.discount_percent) || 0
     : 0;
+  // La promo de línea puede traer su propio descuento por transferencia, aunque
+  // el general del panel esté en cero.
+  const promoTransfer = promoLineaVigente();
+  const transferDePromo =
+    promoTransfer?.transfer_percent != null
+      ? ` En lo que está en la promo ${promoTransfer.label} hay descuento extra pagando por transferencia: ${promoTransfer.nota ?? `${promoTransfer.transfer_percent}%`}. Ya está calculado en la ficha de cada producto ("por transferencia").`
+      : '';
   bloques.push(`PAGOS:
 - Transferencia bancaria${s.payments_transfer?.alias ? ` (alias ${s.payments_transfer.alias})` : ''}: se manda el comprobante por WhatsApp.${
     transferPct > 0
-      ? ` Tiene ${transferPct}% de descuento.`
-      : ' NO tiene descuento hoy: no prometas ninguno.'
+      ? ` Tiene ${transferPct}% de descuento.${transferDePromo}`
+      : transferDePromo
+        ? `${transferDePromo} Fuera de esa promo NO hay descuento por transferencia.`
+        : ' NO tiene descuento hoy: no prometas ninguno.'
   }
 - Mercado Pago: tarjeta de crédito o débito. Tiene un recargo del 7% por impuestos, que se ve en el checkout antes de confirmar.`);
 
@@ -146,10 +155,18 @@ ${s.comunidad.nombre}: ${s.comunidad.descripcion} Si a la persona le interesa en
   const promo = promoLineaVigente();
   const salePct = salePercentAt();
   if (promo && promoSinNadaEncima()) {
-    // La liquidación se cuenta distinto: no tiene fecha de fin útil (termina
-    // cuando se acaba el stock) y encima no admite cupones, que es la primera
-    // cosa que alguien le va a preguntar a Goat cuando vea los precios.
-    bloques.push(`LIQUIDACIÓN VIGENTE: ${promo.label} — ${promo.subtitle}. Los precios del catálogo de arriba YA la tienen aplicada y son los finales. Sobre esos productos NO corre ningún cupón ni descuento: ya están al mínimo. Si la persona tiene un cupón, decile que no se lo vas a poder aplicar a lo liquidado pero que el código no se le quema y le sirve para otra cosa. No prometas hasta cuándo dura: dura hasta que se agote, y cuando algo se agota desaparece de la página.`);
+    // Las promos al piso se cuentan distinto: no admiten cupones, que es la
+    // primera cosa que alguien le va a preguntar a Goat cuando vea los precios.
+    // Si traen descuento por transferencia, ese es lo único extra que corre.
+    const extra =
+      promo.transfer_percent != null
+        ? 'NO corre ningún cupón: lo único extra es el descuento por transferencia que se ve en cada ficha.'
+        : 'NO corre ningún cupón ni descuento: ya están al mínimo.';
+    // Sin fecha de fin útil: no se promete hasta cuándo dura.
+    const cuanto = promo.sinFechaDeFin
+      ? ' No prometas hasta cuándo dura.'
+      : '';
+    bloques.push(`PROMO VIGENTE: ${promo.label} — ${promo.subtitle}. Los precios del catálogo de arriba YA la tienen aplicada y son los finales. Sobre esos productos ${extra} Si la persona tiene un cupón, decile que no se lo vas a poder aplicar a lo que está en promo pero que el código no se le quema y le sirve para otra cosa.${cuanto}`);
   } else if (promo) {
     // La fecha con el huso de Argentina: sin eso, una promo que termina a las
     // 23:59 de acá se lee como si terminara al día siguiente.

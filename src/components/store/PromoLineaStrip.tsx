@@ -31,6 +31,7 @@ export function PromoLineaStrip({
   endsAt,
   until,
   hastaAgotarStock = false,
+  nota = 'Hasta agotar stock',
   href = '/camisetas',
 }: {
   label: string;
@@ -48,6 +49,8 @@ export function PromoLineaStrip({
    * encima es mentira, porque la fecha del calendario es solo el tope.
    */
   hastaAgotarStock?: boolean;
+  /** Lo que dice el chip en lugar de la cuenta regresiva (con `hastaAgotarStock`). */
+  nota?: string;
   href?: string;
 }) {
   const ends = Date.parse(endsAt);
@@ -82,7 +85,7 @@ export function PromoLineaStrip({
         </span>
         <span className="rounded-full bg-cream/15 px-3 py-1 text-xs font-bold uppercase tracking-wide">
           {hastaAgotarStock
-            ? 'Hasta agotar stock'
+            ? nota
             : left
               ? `Termina en ${left}`
               : `Hasta el ${until}`}

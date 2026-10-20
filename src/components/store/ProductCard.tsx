@@ -8,6 +8,7 @@ import {
   cn,
   formatPrice,
 } from '@/lib/utils';
+import { porcentajeTransferencia } from '@/lib/promo-linea';
 
 export function ProductCard({
   product,
@@ -20,8 +21,13 @@ export function ProductCard({
   const sizes = (product.variants ?? []).filter((v) => v.active);
   const inStockSizes = sizes.filter((v) => availableStock(v) > 0);
   const soldOut = inStockSizes.length === 0;
-  const showTransfer = transferDiscount > 0 && product.transfer_discount !== false;
-  const transferPrice = applyDiscount(product.price, transferDiscount);
+  const transferPct = porcentajeTransferencia(
+    product.slug,
+    product.transfer_discount !== false,
+    transferDiscount,
+  );
+  const showTransfer = transferPct > 0;
+  const transferPrice = applyDiscount(product.price, transferPct);
   const hasCompare = product.compare_at_price && product.compare_at_price > product.price;
   const off = hasCompare
     ? Math.round((1 - product.price / (product.compare_at_price as number)) * 100)

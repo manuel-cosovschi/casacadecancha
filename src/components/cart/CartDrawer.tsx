@@ -9,17 +9,22 @@ import {
   discountAmount,
   formatPrice,
 } from '@/lib/utils';
+import { porcentajeTransferencia } from '@/lib/promo-linea';
 
 export function CartDrawer({ transferDiscount }: { transferDiscount: number }) {
   const { items, isOpen, close, subtotal, updateQuantity, removeItem, count } =
     useCart();
 
-  // El descuento solo aplica a los productos elegibles (precio no fijo).
-  const eligibleSubtotal = items.reduce(
-    (a, i) => a + (i.transferEligible !== false ? i.price * i.quantity : 0),
+  // Cada producto con su % por transferencia (el de la promo si fija uno).
+  const saving = items.reduce(
+    (a, i) =>
+      a +
+      discountAmount(
+        i.price * i.quantity,
+        porcentajeTransferencia(i.slug, i.transferEligible !== false, transferDiscount),
+      ),
     0,
   );
-  const saving = discountAmount(eligibleSubtotal, transferDiscount);
   const transferTotal = subtotal - saving;
 
   return (

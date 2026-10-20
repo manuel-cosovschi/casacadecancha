@@ -344,6 +344,9 @@ async function main() {
   mkdirSync('/tmp/promo-fotos', { recursive: true });
 
   for (const item of promo.items) {
+    // Los que están en la lista solo por el descuento por transferencia no bajan
+    // de precio: un "antes y ahora" con el mismo número no es una oferta.
+    if (item.price >= item.compare_price) continue;
     const p = porSlug.get(item.slug);
     if (!p) {
       problemas.push(`${item.slug}: no está en el catálogo`);
@@ -412,7 +415,11 @@ async function main() {
   // calendario es solo el tope, y ponerla en el posteo sería prometer stock hasta
   // fin de año.
   const alPiso = promoSinNadaEncima(cuando);
-  const hasta = alPiso ? 'Hasta agotar stock' : `Hasta el ${fecha}`;
+  const hasta = promo.sinFechaDeFin
+    ? (promo.nota ?? 'Hasta agotar stock')
+    : alPiso
+      ? 'Hasta agotar stock'
+      : `Hasta el ${fecha}`;
   const maxOff = Math.max(...camisetas.map((c) => Math.round((1 - c.ahora / c.antes) * 100)));
   const tapa: Tapa = {
     label: promo.label,

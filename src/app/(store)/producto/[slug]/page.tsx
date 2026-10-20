@@ -11,6 +11,7 @@ import {
 } from '@/lib/queries';
 import { getAllSettings, vacationState } from '@/lib/settings';
 import { applyDiscount, formatPrice } from '@/lib/utils';
+import { porcentajeTransferencia } from '@/lib/promo-linea';
 import { getMeasurements } from '@/lib/measurements';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
@@ -54,6 +55,11 @@ export default async function ProductPage({
   const transferDiscount = settings.payments_transfer?.active
     ? settings.payments_transfer.discount_percent || 0
     : 0;
+  const transferPct = porcentajeTransferencia(
+    product.slug,
+    product.transfer_discount !== false,
+    transferDiscount,
+  );
   const whatsappNumber = settings.whatsapp?.number || '';
   const measurements = getMeasurements(slug);
 
@@ -141,12 +147,12 @@ export default async function ProductPage({
               label="Cambios"
               value="Cambios según política vigente. Consultanos por WhatsApp."
             />
-            {transferDiscount > 0 && product.transfer_discount !== false && (
+            {transferPct > 0 && (
               <Spec
                 label="Transferencia"
                 value={`Pagando por transferencia: ${formatPrice(
-                  applyDiscount(product.price, transferDiscount),
-                )} (${transferDiscount}% OFF)`}
+                  applyDiscount(product.price, transferPct),
+                )} (${transferPct}% OFF)`}
               />
             )}
           </section>

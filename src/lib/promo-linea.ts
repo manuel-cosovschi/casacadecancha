@@ -34,6 +34,13 @@ export interface ItemPromo {
    * mientras la promo está viva.
    */
   compare_price: number;
+  /**
+   * % extra pagando por transferencia, solo para este producto. Si no está, vale
+   * el de la promo (`PromoLinea.transfer_percent`).
+   */
+  transfer_percent?: number;
+  /** Cartel propio de este producto, si no tiene que llevar el de la promo. */
+  badge?: string;
 }
 
 export interface PromoLinea {
@@ -67,6 +74,24 @@ export interface PromoLinea {
    * (ver `motivoSinBaseDescontable`).
    */
   sinDescuentosEncima?: boolean;
+  /**
+   * % extra pagando por transferencia para los productos de esta promo.
+   *
+   * Es la excepción a "nada se apila": el precio de la promo se pensó contando
+   * este descuento, así que corre aunque `sinDescuentosEncima` esté prendido y
+   * aunque el producto tenga apagado "Aplica descuento por transferencia" en el
+   * panel. Tampoco depende del % de transferencia de Promociones: vive acá, con
+   * el precio, y se corta cuando se corta la promo. Sin este campo, lo que está
+   * en promo no tiene descuento por transferencia, como siempre.
+   */
+  transfer_percent?: number;
+  /**
+   * La promo no termina un día: dura hasta que se cambie. La franja no muestra
+   * cuenta regresiva ni fecha, porque la de `ends_at` es solo un tope.
+   */
+  sinFechaDeFin?: boolean;
+  /** Con `sinFechaDeFin`: lo que dice el chip de la franja en vez de la fecha. */
+  nota?: string;
   /** Los productos alcanzados. Solo estos: nada de adivinar por nombre. */
   items: ItemPromo[];
 }
@@ -160,16 +185,22 @@ export const CALENDARIO: PromoLinea[] = [
      *
      * La fecha de fin es lejana porque termina cuando se acaba el stock, no un
      * domingo. Si sobra algo, se corta cambiando `active` a false.
+     *
+     * SACADA EL 20/10: la reemplazan los PRECIOS NUEVOS de abajo. Se apaga y se
+     * corta en el 19/10 (en vez de borrarla) para que quede el registro de lo
+     * que se publicó y para que no se pise con la que sigue.
      */
-    active: true,
+    active: false,
     starts_at: '2026-09-29T00:00:00-03:00',
-    ends_at: '2026-12-31T23:59:59-03:00',
+    ends_at: '2026-10-19T23:59:59-03:00',
     label: 'LIQUIDACIÓN FINAL',
     badge: 'LIQUIDACIÓN',
     subtitle: 'Todo lo que queda, al precio más bajo',
     // Los precios están al hueso: no se les apila nada, ni el de bienvenida ni
     // el porcentaje del catálogo.
     sinDescuentosEncima: true,
+    sinFechaDeFin: true,
+    nota: 'Hasta agotar stock',
     items: [
       // costo $32.000 → margen $7.900 (20%)
       { slug: 'camiseta-ajax-icon-importada', price: 39_900, compare_price: 57_000 },
@@ -197,6 +228,99 @@ export const CALENDARIO: PromoLinea[] = [
       // costo $45.839 → margen $5.161 (10%). Precio heredado de ÚLTIMO TALLE.
       { slug: 'camiseta-barcelona-2009-roma', price: 51_000, compare_price: 57_000 },
       { slug: 'camiseta-japon-2006', price: 51_000, compare_price: 57_000 },
+    ],
+  },
+  {
+    /**
+     * PRECIOS NUEVOS. Reemplaza a la liquidación, con tres precios parejos:
+     *
+     *  - Camisetas y remeras IMPORTADAS: $50.000, y 5% más por transferencia.
+     *  - NACIONALES: $35.000, y 5% más por transferencia.
+     *  - ARGENTINA TITULAR 2026 IMPORTADA (colección mundialista): $40.000, y
+     *    10% más por transferencia. Solo la titular: la suplente va con las
+     *    importadas.
+     *
+     * Importada es todo lo que no dice lo contrario (ver CLAUDE.md). Las
+     * nacionales son la Messi 2006 y las Argentina 2026 sin "G5". Ninguna de las
+     * tres está arriba de $35.000, así que no bajan de precio —una promo nunca
+     * sube un precio, ver `precioPromoLinea`—, pero están en la lista para
+     * llevarse el 5% por transferencia.
+     *
+     * DOS SE VENDEN ABAJO DEL COSTO, POR DECISIÓN DEL DUEÑO: la Japón Titular
+     * 26/27 (cuesta $52.468 → con transferencia, $47.500, pierde $4.968) y la
+     * Racing 2000/01 (cuesta $48.500 → pierde $1.000 pagando por
+     * transferencia). Se avisó y se eligió sacarlas igual a este precio. El
+     * chequeo de costos las tiene anotadas como excepción a propósito.
+     *
+     * LA BRASIL 2002 SIGUE A PRECIO DE LIQUIDACIÓN ($41.000), por pedido del
+     * dueño, con el 5% por transferencia como el resto.
+     *
+     * Afuera: las Mystery Box (no son camisetas sueltas) y la Noruega Suplente
+     * (vendida).
+     *
+     * Como en la liquidación, encima no se apila ningún cupón ni el % del
+     * catálogo: hay precios que quedan cerca del costo (la Racing 2000/01 y las
+     * dos retro de $45.839 de costo). Lo único extra es el de transferencia.
+     *
+     * Un producto nuevo NO entra solo: hay que sumarlo acá con su precio.
+     */
+    active: true,
+    starts_at: '2026-10-20T00:00:00-03:00',
+    ends_at: '2027-12-31T23:59:59-03:00',
+    label: 'PRECIOS NUEVOS',
+    badge: 'OFERTA',
+    subtitle: 'Camisetas importadas',
+    sinDescuentosEncima: true,
+    sinFechaDeFin: true,
+    nota: '+5% OFF por transferencia · 10% en la Argentina titular',
+    transfer_percent: 5,
+    items: [
+      // Importadas: $50.000 + 5% por transferencia. El segundo número es el
+      // precio de lista de cada una, que es el que queda tachado.
+      ...(
+        [
+          ['camiseta-ajax-icon-importada', 57_000],
+          ['camiseta-argentina-retro-1986', 57_000],
+          ['camiseta-arsenal-icon-adidas', 57_000],
+          ['camiseta-arsenal-icon-bordo-importada', 57_000],
+          ['camiseta-barcelona-2009-roma', 57_000],
+          ['camiseta-barcelona-edicion-especial-25-26-importada', 57_000],
+          ['camiseta-boca-titular-25-26-paredes-importada', 58_500],
+          ['camiseta-chelsea-importada', 52_000],
+          ['camiseta-japon-2006', 57_000],
+          ['camiseta-japon-titular-26-27-importada', 61_500],
+          ['camiseta-juventus-icon-adidas', 57_000],
+          ['camiseta-liverpool-icon-adidas', 57_000],
+          ['camiseta-liverpool-icon-negra-importada', 57_000],
+          ['camiseta-liverpool-icon-verde-importada', 57_000],
+          ['camiseta-milan-2009-ronaldinho-importada', 57_000],
+          ['camiseta-newcastle-icon-importada', 57_000],
+          ['camiseta-racing-2000-01-titular-milito-importada', 58_500],
+          ['musculosa-argentina-importada', 57_000],
+          // Ya vale menos de $50.000 ($42.500): queda a su precio de lista y se
+          // lleva solo el 5% por transferencia.
+          ['camiseta-argentina-suplente-2026-g5', 50_000],
+        ] as const
+      ).map(([slug, lista]) => ({ slug, price: 50_000, compare_price: lista })),
+      // La Brasil 2002 se queda con el precio de la liquidación. Costo $35.650 →
+      // con el 5% por transferencia ($38.950) deja $3.300.
+      { slug: 'camiseta-brasil-2002-ronaldo-importada', price: 41_000, compare_price: 47_500 },
+      // Nacionales: $35.000 + 5% por transferencia. Hoy ya están en $35.000 o
+      // menos, así que lo único que cambia es el descuento por transferencia.
+      ...[
+        'camiseta-argentina-2006-messi',
+        'camiseta-argentina-titular-2026',
+        'camiseta-argentina-suplente-2026',
+      ].map((slug) => ({ slug, price: 35_000, compare_price: 35_000 })),
+      // Argentina Titular importada, colección mundialista: $40.000 + 10% por
+      // transferencia ($36.000). Costo $30.821 → margen $5.179 pagando así.
+      {
+        slug: 'camiseta-argentina-titular-2026-g5',
+        price: 40_000,
+        compare_price: 42_500,
+        transfer_percent: 10,
+        badge: 'MUNDIALISTA',
+      },
     ],
   },
 ];
@@ -278,21 +402,64 @@ export function precioPromoLinea(
 }
 
 /**
+ * % extra por transferencia que la promo vigente le da a este producto, o null
+ * si la promo no fija ninguno (o el producto no está en promo).
+ *
+ * Corre aunque el precio de lista ya esté por debajo del de la promo: las
+ * nacionales de $29.500 no bajan de precio, pero el 5% por transferencia sí lo
+ * tienen.
+ */
+export function transferPromoLinea(slug: string, now?: Date): number | null {
+  const item = itemDe(slug, now);
+  if (!item) return null;
+  const pct = item.transfer_percent ?? promoLineaVigente(now)?.transfer_percent;
+  if (pct == null) return null;
+  return Math.max(0, Math.min(100, pct));
+}
+
+/**
+ * % de descuento por transferencia de un producto. La misma cuenta en las
+ * tarjetas, la ficha, el carrito, el checkout y `createOrder`.
+ *
+ *  - Si la promo vigente le fija uno, ese.
+ *  - Si está en promo y la promo no fija ninguno, 0: no se apila nada.
+ *  - Si no, el general del panel (`general`), salvo que el producto tenga
+ *    apagado "Aplica descuento por transferencia" (`elegible` en false).
+ */
+export function porcentajeTransferencia(
+  slug: string,
+  elegible: boolean,
+  general: number,
+  now?: Date,
+): number {
+  const dePromo = transferPromoLinea(slug, now);
+  if (dePromo !== null) return dePromo;
+  if (estaEnPromoLinea(slug, now)) return 0;
+  return elegible ? Math.max(0, general || 0) : 0;
+}
+
+/**
  * Lo que muestra el cartel de arriba.
  *
  * Cuando todos los productos de la promo valen lo mismo se anuncia ese precio.
  * Cuando cada uno tiene el suyo se anuncia el más barato con un "desde", que es
  * lo único honesto que se puede poner en un renglón.
+ *
+ * Solo cuentan los que bajan de verdad: los que están en la lista por el
+ * descuento por transferencia, sin rebaja (`price` igual a `compare_price`), no
+ * se anuncian como oferta.
  */
 export function resumenPromo(promo: PromoLinea): {
   price: number;
   comparePrice: number;
   desde: boolean;
 } {
-  const precios = promo.items.map((i) => i.price);
+  const rebajados = promo.items.filter((i) => i.price < i.compare_price);
+  const items = rebajados.length > 0 ? rebajados : promo.items;
+  const precios = items.map((i) => i.price);
   const min = Math.min(...precios);
   const uniforme = precios.every((p) => p === min);
-  const item = promo.items.find((i) => i.price === min)!;
+  const item = items.find((i) => i.price === min)!;
   return { price: min, comparePrice: item.compare_price, desde: !uniforme };
 }
 
@@ -312,7 +479,7 @@ export function withPromoLinea(product: Product, now?: Date): Product {
   return {
     ...product,
     price: item.price,
-    promo_label: promoLineaVigente(now)?.badge,
+    promo_label: item.badge ?? promoLineaVigente(now)?.badge,
     // El tachado nunca baja de `compare_price`, que es el precio con el que
     // salió la promo. Sin este piso, bajarle el precio de lista a un producto
     // en promo encogía el tachado y la promo se veía peor de lo que es —

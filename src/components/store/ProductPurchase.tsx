@@ -13,6 +13,7 @@ import {
   whatsappLink,
 } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
+import { porcentajeTransferencia } from '@/lib/promo-linea';
 import { requestStock } from '@/app/(store)/producto/[slug]/actions';
 import { getMeasurements } from '@/lib/measurements';
 
@@ -59,8 +60,10 @@ export function ProductPurchase({
   const selected = variants.find((v) => v.id === variantId) || null;
   const image = product.images?.[0]?.url ?? null;
   const transferEligible = product.transfer_discount !== false;
-  const showTransfer = transferDiscount > 0 && transferEligible;
-  const transferPrice = applyDiscount(product.price, transferDiscount);
+  // El de la promo si fija uno (ej. 10% en la Argentina importada), si no el general.
+  const transferPct = porcentajeTransferencia(product.slug, transferEligible, transferDiscount);
+  const showTransfer = transferPct > 0;
+  const transferPrice = applyDiscount(product.price, transferPct);
   const canBackorder = product.allow_backorder;
   const hasCompare = product.compare_at_price && product.compare_at_price > product.price;
   const hasOutOfStock = variants.some((v) => availableStock(v) <= 0);
@@ -266,7 +269,7 @@ export function ProductPurchase({
           <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-celeste/15 px-3 py-1.5">
             <span className="text-sm font-bold text-navy">{formatPrice(transferPrice)}</span>
             <span className="text-xs font-semibold text-navy/65">
-              por transferencia · {transferDiscount}% OFF
+              por transferencia · {transferPct}% OFF
             </span>
           </div>
         )}
