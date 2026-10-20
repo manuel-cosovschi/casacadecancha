@@ -3,6 +3,14 @@ import { PageHeader, StatCard } from '@/components/admin/ui';
 import { RangeSelector } from '@/components/admin/RangeSelector';
 import { DashboardCharts } from '@/components/admin/DashboardCharts';
 import { getDashboardMetrics, type RangeKey } from '@/lib/admin/metrics';
+import { CompraSemanal } from '@/components/admin/CompraSemanal';
+import { requireAdmin, isOwnerRole } from '@/lib/admin/auth';
+import { getAllSettings } from '@/lib/settings';
+import {
+  COMPRA_SEMANAL_KEY,
+  sugerenciaDeCompra,
+  yaSeVioEstaSemana,
+} from '@/lib/admin/compra-semanal';
 import { formatPrice } from '@/lib/utils';
 
 const VALID: RangeKey[] = [
@@ -22,7 +30,17 @@ export default async function DashboardPage({
 }) {
   const { range } = await searchParams;
   const rangeKey: RangeKey = VALID.includes(range as RangeKey) ? (range as RangeKey) : 'last30';
-  const m = await getDashboardMetrics(rangeKey);
+  const [m, me, settings] = await Promise.all([
+    getDashboardMetrics(rangeKey),
+    requireAdmin(),
+    getAllSettings(),
+  ]);
+  // Una vez por semana: aparece hasta que se toca "Listo" y vuelve el lunes. Solo
+  // para el dueño, igual que "Qué comprar".
+  const compraSemanal =
+    isOwnerRole(me.role) && !yaSeVioEstaSemana(settings[COMPRA_SEMANAL_KEY])
+      ? await sugerenciaDeCompra()
+      : null;
 
   return (
     <div>
@@ -35,6 +53,8 @@ export default async function DashboardPage({
           </Suspense>
         }
       />
+
+      {compraSemanal && <CompraSemanal items={compraSemanal} />}
 
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="Facturación bruta" value={formatPrice(m.grossRevenue)} />

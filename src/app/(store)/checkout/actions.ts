@@ -2,11 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
-import { applyDiscount, mpSurcharge, preorderDeposit } from '@/lib/utils';
+import { applyDiscount, discountAmount, mpSurcharge, preorderDeposit } from '@/lib/utils';
 import { salePercentAt, couponBlockedBySale } from '@/lib/sale';
 import {
   admiteSaleDelCatalogo,
+  estaEnPromoLinea,
   motivoSinBaseDescontable,
+  porcentajeTransferencia,
   precioPromoLinea,
   promoLineaVigente,
   promoSinNadaEncima,
@@ -358,7 +360,10 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
   let saleDiscount = 0; // solo informativo: ya viene descontado en unit_price
   let promoLineaDiscount = 0; // solo informativo: ya viene descontado en unit_price
   let subtotal = 0;
-  let eligibleSubtotal = 0; // base para el descuento por transferencia
+  // Descuento por transferencia, línea por línea: cada producto tiene su % (el
+  // de la promo de línea si fija uno, si no el del panel; ver
+  // `porcentajeTransferencia`).
+  let transferDiscountTotal = 0;
   // Base sobre la que corren cupón y descuento de cliente: el subtotal SIN los
   // productos que ya están en promo de línea. Es la regla de no acumulación:
   // esa camiseta ya tiene su descuento y no recibe otro encima. Sin promo
@@ -427,10 +432,19 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
     subtotal += lineSubtotal;
     // Lo que está en promo de línea no recibe ningún otro descuento encima:
     // queda fuera de la base del cupón, del descuento de cliente y del de
-    // transferencia. Un carrito mixto sí los recibe, sobre el resto.
-    const enPromoLinea = promoPrice !== null;
+    // transferencia —salvo el % por transferencia que fije la propia promo—.
+    // Un carrito mixto sí los recibe, sobre el resto.
+    // Cuenta como promo aunque el precio no haya bajado (una nacional que ya
+    // estaba en $29.500): está en la lista, y lo que está en la lista no lleva
+    // cupón encima. Misma regla que el checkout con `estaEnPromoLinea`.
+    const enPromoLinea = promoPrice !== null || estaEnPromoLinea(product.slug);
     if (!enPromoLinea) discountableSubtotal += lineSubtotal;
-    if (product?.transfer_discount !== false && !enPromoLinea) eligibleSubtotal += lineSubtotal;
+    const pctTransfer = porcentajeTransferencia(
+      product.slug,
+      product?.transfer_discount !== false,
+      transferPct,
+    );
+    if (pctTransfer > 0) transferDiscountTotal += discountAmount(lineSubtotal, pctTransfer);
     // Preventa: solo se cobra ahora la seña (50%); el resto queda como saldo a pagar al recibir.
     if (product?.preorder) {
       preorderBalance += (price - preorderDeposit(price)) * item.quantity;
@@ -524,10 +538,7 @@ export async function createOrder(input: CheckoutInput): Promise<ActionResult> {
       : null;
 
   // 4. Calcular totales
-  const transferDiscount =
-    data.payment_method === 'transfer' && transferPct > 0
-      ? eligibleSubtotal - applyDiscount(eligibleSubtotal, transferPct)
-      : 0;
+  const transferDiscount = data.payment_method === 'transfer' ? transferDiscountTotal : 0;
   const discount = transferDiscount + couponDiscount;
 
   const shippingQuote = quoteShipping(data.shipping_method, settings.shipping);

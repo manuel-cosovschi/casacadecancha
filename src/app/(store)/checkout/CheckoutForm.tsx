@@ -18,7 +18,7 @@ import {
 import { isWelcomeCode, looksLikeDni } from '@/lib/welcome';
 import { sugerirEmail } from '@/lib/email-typos';
 import { isLoyaltyCode } from '@/lib/loyalty';
-import { estaEnPromoLinea, promoSinNadaEncima } from '@/lib/promo-linea';
+import { estaEnPromoLinea, porcentajeTransferencia, promoSinNadaEncima } from '@/lib/promo-linea';
 import { checkoutSchema, type CheckoutInput } from '@/lib/validation';
 import { AR_PROVINCES } from '@/lib/provinces';
 import { discountAmount, formatPrice, mpSurcharge, MP_SURCHARGE_PCT, preorderDeposit } from '@/lib/utils';
@@ -110,16 +110,20 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
   const isRetiro = shippingMethod === 'retiro';
   const isDepto = watch('housing_type') === 'departamento';
   const province = watch('province');
-  // El descuento por transferencia solo aplica a los productos elegibles.
-  const eligibleSubtotal = items.reduce(
-    (a, i) => a + (i.transferEligible !== false ? i.price * i.quantity : 0),
-    0,
-  );
-  const showTransfer = !isRetiro && paymentMethod === 'transfer' && transferDiscount > 0;
-  const transferDisc = showTransfer ? discountAmount(eligibleSubtotal, transferDiscount) : 0;
-
   // Precio a mostrar por ítem: en ventas nacionales, con el recargo metido en el precio.
   const linePrice = (i: { price: number }) => (isNacional ? withNationalMarkup(i.price) : i.price);
+
+  // Descuento por transferencia, línea por línea y sobre el precio que se cobra
+  // (con el recargo nacional): cada producto tiene su % y la promo de línea
+  // puede fijar uno propio. Misma cuenta que `createOrder`.
+  const transferPctDe = (i: (typeof items)[number]) =>
+    porcentajeTransferencia(i.slug, i.transferEligible !== false, transferDiscount);
+  const transferPcts = [...new Set(items.map(transferPctDe).filter((p) => p > 0))].sort((a, b) => a - b);
+  const showTransfer = !isRetiro && paymentMethod === 'transfer' && transferPcts.length > 0;
+  const transferDisc = showTransfer
+    ? items.reduce((a, i) => a + discountAmount(linePrice(i) * i.quantity, transferPctDe(i)), 0)
+    : 0;
+  const transferLabel = `Descuento transferencia (${transferPcts.map((p) => `${p}%`).join(' y ')})`;
   const displaySubtotal = isNacional
     ? items.reduce((a, i) => a + withNationalMarkup(i.price) * i.quantity, 0)
     : subtotal;
@@ -750,7 +754,7 @@ export function CheckoutForm({ transferDiscount, transferText, shipping, shippin
         <div className="space-y-1.5 py-3 text-sm">
           <Row label="Subtotal" value={formatPrice(displaySubtotal)} />
           {showTransfer && (
-            <Row label={`Descuento transferencia (${transferDiscount}%)`} value={`- ${formatPrice(transferDisc)}`} accent />
+            <Row label={transferLabel} value={`- ${formatPrice(transferDisc)}`} accent />
           )}
           {bestDiscount > 0 && (
             <Row
